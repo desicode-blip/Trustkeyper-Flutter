@@ -169,7 +169,10 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
+  static const autoAdvance = Duration(seconds: 4);
+
   final pageController = PageController();
+  Timer? autoTimer;
   int selectedPage = 0;
 
   static const pages = [
@@ -177,178 +180,212 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       icon: 'welcome-agreement',
       color: AppColors.primaryDark,
       background: AppColors.primarySoft,
-      title: 'Rent agreements in 10 minutes',
-      body:
-          'No running around. Fill simple steps, we do the stamp paper and signing.',
+      title: 'Paperwork without the stress',
+      body: 'Your rent agreement, done from your sofa.',
     ),
     (
       icon: 'welcome-rent',
       color: AppColors.success,
       background: AppColors.successSoft,
-      title: 'Rent on time, every month',
-      body:
-          'Tenants pay in the app. Owners get money in the bank. Brokers get paid fast.',
+      title: 'Rent that never slips',
+      body: 'On time, every month. No reminders, no awkward calls.',
     ),
     (
       icon: 'welcome-home',
       color: Color(0xFFD86A10),
       background: Color(0xFFFFF1E3),
-      title: 'Your home, looked after',
-      body:
-          'Photos with date and time, repairs you approve, help one call away.',
+      title: 'A home that feels cared for',
+      body: 'Every repair seen, approved and handled.',
     ),
     (
       icon: 'welcome-trust',
       color: Color(0xFF7A4DFF),
       background: Color(0xFFF1EAFF),
-      title: 'Brokers, owners and tenants — together',
-      body: 'Everyone sees the same truth. No confusion, no fights.',
+      title: 'Everyone on the same page',
+      body: 'Brokers, owners and tenants. Trust, finally.',
     ),
   ];
 
+  bool get isLast => selectedPage == pages.length - 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
   @override
   void dispose() {
+    autoTimer?.cancel();
     pageController.dispose();
     super.dispose();
   }
 
+  void _startTimer() {
+    autoTimer?.cancel();
+    autoTimer = Timer(autoAdvance, _next);
+  }
+
+  void _stopTimer() => autoTimer?.cancel();
+
   void _next() {
-    if (selectedPage == pages.length - 1) {
+    if (!mounted) return;
+    if (isLast) {
+      autoTimer?.cancel();
       context.go('/login');
       return;
     }
     pageController.nextPage(
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOut,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeInOutCubic,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final page = pages[selectedPage];
     return ApprovedAuthScaffold(
       showBack: false,
-      header: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const AppBrand(height: 32),
-            if (selectedPage < pages.length - 1)
-              TextButton(
-                onPressed: () => context.go('/login'),
-                style: TextButton.styleFrom(
-                  minimumSize: Size.zero,
-                  padding: const EdgeInsets.all(8),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text(
-                  'Skip',
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 15,
-                    height: 18 / 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
       scrollable: false,
       footerBorder: false,
-      footer: PrimaryButton(
-        label: selectedPage == pages.length - 1 ? 'Get started' : 'Next',
-        icon: Icons.chevron_right,
-        onPressed: _next,
+      header: const Padding(
+        padding: EdgeInsets.fromLTRB(24, 18, 24, 0),
+        child: Align(alignment: Alignment.centerLeft, child: AppBrand(height: 32)),
       ),
-      child: PageView.builder(
-        controller: pageController,
-        itemCount: pages.length,
-        onPageChanged: (index) => setState(() => selectedPage = index),
-        itemBuilder: (context, index) {
-          final page = pages[index];
-          return LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 200,
-                          height: 200,
-                          decoration: BoxDecoration(
-                            color: page.background,
-                            shape: BoxShape.circle,
-                          ),
-                          alignment: Alignment.center,
-                          child: SvgPicture.asset(
-                            'assets/design/${page.icon}.svg',
-                            width: 92,
-                            height: 92,
-                            colorFilter: ColorFilter.mode(
-                              page.color,
-                              BlendMode.srcIn,
-                            ),
-                          ),
+      footer: Row(
+        children: [
+          TextButton(
+            onPressed: () => context.go('/login'),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(64, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            child: const Text(
+              'Skip',
+              style: TextStyle(
+                color: AppColors.muted,
+                fontSize: 15,
+                height: 18 / 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const Spacer(),
+          SizedBox(
+            width: 148,
+            child: PrimaryButton(
+              label: isLast ? 'Get started' : 'Next',
+              icon: Icons.chevron_right,
+              onPressed: () {
+                _stopTimer();
+                _next();
+              },
+            ),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 16),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              // Pause the 4s timer while a finger is on the image.
+              child: Listener(
+                onPointerDown: (_) => _stopTimer(),
+                onPointerUp: (_) => _startTimer(),
+                onPointerCancel: (_) => _startTimer(),
+                child: PageView.builder(
+                  controller: pageController,
+                  itemCount: pages.length,
+                  onPageChanged: (index) {
+                    setState(() => selectedPage = index);
+                    _startTimer();
+                  },
+                  itemBuilder: (context, index) {
+                    final p = pages[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: p.background,
+                          borderRadius: BorderRadius.circular(36),
                         ),
-                        const SizedBox(height: 26),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 340),
-                          child: Column(
-                            children: [
-                              Text(
-                                page.title,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 30,
-                                  height: 38 / 30,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.heading,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                page.body,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  height: 25 / 17,
-                                  color: AppColors.muted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 26),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(
-                            pages.length,
-                            (dot) => Container(
-                              width: dot == index ? 24 : 8,
-                              height: 8,
-                              margin: const EdgeInsets.symmetric(horizontal: 3),
-                              decoration: BoxDecoration(
-                                color: dot == index
-                                    ? AppColors.primary
-                                    : AppColors.primaryBorder,
-                                borderRadius: BorderRadius.circular(4),
+                        child: Center(
+                          child: FractionallySizedBox(
+                            widthFactor: 0.55,
+                            child: SvgPicture.asset(
+                              'assets/design/${p.icon}.svg',
+                              fit: BoxFit.contain,
+                              colorFilter: ColorFilter.mode(
+                                p.color,
+                                BlendMode.srcIn,
                               ),
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
-          );
-        },
+          ),
+          const SizedBox(height: 22),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              pages.length,
+              (dot) => AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: dot == selectedPage ? 24 : 8,
+                height: 8,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  color: dot == selectedPage
+                      ? AppColors.primary
+                      : AppColors.primaryBorder,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            height: 112,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: Column(
+                  key: ValueKey(selectedPage),
+                  children: [
+                    Text(
+                      page.title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        height: 34 / 28,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.heading,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      page.body,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        height: 25 / 17,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
