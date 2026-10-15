@@ -1,0 +1,23 @@
+# Normalize line endings to LF in the repository; checked-out on Windows as CRLF.
+* text=auto eol=lf
+
+# Explicitly mark binary files so git never touches their line endings.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.otf binary
+*.pdf binary
+*.zip binary
+
+# Lock files — always LF, never reformat.
+package-lock.json text eol=lf
+pubspec.lock text eol=lf
+*.sh text eol=lf
+gradlew text eol=lf

@@ -1,0 +1,367 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function currentUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return signedIn() && currentUser().roles.hasAny(['admin'])
+        && currentUser().get('paused', false) != true;
+    }
+
+    function isBroker() {
+      return signedIn()
+        && currentUser().roles.hasAny(['broker'])
+        && currentUser().approvalStatus == 'approved'
+        && currentUser().get('paused', false) != true;
+    }
+
+    function hasClientRoles(data) {
+      return data.roles is list
+        && data.roles.size() > 0
+        && data.roles.hasOnly(['broker', 'owner', 'tenant']);
+    }
+
+    function protectedUserFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'roles',
+        'approvalStatus',
+        'paused',
+        'emailVerifiedAt',
+        'accountClosure',
+        'adminNotes',
+        'createdAt'
+      ]);
+    }
+
+    function verifiedProfileEmail() {
+      return request.auth.token.get('email_verified', false) == true
+        && request.resource.data.email == request.auth.token.get('email', '');
+    }
+
+    function verifiedPhoneOnlyProfile() {
+      return request.auth.token.get('phone_number', '') != ''
+        && request.auth.token.firebase.sign_in_provider == 'phone'
+        && request.resource.data.phone == request.auth.token.phone_number
+        && request.resource.data.get('email', '') == '';
+    }
+
+    function verifiedPhoneProof(phone) {
+      let token = request.auth.token;
+      return token.get('phone_number', '').matches('^[+][1-9][0-9]{7,14}$')
+        && token.phone_number == phone
+        && (token.firebase.sign_in_provider == 'phone'
+          || (token.firebase.sign_in_provider == 'custom'
+            && token.get('trustkeyper_email_otp', false) == true
+            && token.get('email_verified', false) == true
+            && token.get('email', '') != ''
+            && token.get('trustkeyper_verified_phone', '') == phone));
+    }
+
+    function isParticipant(data) {
+      return isAdmin()
+        || (data.keys().hasAny(['participantUids'])
+          && request.auth.uid in data.participantUids
+          && (!exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            || currentUser().get('paused', false) != true));
+    }
+
+    function draftFields() {
+      return ['schemaVersion', 'propertyAddress', 'propertyId', 'propertyDetails',
+        'owners', 'tenants', 'owner', 'tenant', 'partyNames', 'monthlyRentPaise',
+        'monthlyMaintenancePaise', 'securityDepositPaise', 'startDateISO',
+        'endDateISO', 'rentDueDay', 'lockInMonths', 'noticeMonths',
+        'ownerBrokeragePaise', 'tenantBrokeragePaise', 'brokerageFeePaise',
+        'brokeragePayer', 'effectiveDate', 'endDate', 'status', 'revision',
+        'brokerUid', 'participantUids', 'createdAt', 'updatedAt'];
+    }
+
+    match /ownerCallbacks/{ownerUid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == ownerUid
+        && currentUser().roles.hasAny(['owner']) && currentUser().get('paused', false) != true
+        && verifiedPhoneProof(currentUser().get('phone', 'missing')));
+      allow write: if false;
+      match /events/{eventId} { allow read, write: if false; }
+    }
+    match /ownerManagers/{ownerUid} { allow read, write: if false; }
+    match /agreementImports/{requestId} {
+      allow read, write: if false;
+      match /events/{eventId} { allow read, write: if false; }
+    }
+    match /agreementImportUploads/{uploadId} { allow read, write: if false; }
+    match /agreementImportLimits/{uid} { allow read, write: if false; }
+    match /ownerProperties/{id} { allow read, write: if false; }
+    match /ownerContractUploads/{id} { allow read, write: if false; }
+    match /ownerContractChallenges/{id} { allow read, write: if false; }
+    match /ownerListingViews/{id} { allow read, write: if false; }
+    match /ownerPropertyUploads/{id} { allow read, write: if false; }
+    match /ownerPropertyLimits/{uid} { allow read, write: if false; }
+    match /callbackOperations/{operationId} { allow read, write: if false; }
+    match /callbackLimits/{ownerUid} { allow read, write: if false; }
+
+    match /users/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && hasClientRoles(request.resource.data)
+        && (verifiedProfileEmail() || verifiedPhoneOnlyProfile())
+        && !request.resource.data.keys().hasAny([
+          'approvalStatus',
+          'paused',
+          'emailVerifiedAt',
+          'accountClosure',
+          'adminNotes'
+        ]);
+      allow update: if isAdmin()
+        || (signedIn()
+          && request.auth.uid == userId
+          && resource.data.get('paused', false) != true
+          && protectedUserFieldsUnchanged()
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
+            || verifiedProfileEmail()));
+      allow delete: if false;
+
+      match /updates/{updateId} {
+        allow read: if isBroker() && request.auth.uid == userId;
+        allow update: if isBroker() && request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt'])
+          && request.resource.data.readAt == request.time;
+        allow create, delete: if false;
+      }
+
+      match /pushDevices/{deviceId} {
+        allow read: if isBroker() && request.auth.uid == userId;
+        allow create, update: if isBroker() && request.auth.uid == userId
+          && deviceId.matches('^[a-f0-9]{64}$')
+          && request.resource.data.keys().hasOnly(['token', 'enabled', 'platform', 'updatedAt'])
+          && request.resource.data.token is string && request.resource.data.token.size() >= 20
+          && request.resource.data.token.size() <= 4096 && request.resource.data.enabled is bool
+          && request.resource.data.platform in ['android', 'ios']
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /draftProgress/{draftId} {
+        function ownsProgress() {
+          return isBroker() && request.auth.uid == userId;
+        }
+        function validProgress() {
+          let data = request.resource.data;
+          return data.keys().hasOnly(['schemaVersion', 'draft', 'stage', 'person',
+              'inputs', 'version', 'brokerUid', 'createdAt', 'updatedAt'])
+            && data.schemaVersion == 1 && data.brokerUid == userId
+            && data.draft is map && data.inputs is map
+            && data.draft.owners is list && data.draft.owners.size() > 0
+            && data.draft.owners.size() <= 20
+            && data.draft.tenants is list && data.draft.tenants.size() > 0
+            && data.draft.tenants.size() <= 20
+            && data.draft.revision is int && data.draft.revision >= 0
+            && data.stage in ['ownerCount', 'owner', 'ownerPapers', 'tenantCount',
+              'tenant', 'tenantPapers', 'money', 'dates', 'periods', 'brokerage', 'review']
+            && data.person is int && data.person >= 0 && data.person < 20
+            && (data.stage in ['tenantCount', 'tenant', 'tenantPapers']
+              ? data.person < data.draft.tenants.size()
+              : data.person < data.draft.owners.size())
+            && data.version is int && data.updatedAt == request.time;
+        }
+        function editableProgress() {
+          return !exists(/databases/$(database)/documents/agreements/$(draftId))
+            || (get(/databases/$(database)/documents/agreements/$(draftId)).data.brokerUid == userId
+              && get(/databases/$(database)/documents/agreements/$(draftId)).data.status == 'draft'
+              && get(/databases/$(database)/documents/agreements/$(draftId)).data.revision
+                == request.resource.data.draft.revision);
+        }
+        allow read: if ownsProgress();
+        allow create: if ownsProgress() && validProgress() && editableProgress()
+          && request.resource.data.version == 1
+          && request.resource.data.createdAt == request.time;
+        allow update: if ownsProgress() && validProgress() && editableProgress()
+          && request.resource.data.version == resource.data.version + 1
+          && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if ownsProgress();
+      }
+    }
+
+    match /properties/{propertyId} {
+      allow read: if signedIn() && isParticipant(resource.data);
+      allow create: if isBroker()
+        && request.resource.data.brokerUid == request.auth.uid
+        && request.resource.data.participantUids == [request.auth.uid]
+        && !request.resource.data.keys().hasAny(['activeAgreementId', 'occupancyStatus', 'nextInspectionDate']);
+      allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['activeAgreementId', 'occupancyStatus', 'nextInspectionDate'])
+        && (isAdmin() || (isBroker()
+          && resource.data.brokerUid == request.auth.uid
+          && request.resource.data.brokerUid == resource.data.brokerUid
+          && request.resource.data.participantUids == resource.data.participantUids));
+      allow delete: if false;
+
+      match /photoChecks/{checkId} {
+        allow read: if isAdmin();
+        allow create, update: if false;
+        allow delete: if false;
+      }
+    }
+
+    match /agreements/{agreementId} {
+      allow get: if (signedIn() && isParticipant(resource.data))
+        || (isBroker() && !exists(/databases/$(database)/documents/agreements/$(agreementId)));
+      allow list: if signedIn() && isParticipant(resource.data);
+      allow create: if isBroker()
+        && request.resource.data.brokerUid == request.auth.uid
+        && request.resource.data.participantUids == [request.auth.uid]
+        && request.resource.data.status == 'draft'
+        && request.resource.data.revision == 1
+        && request.resource.data.keys().hasOnly(draftFields());
+      allow update: if (isBroker()
+          && resource.data.brokerUid == request.auth.uid
+          && request.resource.data.brokerUid == resource.data.brokerUid
+          && request.resource.data.participantUids == resource.data.participantUids
+          && resource.data.status == 'draft'
+          && request.resource.data.status == 'draft'
+          && request.resource.data.revision == resource.data.get('revision', 0) + 1
+          && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+          && (resource.data.get('renewalSourceId', '') == ''
+            || (request.resource.data.startDateISO == resource.data.startDateISO
+              && request.resource.data.effectiveDate == resource.data.effectiveDate
+              && request.resource.data.propertyId == resource.data.propertyId))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(draftFields()));
+      allow delete: if false;
+
+      match /events/{eventId} {
+        allow read: if signedIn()
+          && isParticipant(
+            get(/databases/$(database)/documents/agreements/$(agreementId)).data
+          );
+        allow write: if false;
+      }
+
+      match /reviews/{revision} {
+        allow read: if signedIn()
+          && isParticipant(get(/databases/$(database)/documents/agreements/$(agreementId)).data);
+        allow write: if false;
+      }
+    }
+
+    match /brokerDocumentRequests/{requestId} {
+      allow read: if isBroker() && resource.data.brokerUid == request.auth.uid;
+      allow write: if false;
+      match /events/{eventId} {
+        allow read: if isBroker() && get(/databases/$(database)/documents/brokerDocumentRequests/$(requestId)).data.brokerUid == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
+    match /agreementInvitations/{invitationId} {
+      allow read: if isBroker() && resource.data.brokerUid == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /payments/{paymentId} {
+      allow read: if signedIn() && isParticipant(resource.data);
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'lastFollowUp',
+          'lastFollowUpAt',
+          'followUpCount',
+          'updatedAt'
+        ]);
+      allow create, delete: if false;
+    }
+
+    match /payouts/{payoutId} {
+      allow read: if signedIn() && isParticipant(resource.data);
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'adminActionRequested',
+          'adminActionRequestedAt',
+          'updatedAt'
+        ]);
+      allow create, delete: if false;
+    }
+
+    match /issues/{issueId} {
+      allow read: if signedIn() && isParticipant(resource.data);
+      allow create: if signedIn()
+        && currentUser().get('paused', false) != true
+        && request.resource.data.keys().hasOnly(['agreementId', 'propertyAddress',
+          'participantUids', 'createdBy', 'category', 'title', 'description',
+          'status', 'createdAt', 'updatedAt'])
+        && request.resource.data.agreementId is string
+        && exists(/databases/$(database)/documents/agreements/$(request.resource.data.agreementId))
+        && request.auth.uid in get(/databases/$(database)/documents/agreements/$(request.resource.data.agreementId)).data.participantUids
+        && request.resource.data.participantUids == get(/databases/$(database)/documents/agreements/$(request.resource.data.agreementId)).data.participantUids
+        && request.resource.data.propertyAddress == get(/databases/$(database)/documents/agreements/$(request.resource.data.agreementId)).data.propertyAddress
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.category in ['Water', 'Electric', 'Appliance', 'Door / lock', 'Other']
+        && request.resource.data.title == request.resource.data.category + ' problem'
+        && request.resource.data.description is string
+        && request.resource.data.description.size() >= 10
+        && request.resource.data.description.size() <= 2000
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /documentRequests/{requestId} {
+      allow read, create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /moveOuts/{moveOutId} {
+      allow read: if isAdmin() || (signedIn() && isParticipant(resource.data));
+      allow create, update: if false;
+      allow delete: if false;
+      match /destinations/{personId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /moveOutOperations/{operationId} { allow read, write: if false; }
+    match /moveOutKeyChallenges/{challengeId} { allow read, write: if false; }
+    match /moveOutKeyLimits/{limitId} { allow read, write: if false; }
+    match /moveOutRefundRequests/{refundId} { allow read, write: if false; }
+
+    match /tenancies/{agreementId} {
+      allow read: if signedIn() && currentUser().get('paused', false) != true
+        && isParticipant(get(/databases/$(database)/documents/agreements/$(agreementId)).data);
+      allow write: if false;
+      match /rentFollowUps/{periodId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /tenancyOperations/{operationId} {
+      allow read, write: if false;
+    }
+
+    match /keyHandoverChallenges/{challengeId} {
+      allow read, write: if false;
+    }
+
+    match /notificationRequests/{notificationId} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    match /adminAuditLogs/{logId} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    match /adminSettings/{settingId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

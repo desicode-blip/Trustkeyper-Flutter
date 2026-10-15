@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "TrustKeyper Flutter",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/apps/flutter_app",
+      "program": "lib/main.dart"
+    },
+    {
+      "name": "TrustKeyper Offline UI Test",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/apps/flutter_app",
+      "program": "lib/ui_test_main.dart",
+      "toolArgs": [
+        "--dart-define=TRUSTKEYPER_UI_TEST=true",
+        "--dart-define=TRUSTKEYPER_EMAIL_OTP_ENABLED=false"
+      ]
+    }
+  ]
+}

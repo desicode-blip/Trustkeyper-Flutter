@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "trustkeyper",
+    "production": "trustkeyper",
+    "staging": "trustkeyper-app-staging"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "539073703501",
+    "project_id": "trustkeyper",
+    "storage_bucket": "trustkeyper.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:539073703501:android:df506ba532ff9694c5b604",
+        "android_client_info": {
+          "package_name": "com.trustkeyper.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfRcvucjqNum94EuAJUNkn2kcKFxjE3mo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

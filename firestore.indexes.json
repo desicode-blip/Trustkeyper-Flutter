@@ -1,0 +1,64 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "ownerProperties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerUid", "order": "ASCENDING" },
+        { "fieldPath": "updatedAtMs", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "agreementImports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "brokerUid", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMs", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "brokerDocumentRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "brokerUid", "order": "ASCENDING" },
+        { "fieldPath": "draftId", "order": "ASCENDING" },
+        { "fieldPath": "revision", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "agreements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "participantUids", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "agreements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "brokerUid", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "participantUids", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "dueAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "issues",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "participantUids", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

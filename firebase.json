@@ -1,0 +1,48 @@
+{
+  "functions": [{
+    "source": "functions",
+    "codebase": "authentication",
+    "ignore": ["node_modules", "test", "rules-test", "*.log", ".env.local", ".secret.local"],
+    "predeploy": ["npm --prefix \"$RESOURCE_DIR\" test"]
+  }],
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "emulators": {
+    "auth": { "host": "127.0.0.1", "port": 9099 },
+    "firestore": { "host": "127.0.0.1", "port": 8080 },
+    "storage": { "host": "127.0.0.1", "port": 9199 },
+    "ui": { "enabled": false },
+    "singleProjectMode": true
+  },
+  "hosting": {
+    "public": "apps/flutter_app/build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, must-revalidate"
+          }
+        ]
+      }
+    ],
+    "cleanUrls": true,
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
