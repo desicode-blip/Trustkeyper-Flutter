@@ -168,11 +168,13 @@ class OnboardingScreen extends StatefulWidget {
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends State<OnboardingScreen>
+    with SingleTickerProviderStateMixin {
   static const autoAdvance = Duration(seconds: 4);
 
   final pageController = PageController();
-  Timer? autoTimer;
+  // Drives the dot fill (0 -> 1 over 4 s); completing it advances the slide.
+  late final AnimationController progress;
   int selectedPage = 0;
 
   static const pages = [
@@ -211,27 +213,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
-    _startTimer();
+    progress = AnimationController(vsync: this, duration: autoAdvance)
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) _next();
+      })
+      ..forward();
   }
 
   @override
   void dispose() {
-    autoTimer?.cancel();
+    progress.dispose();
     pageController.dispose();
     super.dispose();
   }
 
-  void _startTimer() {
-    autoTimer?.cancel();
-    autoTimer = Timer(autoAdvance, _next);
-  }
+  // Restart the fill for the slide now showing.
+  void _restartProgress() => progress.forward(from: 0);
 
-  void _stopTimer() => autoTimer?.cancel();
+  void _pauseProgress() => progress.stop();
+
+  // Resume from where the fill stopped (finger lifted without changing slide).
+  void _resumeProgress() {
+    if (!progress.isCompleted) progress.forward();
+  }
 
   void _next() {
     if (!mounted) return;
     if (isLast) {
-      autoTimer?.cancel();
+      progress.stop();
       context.go('/login');
       return;
     }
@@ -277,7 +286,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               label: isLast ? 'Get started' : 'Next',
               icon: Icons.chevron_right,
               onPressed: () {
-                _stopTimer();
+                _pauseProgress();
                 _next();
               },
             ),
@@ -290,17 +299,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              // Pause the 4s timer while a finger is on the image.
+              // Pause the 4 s fill while a finger is on the image. Swiping
+              // left/right moves forward/back (PageView) and restarts the fill.
               child: Listener(
-                onPointerDown: (_) => _stopTimer(),
-                onPointerUp: (_) => _startTimer(),
-                onPointerCancel: (_) => _startTimer(),
+                onPointerDown: (_) => _pauseProgress(),
+                onPointerUp: (_) => _resumeProgress(),
+                onPointerCancel: (_) => _resumeProgress(),
                 child: PageView.builder(
                   controller: pageController,
                   itemCount: pages.length,
                   onPageChanged: (index) {
                     setState(() => selectedPage = index);
-                    _startTimer();
+                    _restartProgress();
                   },
                   itemBuilder: (context, index) {
                     final p = pages[index];
@@ -332,22 +342,42 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ),
           const SizedBox(height: 22),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              pages.length,
-              (dot) => AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                width: dot == selectedPage ? 24 : 8,
-                height: 8,
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                decoration: BoxDecoration(
-                  color: dot == selectedPage
-                      ? AppColors.primary
-                      : AppColors.primaryBorder,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
+          AnimatedBuilder(
+            animation: progress,
+            builder: (context, _) => Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(pages.length, (dot) {
+                final active = dot == selectedPage;
+                // Past slides are full, the current one fills over 4 s.
+                final fill = dot < selectedPage
+                    ? 1.0
+                    : active
+                    ? progress.value
+                    : 0.0;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    width: active ? 36 : 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryBorder,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: fill,
+                          heightFactor: 1,
+                          child: const ColoredBox(color: AppColors.primary),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
             ),
           ),
           const SizedBox(height: 18),

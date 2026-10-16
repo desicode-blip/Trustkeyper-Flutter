@@ -50,3 +50,35 @@ not_changed: routes, assets, backend, other screens
 verification: flutter analyze/tests NOT run (no Flutter in cloud); run test/design_layout_test.dart locally
 manual_test: launch app; swipe, Next, wait 4s, Skip, finish -> login
 ```
+
+## Change 2 – Onboarding progress dots + back/forward swipe
+Date: 2026-10-16 · Commit: see `git log -- docs/CHANGELOG-staging.md` (commit "feat(onboarding): progress-fill dots") · Status: built on iPhone for review
+
+What & why: the 4 s auto-advance is now visible. The current dot stretches into a pill and fills left to right over 4 s; when full, the next slide appears. Gives users a sense of timing and control.
+
+Behaviour
+- Current slide's dot = wider pill that fills left -> right in 4 s; completed slides' dots are full, upcoming are empty.
+- Fill completes -> advance to next slide; on slide 4 -> `/login`.
+- Swipe left = forward, swipe right = back (any slide). Fill restarts on each slide change.
+- Finger down on the image pauses the fill; lifting without changing slide resumes it.
+- Next / Skip unchanged.
+
+Files: `lib/src/features/auth/presentation/auth_screens.dart` (`_OnboardingScreenState`: `Timer` replaced by an `AnimationController`).
+
+```
+AGENT RECORD – Change 2
+id: CHG-002
+date: 2026-10-16
+branch: staging (never main)
+file: apps/flutter_app/lib/src/features/auth/presentation/auth_screens.dart
+symbol: _OnboardingScreenState (SingleTickerProviderStateMixin; field `progress` AnimationController 4s)
+rules:
+  - progress completed -> _next(); last slide -> context.go('/login')
+  - onPageChanged -> progress.forward(from: 0)
+  - Listener pointerDown -> progress.stop(); pointerUp/cancel -> resume if not completed
+  - dots: active width 36, others 8; fill = FractionallySizedBox(widthFactor: progress.value) left-aligned; past dots fill 1.0
+  - swipe both directions via PageView (default physics)
+not_changed: copy, images, Skip/Next buttons, routes
+verification: flutter analyze/tests NOT run (no Flutter in cloud)
+manual_test: watch dot fill 4s then auto-advance; swipe right to go back; hold finger to pause; finish slide 4 -> login
+```
