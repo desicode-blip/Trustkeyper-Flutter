@@ -83,3 +83,26 @@ not_changed: copy, images, Skip/Next buttons, routes
 verification: flutter analyze/tests NOT run (no Flutter in cloud)
 manual_test: watch dot fill 4s then auto-advance; swipe right to go back; hold finger to pause; finish slide 4 -> login
 ```
+
+## Change 3 – New onboarding illustrations + one-line "Get started"
+Date: 2026-10-16 · Status: built on iPhone for review
+
+What & why: the single-icon images looked thin. Each slide now has a richer flat illustration in the product palette (document + signature + stamp; calendar + coins + bank; house + shield + photo; three people around a trust shield). The "Get started" button wrapped onto two lines; it now widens so the label stays on one line.
+
+Files: `assets/onboarding/welcome-{agreement,rent,home,trust}.svg` (new, replace use of `assets/design/welcome-*.svg` on this screen only); `lib/src/features/auth/presentation/auth_screens.dart` (image path, no colour filter, width 0.94; button width 148 -> 200 on last slide via `AnimatedContainer`).
+
+```
+AGENT RECORD – Change 3
+id: CHG-003
+date: 2026-10-16
+branch: staging (never main)
+files:
+  - apps/flutter_app/assets/onboarding/welcome-agreement.svg, welcome-rent.svg, welcome-home.svg, welcome-trust.svg (320x360, multi-colour, no text/fonts)
+  - apps/flutter_app/lib/src/features/auth/presentation/auth_screens.dart (_OnboardingScreenState)
+rules:
+  - SvgPicture.asset('assets/onboarding/${icon}.svg'), no colorFilter, FractionallySizedBox widthFactor 0.94
+  - footer button width: isLast ? 200 : 148 (AnimatedContainer 200ms)
+not_changed: assets/design/welcome-*.svg (left in place, now unused by onboarding), copy, timing, routes
+verification: SVGs rendered in Chromium and checked visually; flutter analyze/tests NOT run
+manual_test: all 4 slides show new art; slide 4 button reads 'Get started' on one line
+```

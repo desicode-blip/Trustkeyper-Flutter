@@ -280,8 +280,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             ),
           ),
           const Spacer(),
-          SizedBox(
-            width: 148,
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            // Wide enough for 'Get started' to stay on one line.
+            width: isLast ? 200 : 148,
             child: PrimaryButton(
               label: isLast ? 'Get started' : 'Next',
               icon: Icons.chevron_right,
@@ -323,14 +325,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         ),
                         child: Center(
                           child: FractionallySizedBox(
-                            widthFactor: 0.55,
+                            widthFactor: 0.94,
                             child: SvgPicture.asset(
-                              'assets/design/${p.icon}.svg',
+                              'assets/onboarding/${p.icon}.svg',
                               fit: BoxFit.contain,
-                              colorFilter: ColorFilter.mode(
-                                p.color,
-                                BlendMode.srcIn,
-                              ),
                             ),
                           ),
                         ),
