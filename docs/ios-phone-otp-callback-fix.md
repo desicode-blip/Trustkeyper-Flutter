@@ -31,12 +31,13 @@ shared UI, Firebase configuration, payment code and account data are unchanged.
 
 ## Run the focused fix on the Mac
 
-Use the published fix branch/PR, not an unchanged `main` checkout. Preserve any
+Use the `staging` branch, not an unchanged `main` checkout. Preserve any
 uncommitted Mac work before switching branches; do not reset or clean it.
 
 ```bash
 git fetch origin
-git switch --track origin/codex/ios-phone-otp-callback
+git switch staging
+git pull --ff-only origin staging
 cd apps/flutter_app
 flutter pub get --enforce-lockfile
 cd ios
@@ -46,8 +47,7 @@ flutter devices
 flutter run -d YOUR_IPHONE_DEVICE_ID
 ```
 
-If the fix branch already exists locally, use `git switch codex/ios-phone-otp-callback`
-and `git pull --ff-only` instead of `git switch --track`. Keep Flutter 3.38.6,
+No pull request or feature-branch checkout is needed. Keep Flutter 3.38.6,
 the existing Apple signing team and bundle ID. No backend deployment or Firebase
 console reset is required for this native callback fix. Stop the old app run
 and rebuild/reinstall from the Mac; hot reload cannot update Swift code.
