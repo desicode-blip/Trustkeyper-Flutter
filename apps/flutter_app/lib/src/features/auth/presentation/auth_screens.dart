@@ -162,7 +162,10 @@ class _SplashScreenState extends State<SplashScreen> {
 }
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key});
+  const OnboardingScreen({super.key, this.initialPage = 0});
+
+  /// Slide to open on (used when coming back from the login screen).
+  final int initialPage;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -172,10 +175,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     with SingleTickerProviderStateMixin {
   static const autoAdvance = Duration(seconds: 4);
 
-  final pageController = PageController();
+  late final PageController pageController;
   // Drives the dot fill (0 -> 1 over 4 s); completing it advances the slide.
   late final AnimationController progress;
-  int selectedPage = 0;
+  late int selectedPage;
 
   static const pages = [
     (
@@ -213,9 +216,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   @override
   void initState() {
     super.initState();
+    selectedPage = widget.initialPage.clamp(0, pages.length - 1);
+    pageController = PageController(initialPage: selectedPage);
     progress = AnimationController(vsync: this, duration: autoAdvance)
       ..addStatusListener((status) {
-        if (status == AnimationStatus.completed) _next();
+        // Auto-advance stops on the last slide; only the button continues.
+        if (status == AnimationStatus.completed && !isLast) _next();
       })
       ..forward();
   }
@@ -241,7 +247,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     if (!mounted) return;
     if (isLast) {
       progress.stop();
-      context.go('/login');
+      context.go('/login?from=onboarding');
       return;
     }
     pageController.nextPage(
@@ -264,7 +270,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       footer: Row(
         children: [
           TextButton(
-            onPressed: () => context.go('/login'),
+            onPressed: () => context.go('/login?from=onboarding'),
             style: TextButton.styleFrom(
               minimumSize: const Size(64, 48),
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -424,10 +430,14 @@ class LoginScreen extends StatefulWidget {
     super.key,
     this.authService,
     this.emailOtpEnabled = AuthCapabilities.emailOtpEnabled,
+    this.onBack,
   });
 
   final FirebaseAuthService? authService;
   final bool emailOtpEnabled;
+
+  /// When set, a back arrow is shown over the hero image.
+  final VoidCallback? onBack;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -453,7 +463,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return ApprovedAuthScaffold(
       showBack: false,
-      header: const ApprovedLoginHero(),
+      header: ApprovedLoginHero(onBack: widget.onBack),
       bodyPadding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
       footer: Column(
         mainAxisSize: MainAxisSize.min,

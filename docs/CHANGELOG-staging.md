@@ -106,3 +106,28 @@ not_changed: assets/design/welcome-*.svg (left in place, now unused by onboardin
 verification: SVGs rendered in Chromium and checked visually; flutter analyze/tests NOT run
 manual_test: all 4 slides show new art; slide 4 button reads 'Get started' on one line
 ```
+
+## Change 4 – Login back button, colourful hero, no auto-jump to login
+Date: 2026-10-16 · Status: built on iPhone for review
+
+What & why: (1) Login gets a back arrow (existing `ApprovedBackButton`) so users can return to the carousel; it appears only when they arrived from onboarding and returns to slide 4. (2) The skyline behind the logo is now colourful (sky gradient, sun, clouds, four coloured buildings with windows, green ground). (3) The carousel no longer jumps to login by itself: on slide 4 the dot fills and stops; only "Get started" (or Skip) opens login.
+
+Files: `lib/src/core/routing/app_router.dart`, `lib/src/features/auth/presentation/auth_screens.dart`, `lib/src/features/auth/presentation/approved_auth_widgets.dart`.
+
+```
+AGENT RECORD – Change 4
+id: CHG-004
+date: 2026-10-16
+branch: staging (never main)
+files: apps/flutter_app/lib/src/core/routing/app_router.dart, lib/src/features/auth/presentation/{auth_screens,approved_auth_widgets}.dart
+rules:
+  - onboarding -> login navigates to '/login?from=onboarding' (Get started and Skip)
+  - router: /login builds LoginScreen(onBack: from==onboarding ? go('/onboarding?page=3') : null)
+  - /onboarding?page=N -> OnboardingScreen(initialPage: N)
+  - LoginScreen.onBack -> ApprovedLoginHero(onBack) shows ApprovedBackButton at left:24 top:14
+  - onboarding progress completed on last slide: no navigation
+  - ApprovedLoginHero: gradient D9E6FF->FFF1E0, sun, 2 clouds, 4 buildings (blue/green/orange/purple), green ground; logo card unchanged
+not_changed: other routes; direct /login (e.g. after sign-out) shows no back arrow
+verification: flutter analyze/tests NOT run
+manual_test: finish carousel -> wait on slide 4 (stays); Get started -> login; back arrow -> slide 4; hero colourful
+```

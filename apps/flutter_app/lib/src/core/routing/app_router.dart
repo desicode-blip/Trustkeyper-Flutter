@@ -57,9 +57,20 @@ final appRouter = GoRouter(
     GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
     GoRoute(
       path: '/onboarding',
-      builder: (context, state) => const OnboardingScreen(),
+      builder: (context, state) => OnboardingScreen(
+        initialPage:
+            int.tryParse(state.uri.queryParameters['page'] ?? '') ?? 0,
+      ),
     ),
-    GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+    GoRoute(
+      path: '/login',
+      builder: (context, state) => LoginScreen(
+        // Back arrow only when the user arrived from the welcome carousel.
+        onBack: state.uri.queryParameters['from'] == 'onboarding'
+            ? () => context.go('/onboarding?page=3')
+            : null,
+      ),
+    ),
     GoRoute(
       path: '/account-paused',
       builder: (context, state) => const AccountPausedScreen(),

@@ -7,7 +7,18 @@ import '../../../core/widgets/app_brand.dart';
 import 'login_method.dart';
 
 class ApprovedLoginHero extends StatelessWidget {
-  const ApprovedLoginHero({super.key});
+  const ApprovedLoginHero({super.key, this.onBack});
+
+  /// Shows the standard back button at the top-left when provided.
+  final VoidCallback? onBack;
+
+  // left, width, height, wall colour, door colour (design units out of 440).
+  static const _buildings = [
+    (14.0, 78.0, 84.0, 0xFF9DB8FF, 0xFF5F82E8),
+    (104.0, 92.0, 118.0, 0xFF8FDDB0, 0xFF3FA574),
+    (232.0, 82.0, 96.0, 0xFFFFC48A, 0xFFE58A3A),
+    (326.0, 100.0, 76.0, 0xFFC3AEFF, 0xFF8A66F0),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -17,77 +28,127 @@ class ApprovedLoginHero extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [AppColors.primarySoft, AppColors.surfaceMuted],
+          colors: [Color(0xFFD9E6FF), Color(0xFFFFF1E0)],
         ),
       ),
       child: LayoutBuilder(
-        builder: (context, constraints) => Stack(
-          children: [
-            for (final building in [
-              (20.0, 70.0, 70.0, 0xFFC9D6F2),
-              (110.0, 90.0, 110.0, 0xFFB6C7EE),
-              (230.0, 80.0, 90.0, 0xFFC9D6F2),
-              (330.0, 70.0, 70.0, 0xFFB6C7EE),
-            ])
+        builder: (context, constraints) {
+          final unit = constraints.maxWidth / 440;
+          return Stack(
+            children: [
               Positioned(
-                left: building.$1 * constraints.maxWidth / 440,
-                width: building.$2 * constraints.maxWidth / 440,
-                height: building.$3,
-                bottom: 0,
+                right: 30 * unit,
+                top: 16,
                 child: Container(
-                  decoration: BoxDecoration(
-                    color: Color(building.$4),
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(6),
-                    ),
+                  width: 34,
+                  height: 34,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFD36B),
+                    shape: BoxShape.circle,
                   ),
-                  alignment: Alignment.bottomCenter,
+                ),
+              ),
+              for (final cloud in [(40.0, 22.0, 54.0), (300.0, 52.0, 44.0)])
+                Positioned(
+                  left: cloud.$1 * unit,
+                  top: cloud.$2,
                   child: Container(
-                    width: 18,
-                    height: 28,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF8EA6E6),
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(4),
-                      ),
+                    width: cloud.$3,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                 ),
-              ),
-            const Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 6,
-              child: ColoredBox(color: Color(0xFFB6C7EE)),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 34,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.heading.withValues(alpha: 0.12),
-                        blurRadius: 18,
-                        offset: const Offset(0, 6),
+              for (final b in _buildings)
+                Positioned(
+                  left: b.$1 * unit,
+                  width: b.$2 * unit,
+                  height: b.$3,
+                  bottom: 6,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Color(b.$4),
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(8),
                       ),
-                    ],
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            for (var i = 0; i < 4; i++)
+                              Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.75),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: 18,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: Color(b.$5),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(5),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: const AppBrand(height: 40),
+                ),
+              const Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 6,
+                child: ColoredBox(color: Color(0xFF7FD1A5)),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 34,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.heading.withValues(alpha: 0.12),
+                          blurRadius: 18,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: const AppBrand(height: 40),
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
+              if (onBack != null)
+                Positioned(
+                  left: 24,
+                  top: 14,
+                  child: ApprovedBackButton(onPressed: onBack!),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
