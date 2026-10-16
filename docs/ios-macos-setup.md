@@ -84,6 +84,14 @@ and [Flutter messaging setup](https://firebase.google.com/docs/cloud-messaging/f
 The broker's token registration now waits for APNs before requesting its FCM
 token, without registering a token after logout/account switching.
 
+The native callback handler now claims only Firebase's verification callback
+before it can become a GoRouter page, including repeated/warm/cold scene events.
+If an older build shows `Page Not Found` after reCAPTCHA, rebuild the focused
+fix from the Mac; hot reload cannot replace its Swift code. Follow
+`ios-phone-otp-callback-fix.md` for the branch, native tests and iPhone checks.
+Do not add a page route for the callback, disable verification, or disable all
+normal application deep links as a workaround.
+
 Release builds use App Attest in production mode; debug builds keep the existing
 debug provider. If Firebase reports an App Check denial, register that Mac/iPhone
 debug token privately in the existing project's App Check settings; never commit

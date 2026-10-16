@@ -26,6 +26,19 @@ function checkIosConfiguration(read = readSource) {
   assert.equal((project.match(/CODE_SIGN_ENTITLEMENTS = Runner\/Runner\.entitlements;/g) ?? []).length, 3);
   assert.ok(info.includes(`<string>app-${appId.replaceAll(':', '-')}</string>`), 'Register the Firebase phone-auth callback scheme.');
   assert.ok(info.includes('<string>trustkeyper</string>'), 'Register the same app-open scheme as Android.');
+  const delegate = read(`${prefix}/ios/Runner/AppDelegate.swift`);
+  assert.match(delegate, /FirebaseAuthCallbackPlugin\.register\(with: registrar\)[\s\S]*GeneratedPluginRegistrant\.register/,
+    'Register native auth callback ownership before the other plugins.');
+  assert.match(delegate, /registrar\.publish\(plugin\)/, 'Retain the native auth callback handler.');
+  assert.match(delegate, /registrar\.addApplicationDelegate\(plugin\)/, 'Forward legacy auth callbacks.');
+  assert.match(delegate, /registrar\.addSceneDelegate\(plugin\)/, 'Forward scene auth callbacks.');
+  assert.match(delegate, /Auth\.auth\(app: app\)\.canHandle\(url\)/, 'Deliver reCAPTCHA callbacks to Firebase Auth.');
+  assert.match(delegate, /openURLContexts[\s\S]*return handleCallbacks\(urlContexts\.map/, 'Consume warm scene callbacks.');
+  assert.match(delegate, /willConnectTo[\s\S]*return handleCallbacks\(connectionOptions\?\.urlContexts\.map/,
+    'Consume cold scene callbacks before automatic page routing.');
+  assert.doesNotMatch(info, /<key>FlutterDeepLinkingEnabled<\/key>\s*<false\s*\/>/,
+    'Do not disable normal app deep links to mask the auth callback.');
+  assert.doesNotMatch(delegate, /print\(|NSLog\(/, 'Never log auth callback URLs or their verification tokens.');
   assert.ok(stringValue(info, 'NSCameraUsageDescription'), 'Explain document/property camera access.');
   assert.ok(stringValue(info, 'NSPhotoLibraryUsageDescription'), 'Explain document/property photo access.');
   assert.match(info, /<key>UIBackgroundModes<\/key>\s*<array>[\s\S]*?<string>remote-notification<\/string>/);

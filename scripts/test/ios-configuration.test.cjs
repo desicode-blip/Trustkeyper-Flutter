@@ -40,3 +40,23 @@ test('every Runner configuration must use the checked-in entitlements', () => {
   assert.throws(() => checkIosConfiguration(mutate('apps/flutter_app/ios/Runner.xcodeproj/project.pbxproj',
     content => content.replace('CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;', ''))));
 });
+
+test('native auth callback handling is registered before Firebase plugins so consumed callbacks cannot fall through', () => {
+  assert.throws(() => checkIosConfiguration(mutate('apps/flutter_app/ios/Runner/AppDelegate.swift',
+    content => content.replace('FirebaseAuthCallbackPlugin.register(with: registrar)', ''))), /callback ownership/);
+});
+
+test('warm and cold scene callbacks must both reach the native auth handler', () => {
+  for (const target of ['registrar.addSceneDelegate(plugin)', 'return handleCallbacks(urlContexts.map',
+    'return handleCallbacks(connectionOptions?.urlContexts.map']) {
+    assert.throws(() => checkIosConfiguration(mutate('apps/flutter_app/ios/Runner/AppDelegate.swift',
+      content => content.replace(target, 'missingCallback'))));
+  }
+});
+
+test('normal app links and Firebase callback privacy cannot be disabled to hide the routing failure', () => {
+  assert.throws(() => checkIosConfiguration(mutate('apps/flutter_app/ios/Runner/Info.plist',
+    content => content.replace('<key>LSRequiresIPhoneOS</key>', '<key>FlutterDeepLinkingEnabled</key><false/><key>LSRequiresIPhoneOS</key>'))), /normal app deep links/);
+  assert.throws(() => checkIosConfiguration(mutate('apps/flutter_app/ios/Runner/AppDelegate.swift',
+    content => content.replace('forwardToAuth(url)', 'print(url)\n      forwardToAuth(url)'))), /Never log auth/);
+});
