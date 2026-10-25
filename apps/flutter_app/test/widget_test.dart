@@ -266,7 +266,7 @@ void main() {
 
     expect(find.text('Namaste, Ajay'), findsOneWidget);
     expect(find.textContaining('Rahul'), findsNothing);
-    expect(find.text('What do you want to do today?'), findsOneWidget);
+    expect(find.text('What do you want to do today?'), findsNothing);
 
     await tester.tap(find.text('Agreements'));
     await tester.pumpAndSettle();

@@ -25,7 +25,8 @@ class ApprovedBrokerNavigation extends StatelessWidget {
       top: false,
       child: Container(
         margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        // Horizontal padding keeps the selected pill off the outer border.
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         constraints: const BoxConstraints(minHeight: 72),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -46,10 +47,9 @@ class ApprovedBrokerNavigation extends StatelessWidget {
             final color = selected ? AppColors.primaryDark : AppColors.muted;
             return Expanded(
               child: Center(
-                widthFactor: 1,
                 heightFactor: 1,
-                child: SizedBox(
-                  width: 74,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
                   child: Semantics(
                     selected: selected,
                     button: true,

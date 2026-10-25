@@ -35,8 +35,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Start now'))
-          .onPressed,
+          .widget<InkWell>(
+            find.ancestor(
+              of: find.text('Make rent agreement'),
+              matching: find.byType(InkWell),
+            ),
+          )
+          .onTap,
       isNotNull,
     );
     expect(tester.takeException(), isNull);
@@ -55,10 +60,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<FilledButton>(
-            find.widgetWithText(FilledButton, 'Waiting for approval'),
+          .widget<InkWell>(
+            find.ancestor(
+              of: find.text('Waiting for approval'),
+              matching: find.byType(InkWell),
+            ),
           )
-          .onPressed,
+          .onTap,
       isNull,
     );
   });
@@ -79,7 +87,7 @@ void main() {
       await tester.pumpAndSettle();
       controller.add(profile('approved'));
       await tester.pumpAndSettle();
-      expect(find.text('Start now'), findsOneWidget);
+      expect(find.text('Make rent agreement'), findsOneWidget);
       await tester.tap(find.text('Agreements'));
       await tester.pumpAndSettle();
       expect(
@@ -132,10 +140,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<FilledButton>(
-            find.widgetWithText(FilledButton, 'Waiting for approval'),
+          .widget<InkWell>(
+            find.ancestor(
+              of: find.text('Waiting for approval'),
+              matching: find.byType(InkWell),
+            ),
           )
-          .onPressed,
+          .onTap,
       isNull,
     );
     await tester.pumpWidget(const SizedBox.shrink());

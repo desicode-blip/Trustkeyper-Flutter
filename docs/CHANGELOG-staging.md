@@ -131,3 +131,31 @@ not_changed: other routes; direct /login (e.g. after sign-out) shows no back arr
 verification: flutter analyze/tests NOT run
 manual_test: finish carousel -> wait on slide 4 (stays); Get started -> login; back arrow -> slide 4; hero colourful
 ```
+
+## Change 5 – Broker Home: calmer layout, nav pill margin
+Date: 2026-10-25 · Status: built on iPhone for review
+
+What & why: Home had too many CTAs and little breathing room. (1) Removed "What do you want to do today?" and the language selector (language stays in Settings). (2) "Make rent agreement" is one blue card, title only, whole card tappable, no Start button/subtext. (3) Tiles renamed "Onboard property" and "Add tenant", now slim horizontal tiles. (4) Pending drafts section ("Continue your agreement") sits in a soft grey panel; each draft is a spacious white card, tappable to continue, small delete icon (tooltip "Delete draft") instead of Continue/Delete buttons, 5-step progress bar kept, "Draft" chip removed. (5) Bottom nav: selected light-blue pill no longer touches the outer pill (8px horizontal padding, 2px item padding).
+
+Files: `lib/src/features/broker/presentation/{approved_broker_home,broker_draft_cards}.dart`, `lib/src/core/widgets/approved_navigation.dart`; tests `broker_approval_test`, `broker_updates_test`, `widget_test` updated. Note `BrokerDraftCard` is shared with Agreements list and Unfinished drafts screen, so those also get the new card.
+
+```
+AGENT RECORD – Change 5
+id: CHG-005
+date: 2026-10-25
+branch: staging (never main)
+files:
+  - apps/flutter_app/lib/src/features/broker/presentation/approved_broker_home.dart
+  - apps/flutter_app/lib/src/features/broker/presentation/broker_draft_cards.dart (BrokerDraftCard also used in broker_agreements_list.dart, unfinished_drafts_screen.dart)
+  - apps/flutter_app/lib/src/core/widgets/approved_navigation.dart
+rules:
+  - home: no subtext, no language button; greeting in FittedBox(scaleDown, left)
+  - rent card: Material(AppColors.primary) + InkWell -> _create('/broker/start'); pending -> grey, text 'Waiting for approval', onTap null
+  - tiles: 'Onboard property' -> /broker/property, 'Add tenant' -> /broker/start
+  - draft card: InkWell continue -> /broker/progress/<id>; IconButton tooltip 'Delete draft' -> confirm dialog -> repository.remove
+  - drafts section wrapper: AppColors.surfaceMuted, radius 28; 'See all N saved drafts' only if N>1
+  - nav: container padding horizontal 8; items Padding horizontal 2 (no fixed 74 width)
+not_changed: routes, repositories, bell/profile header
+verification: flutter analyze/tests NOT run (no Flutter in cloud); tests edited by hand
+manual_test: Home shows blue tappable card; tiles renamed; draft card tap continues, trash icon deletes after confirm; Home nav pill has gap on left
+```

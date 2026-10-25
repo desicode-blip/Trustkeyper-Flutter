@@ -143,7 +143,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete'));
+      await tester.tap(find.byTooltip('Delete draft'));
       await tester.pumpAndSettle();
       expect(progress.saved, isNotNull);
       await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
@@ -385,7 +385,7 @@ void main() {
             await tester.tap(find.text('Drafts'));
             await tester.pumpAndSettle();
             expect(find.text('Stopped at Tenant documents'), findsOneWidget);
-            await tester.tap(find.text('Delete'));
+            await tester.tap(find.byTooltip('Delete draft'));
             await tester.pumpAndSettle();
             await tester.tap(find.text('Cancel'));
             await tester.pumpAndSettle();

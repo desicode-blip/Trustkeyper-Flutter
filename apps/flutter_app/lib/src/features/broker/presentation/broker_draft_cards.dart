@@ -84,135 +84,96 @@ class _BrokerDraftCardState extends State<BrokerDraftCard> {
         : 4;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: AppColors.border),
         borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.heading.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: deleting
+            ? null
+            : widget.onContinue ??
+                  () => context.push(
+                    '/broker/progress/${Uri.encodeComponent(widget.progress.draft.id)}',
+                  ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 8, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.primarySoft,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.description_outlined,
-                  color: AppColors.primary,
-                  size: 22,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.progress.draft.propertyAddress.trim().isEmpty
+                              ? 'Unnamed property'
+                              : widget.progress.draft.propertyAddress,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            height: 24 / 17,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.heading,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Stopped at ${progressLabel(widget.progress)}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 20 / 14,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Delete draft',
+                    onPressed: deleting ? null : _delete,
+                    icon: Icon(
+                      Icons.delete_outline,
+                      size: 22,
+                      color: deleting ? AppColors.muted : AppColors.error,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Row(
                   children: [
-                    Text(
-                      widget.progress.draft.propertyAddress.trim().isEmpty
-                          ? 'Unnamed property'
-                          : widget.progress.draft.propertyAddress,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.heading,
+                    for (var index = 0; index < 5; index++)
+                      Expanded(
+                        child: Container(
+                          margin: EdgeInsets.only(right: index == 4 ? 0 : 4),
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: index < step
+                                ? AppColors.success
+                                : AppColors.border,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Stopped at ${progressLabel(widget.progress)}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: AppColors.muted,
-                      ),
-                    ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.muted, size: 20),
             ],
           ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F3F8),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.edit_outlined, size: 14, color: AppColors.muted),
-                SizedBox(width: 4),
-                Text(
-                  'Draft',
-                  style: TextStyle(fontSize: 13, color: AppColors.muted),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                  ),
-                  onPressed: deleting
-                      ? null
-                      : widget.onContinue ??
-                            () => context.push(
-                              '/broker/progress/${Uri.encodeComponent(widget.progress.draft.id)}',
-                            ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(child: Text('Continue')),
-                      SizedBox(width: 8),
-                      Icon(Icons.chevron_right, size: 18),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: deleting ? null : _delete,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.error,
-                  side: const BorderSide(color: AppColors.error),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                ),
-                icon: const Icon(Icons.delete_outline, size: 17),
-                label: Text(deleting ? 'Deleting…' : 'Delete'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              for (var index = 0; index < 5; index++)
-                Expanded(
-                  child: Container(
-                    margin: EdgeInsets.only(right: index == 4 ? 0 : 4),
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: index < step
-                          ? AppColors.success
-                          : AppColors.border,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -271,28 +232,40 @@ class _BrokerDraftSectionState extends State<BrokerDraftSection> {
                 if (agreements.hasError || saved.isEmpty) {
                   return const SizedBox.shrink();
                 }
-                return Padding(
-                  padding: const EdgeInsets.only(top: 16),
+                return Container(
+                  margin: const EdgeInsets.only(top: 28),
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceMuted,
+                    borderRadius: BorderRadius.circular(28),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Continue your agreement',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.heading,
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(4, 0, 4, 14),
+                        child: Text(
+                          'Continue your agreement',
+                          style: TextStyle(
+                            fontSize: 18,
+                            height: 24 / 18,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.heading,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 10),
                       BrokerDraftCard(
                         progress: saved.first,
                         repository: widget.repository,
                       ),
-                      TextButton(
-                        onPressed: () => context.push('/broker/unfinished'),
-                        child: Text('See all ${saved.length} saved drafts'),
-                      ),
+                      if (saved.length > 1)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            onPressed: () => context.push('/broker/unfinished'),
+                            child: Text('See all ${saved.length} saved drafts'),
+                          ),
+                        ),
                     ],
                   ),
                 );

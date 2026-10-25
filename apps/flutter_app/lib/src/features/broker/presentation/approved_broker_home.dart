@@ -63,151 +63,63 @@ class ApprovedBrokerHome extends StatelessWidget {
           ),
         ],
       ),
-      const SizedBox(height: 18),
-      Text(
-        profile.greetingName == 'there'
-            ? 'Namaste'
-            : 'Namaste, ${profile.greetingName}',
-        style: const TextStyle(
-          color: AppColors.heading,
-          fontSize: 30,
-          height: 36 / 30,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      const SizedBox(height: 4),
-      const Text(
-        'What do you want to do today?',
-        style: TextStyle(fontSize: 17, height: 24 / 17, color: AppColors.muted),
-      ),
-      const SizedBox(height: 16),
-      Align(
+      const SizedBox(height: 28),
+      // Long names shrink instead of wrapping.
+      FittedBox(
+        fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
-        child: OutlinedButton(
-          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'English is currently available. More languages are pending.',
-              ),
-            ),
-          ),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 40),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            foregroundColor: AppColors.body,
-            side: const BorderSide(color: AppColors.border),
-            shape: const StadiumBorder(),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _HomeIcon('language', color: AppColors.body, size: 18),
-              SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  'Language: English',
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 20 / 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              SizedBox(width: 8),
-              _HomeIcon('down', color: AppColors.body, size: 18),
-            ],
+        child: Text(
+          profile.greetingName == 'there'
+              ? 'Namaste'
+              : 'Namaste, ${profile.greetingName}',
+          maxLines: 1,
+          style: const TextStyle(
+            color: AppColors.heading,
+            fontSize: 30,
+            height: 36 / 30,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
-      const SizedBox(height: 16),
-      Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.primary,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          children: [
-            Row(
+      const SizedBox(height: 28),
+      Material(
+        color: approvalPending ? AppColors.muted : AppColors.primary,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: approvalPending ? null : () => _create(context, '/broker/start'),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 22, 18, 22),
+            child: Row(
               children: [
-                const _HomeCircle(
-                  'agreement',
-                  size: 60,
-                  iconSize: 30,
-                  background: Colors.white,
-                  color: AppColors.primary,
-                ),
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Make rent agreement',
-                        style: TextStyle(
-                          fontSize: 22,
-                          height: 28 / 22,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        '5 easy steps · about 10 minutes',
-                        style: TextStyle(
-                          fontSize: 15,
-                          height: 20 / 15,
-                          color: Color(0xEBFFFFFF),
-                        ),
-                      ),
-                    ],
+                Expanded(
+                  child: Text(
+                    approvalPending
+                        ? 'Waiting for approval'
+                        : 'Make rent agreement',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      height: 26 / 20,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
+                if (!approvalPending)
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: _HomeIcon('next', size: 20, color: AppColors.primary),
+                    ),
+                  ),
               ],
             ),
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppColors.primaryDark,
-                  disabledBackgroundColor: const Color(0xFFE5EBF5),
-                  disabledForegroundColor: AppColors.muted,
-                  minimumSize: const Size(0, 52),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  shape: const StadiumBorder(),
-                ),
-                onPressed: approvalPending
-                    ? null
-                    : () => _create(context, '/broker/start'),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        approvalPending ? 'Waiting for approval' : 'Start now',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          height: 22 / 17,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (!approvalPending) ...[
-                      const SizedBox(width: 8),
-                      const _HomeIcon('next', size: 20),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
       const SizedBox(height: 16),
@@ -217,7 +129,7 @@ class ApprovedBrokerHome extends StatelessWidget {
           Expanded(
             child: _HomeTile(
               icon: 'house',
-              label: 'Add house',
+              label: 'Onboard property',
               onPressed: () => _create(context, '/broker/property'),
             ),
           ),
@@ -404,25 +316,28 @@ class _HomeTile extends StatelessWidget {
     color: Colors.white,
     shape: RoundedRectangleBorder(
       side: const BorderSide(color: AppColors.border),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(18),
     ),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
       onTap: onPressed,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        child: Row(
           children: [
-            _HomeCircle(icon),
-            const SizedBox(height: 10),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 17,
-                height: 22 / 17,
-                fontWeight: FontWeight.w600,
-                color: AppColors.heading,
+            _HomeIcon(icon, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 16,
+                  height: 22 / 16,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.heading,
+                ),
               ),
             ),
           ],
