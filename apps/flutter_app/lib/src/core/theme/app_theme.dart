@@ -75,28 +75,41 @@ abstract final class AppTheme {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
       ),
+      // Material floating-label field: the name sits inside the box and
+      // moves up when you tap or type. Used for every input in the app.
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.background,
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
+        labelStyle: const TextStyle(fontSize: 17, color: AppColors.muted),
+        floatingLabelStyle: const TextStyle(
+          fontSize: 15,
+          color: AppColors.primaryDark,
+        ),
+        hintStyle: const TextStyle(color: Color(0xFF98A2B3)),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 18,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppColors.error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.error, width: 1.5),
         ),
       ),
       cardTheme: CardThemeData(

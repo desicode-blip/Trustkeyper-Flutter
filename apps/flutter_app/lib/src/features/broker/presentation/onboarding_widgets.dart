@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/primary_button.dart';
@@ -50,57 +49,8 @@ class OnbPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (progress != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                    child: Row(
-                      children: [
-                        for (var i = 0; i < progressTotal; i++)
-                          Expanded(
-                            child: Container(
-                              height: 4,
-                              margin: EdgeInsets.only(
-                                right: i == progressTotal - 1 ? 0 : 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: i < progress!
-                                    ? AppColors.primary
-                                    : AppColors.border,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                if (stepLabel != null || showCall)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 8, 16, 0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            stepLabel ?? '',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: 'Call us',
-                          style: IconButton.styleFrom(
-                            backgroundColor: AppColors.primarySoft,
-                            foregroundColor: AppColors.primaryDark,
-                          ),
-                          onPressed: () => launchUrl(Uri.parse(kHelpPhone)),
-                          icon: const Icon(Icons.call_outlined, size: 20),
-                        ),
-                      ],
-                    ),
-                  ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                  padding: const EdgeInsets.fromLTRB(24, 10, 24, 0),
                   child: Row(
                     children: [
                       if (showBack) ...[

@@ -283,3 +283,23 @@ scope: only screens built with OnbPage/OnbTextField (Onboard property journey). 
 verification: flutter analyze: No issues found; test/property_onboarding_test.dart 5 passed
 manual_test: Onboard property > Send link: switch Email/WhatsApp, keyboard changes each time; label floats up when typing; scroll list, content slides under the shadowed heading
 ```
+
+## Change 11 – Taller screens, floating-label fields everywhere, tap outside to deselect
+Date: 2026-10-26 · Status: built on iPhone for review
+
+What & why: (1) Onboard property screens no longer show the progress bars, "Step 1 of 4" line or call button; the heading starts at the top, giving more room. (2) The approved floating-label text box (name inside the box, moves up on tap/type, rounded 16) is now the app-wide input style via the theme. (3) Tapping outside a text box closes the keyboard and deselects it, in the whole app.
+
+```
+AGENT RECORD – Change 11
+id: CHG-011
+date: 2026-10-26
+branch: staging (never main)
+files:
+  - lib/src/core/theme/app_theme.dart: inputDecorationTheme = floatingLabelBehavior.auto, label 17 muted, floating label 15 primaryDark, radius 16, focus border 1.5 primary, error borders (design-system rule for ALL inputs)
+  - lib/src/app.dart: MaterialApp.router builder wraps app in GestureDetector(translucent) -> FocusManager.primaryFocus.unfocus() on outside tap
+  - lib/src/features/broker/presentation/onboarding_widgets.dart: OnbPage no longer renders progress bars, step label, call button (params kept but ignored)
+  - lib/src/features/broker/presentation/broker_property_screen.dart: address, size and item-name fields use labelText instead of a separate title above
+not_changed: login phone-number field (large special design, hint only), search fields (hint only), dropdowns
+verification: flutter analyze No issues; full test suite same 38 failures as before (pixel/font tests), none new
+manual_test: any form screen: label sits inside box, floats up on tap; tap blank area -> keyboard closes and box loses focus
+```

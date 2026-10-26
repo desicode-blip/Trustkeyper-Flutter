@@ -315,8 +315,6 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
   Widget _addressFields() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const _FieldLabel(icon: 'address', label: 'Property (optional)'),
-      const SizedBox(height: 10),
       TextField(
         key: const ValueKey('property-address'),
         controller: address,
@@ -329,7 +327,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
         ),
         textCapitalization: TextCapitalization.words,
         decoration: InputDecoration(
-          hintText: 'Any name, address or flat number',
+          labelText: 'Property name or address (optional)',
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 14,
@@ -337,8 +335,6 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
         ),
       ),
       const SizedBox(height: 26),
-      const _FieldLabel(icon: 'size', label: 'Size'),
-      const SizedBox(height: 10),
       TextField(
         key: const ValueKey('property-size'),
         controller: size,
@@ -351,8 +347,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
         decoration: const InputDecoration(
-          hintText: '0',
-          hintStyle: TextStyle(color: Color(0xFF8C99AB)),
+          labelText: 'Size',
           suffixIcon: Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: Center(
@@ -1065,8 +1060,6 @@ class _AddInventoryItemDialogState extends State<_AddInventoryItemDialog> {
               ],
             ),
             const SizedBox(height: 20),
-            const _FieldLabel(icon: 'furnished', label: 'Item name'),
-            const SizedBox(height: 10),
             TextField(
               controller: controller,
               autofocus: true,
@@ -1074,7 +1067,7 @@ class _AddInventoryItemDialogState extends State<_AddInventoryItemDialog> {
               textCapitalization: TextCapitalization.words,
               onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
-                hintText: 'For example, Chimney',
+                labelText: 'Item name, for example Chimney',
                 counterText: '',
               ),
             ),
