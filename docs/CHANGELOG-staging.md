@@ -211,3 +211,22 @@ source_design: Claude Design artboard '2 · Several items'
 verification: flutter analyze/tests NOT run
 manual_test: Home with 3+ drafts and no bank shows heading Continue, 2 draft rows, bank row with +, See all link, all inside one panel
 ```
+
+## Change 8 – Home action buttons: one slim style, no truncated labels
+Date: 2026-10-26 · Status: built on iPhone for review
+
+What & why: "Onboard property" was cut to "Onboard prope…". The three actions now share one `_HomeTile` style (icon + label, radius 18). "Make rent agreement" is full width and filled blue with a white arrow circle (primary). "Onboard property" and "Add tenant" sit side by side (flex 6:5); labels use FittedBox(scaleDown) so they shrink instead of showing dots.
+
+```
+AGENT RECORD – Change 8
+id: CHG-008
+date: 2026-10-26
+branch: staging (never main)
+file: apps/flutter_app/lib/src/features/broker/presentation/approved_broker_home.dart
+rules:
+  - _HomeTile(primary:true) -> AppColors.primary fill, white text 18/w600, arrow circle; disabled (approvalPending) -> AppColors.muted, label 'Waiting for approval', onTap null
+  - secondary tiles: white, border AppColors.border, label 16/w500 in FittedBox(scaleDown), flex 6 (Onboard property) : 5 (Add tenant)
+  - routes unchanged: /broker/start, /broker/property, /broker/start
+verification: flutter analyze/tests NOT run
+manual_test: all three labels fully visible on a 390pt-wide phone
+```

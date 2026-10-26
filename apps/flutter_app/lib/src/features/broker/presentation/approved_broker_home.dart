@@ -82,51 +82,21 @@ class ApprovedBrokerHome extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 28),
-      Material(
-        color: approvalPending ? AppColors.muted : AppColors.primary,
-        borderRadius: BorderRadius.circular(20),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: approvalPending ? null : () => _create(context, '/broker/start'),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 22, 18, 22),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    approvalPending
-                        ? 'Waiting for approval'
-                        : 'Make rent agreement',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      height: 26 / 20,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                if (!approvalPending)
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Center(
-                      child: _HomeIcon('next', size: 20, color: AppColors.primary),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
+      // Three actions share one slim style; the first is filled blue.
+      _HomeTile(
+        icon: 'agreement',
+        label: approvalPending ? 'Waiting for approval' : 'Make rent agreement',
+        primary: true,
+        showArrow: !approvalPending,
+        disabled: approvalPending,
+        onPressed: () => _create(context, '/broker/start'),
       ),
-      const SizedBox(height: 16),
+      const SizedBox(height: 12),
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
+            flex: 6,
             child: _HomeTile(
               icon: 'house',
               label: 'Onboard property',
@@ -135,6 +105,7 @@ class ApprovedBrokerHome extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
+            flex: 5,
             child: _HomeTile(
               icon: 'tenants',
               label: 'Add tenant',
@@ -307,43 +278,83 @@ class _HomeTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onPressed,
+    this.primary = false,
+    this.showArrow = false,
+    this.disabled = false,
   });
   final String icon;
   final String label;
   final VoidCallback onPressed;
+  final bool primary;
+  final bool showArrow;
+  final bool disabled;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.white,
-    shape: RoundedRectangleBorder(
-      side: const BorderSide(color: AppColors.border),
-      borderRadius: BorderRadius.circular(18),
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      onTap: onPressed,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-        child: Row(
-          children: [
-            _HomeIcon(icon, size: 22),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 16,
-                  height: 22 / 16,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.heading,
+  Widget build(BuildContext context) {
+    final fg = primary ? Colors.white : AppColors.heading;
+    return Material(
+      color: primary
+          ? (disabled ? AppColors.muted : AppColors.primary)
+          : Colors.white,
+      shape: RoundedRectangleBorder(
+        side: primary
+            ? BorderSide.none
+            : const BorderSide(color: AppColors.border),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: disabled ? null : onPressed,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: primary ? 18 : 12,
+            vertical: primary ? 18 : 16,
+          ),
+          child: Row(
+            children: [
+              _HomeIcon(
+                icon,
+                size: 22,
+                color: primary ? Colors.white : AppColors.primaryDark,
+              ),
+              const SizedBox(width: 10),
+              // Shrinks to fit so a label is never cut off with dots.
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: primary ? 18 : 16,
+                      height: 22 / 16,
+                      fontWeight: primary ? FontWeight.w600 : FontWeight.w500,
+                      color: fg,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ],
+              if (showArrow)
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: _HomeIcon(
+                      'next',
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
