@@ -265,3 +265,21 @@ verification:
   - full suite: 38 tests fail, the SAME 38 fail on the branch before this change (pixel/font tests in this Linux cloud); none are new
 manual_test: Home > Onboard property > Send link > fill owner > Sent > open house > tap TEST ONLY buttons through every phase
 ```
+
+## Change 10 – Onboard property: fixed heading with shadow, floating-label fields, right keyboard
+Date: 2026-10-26 · Status: built on iPhone for review
+
+What & why: (1) The heading block (progress bars, step, back button, title, subtitle) stays fixed with a soft shadow below it; the list scrolls under it. (2) Text boxes use the Material floating label: the name sits inside the box and moves up when you tap or type. Done only on the Onboard property screens first, to be approved before the rest of the app. (3) Owner contact: Email shows the full letter keyboard with @ and dot (no spaces); WhatsApp shows a number keypad, digits only, max 10.
+
+```
+AGENT RECORD – Change 10
+id: CHG-010
+date: 2026-10-26
+branch: staging (never main)
+files:
+  - apps/flutter_app/lib/src/features/broker/presentation/onboarding_widgets.dart (OnbPage header container + 10px shadow gradient overlay; OnbTextField uses InputDecoration.labelText, new params formatters, capitalization)
+  - apps/flutter_app/lib/src/features/broker/presentation/onboarding_start_screens.dart (ValueKey('contact-<channel>') forces keyboard refresh; email=TextInputType.emailAddress; whatsapp=TextInputType.number + digitsOnly + max 10)
+scope: only screens built with OnbPage/OnbTextField (Onboard property journey). Other app screens NOT changed yet - awaiting approval.
+verification: flutter analyze: No issues found; test/property_onboarding_test.dart 5 passed
+manual_test: Onboard property > Send link: switch Email/WhatsApp, keyboard changes each time; label floats up when typing; scroll list, content slides under the shadowed heading
+```

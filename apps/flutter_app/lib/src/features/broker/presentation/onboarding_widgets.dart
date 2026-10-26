@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -43,94 +44,139 @@ class OnbPage extends StatelessWidget {
     body: SafeArea(
       child: Column(
         children: [
-          if (progress != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-              child: Row(
-                children: [
-                  for (var i = 0; i < progressTotal; i++)
-                    Expanded(
-                      child: Container(
-                        height: 4,
-                        margin: EdgeInsets.only(right: i == progressTotal - 1 ? 0 : 6),
-                        decoration: BoxDecoration(
-                          color: i < progress! ? AppColors.primary : AppColors.border,
-                          borderRadius: BorderRadius.circular(2),
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (progress != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < progressTotal; i++)
+                          Expanded(
+                            child: Container(
+                              height: 4,
+                              margin: EdgeInsets.only(
+                                right: i == progressTotal - 1 ? 0 : 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: i < progress!
+                                    ? AppColors.primary
+                                    : AppColors.border,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                if (stepLabel != null || showCall)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 16, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            stepLabel ?? '',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Call us',
+                          style: IconButton.styleFrom(
+                            backgroundColor: AppColors.primarySoft,
+                            foregroundColor: AppColors.primaryDark,
+                          ),
+                          onPressed: () => launchUrl(Uri.parse(kHelpPhone)),
+                          icon: const Icon(Icons.call_outlined, size: 20),
+                        ),
+                      ],
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                  child: Row(
+                    children: [
+                      if (showBack) ...[
+                        ApprovedBackButton(
+                          onPressed:
+                              onBack ??
+                              () {
+                                if (context.canPop()) {
+                                  context.pop();
+                                } else {
+                                  context.go('/broker');
+                                }
+                              },
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 26,
+                            height: 32 / 26,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.heading,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (subtitle != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        subtitle!,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          height: 23 / 16,
+                          color: AppColors.muted,
                         ),
                       ),
                     ),
-                ],
-              ),
-            ),
-          if (stepLabel != null || showCall)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 16, 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      stepLabel ?? '',
-                      style: const TextStyle(fontSize: 14, color: AppColors.muted),
-                    ),
                   ),
-                  IconButton(
-                    tooltip: 'Call us',
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppColors.primarySoft,
-                      foregroundColor: AppColors.primaryDark,
-                    ),
-                    onPressed: () => launchUrl(Uri.parse(kHelpPhone)),
-                    icon: const Icon(Icons.call_outlined, size: 20),
-                  ),
-                ],
-              ),
+              ],
             ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-            child: Row(
+          ),
+          Expanded(
+            child: Stack(
               children: [
-                if (showBack) ...[
-                  ApprovedBackButton(
-                    onPressed: onBack ??
-                        () {
-                          if (context.canPop()) {
-                            context.pop();
-                          } else {
-                            context.go('/broker');
-                          }
-                        },
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 26,
-                      height: 32 / 26,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.heading,
+                ListView(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                  children: children,
+                ),
+                // Soft shadow under the fixed heading: the list slides under it.
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: SizedBox(
+                      height: 10,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Color(0x1F101828), Color(0x00101828)],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ],
-            ),
-          ),
-          if (subtitle != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  subtitle!,
-                  style: const TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted),
-                ),
-              ),
-            ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-              children: children,
             ),
           ),
           if (footer.isNotEmpty)
@@ -167,12 +213,25 @@ class OnbPill extends StatelessWidget {
     return Container(
       height: 28,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[Icon(icon, size: 14, color: foreground), const SizedBox(width: 4)],
-          Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: foreground)),
+          if (icon != null) ...[
+            Icon(icon, size: 14, color: foreground),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: foreground,
+            ),
+          ),
         ],
       ),
     );
@@ -197,12 +256,27 @@ class OnbBanner extends StatelessWidget {
     };
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (icon != null) ...[Icon(icon, size: 20, color: foreground), const SizedBox(width: 10)],
-          Expanded(child: Text(text, style: TextStyle(fontSize: 15, height: 21 / 15, color: foreground))),
+          if (icon != null) ...[
+            Icon(icon, size: 20, color: foreground),
+            const SizedBox(width: 10),
+          ],
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 15,
+                height: 21 / 15,
+                color: foreground,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -247,7 +321,10 @@ class OnbRow extends StatelessWidget {
             Container(
               width: 44,
               height: 44,
-              decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(14)),
+              decoration: BoxDecoration(
+                color: background,
+                borderRadius: BorderRadius.circular(14),
+              ),
               child: Icon(icon, size: 22, color: foreground),
             ),
             const SizedBox(width: 14),
@@ -255,17 +332,37 @@ class OnbRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 17, height: 22 / 17, fontWeight: FontWeight.w500, color: AppColors.heading)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      height: 22 / 17,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.heading,
+                    ),
+                  ),
                   if (subtitle != null)
-                    Text(subtitle!, style: const TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted)),
+                    Text(
+                      subtitle!,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 19 / 14,
+                        color: AppColors.muted,
+                      ),
+                    ),
                 ],
               ),
             ),
             if (trailing != null) ...[const SizedBox(width: 8), trailing!],
-            if (chevron && onTap != null) const Padding(
-              padding: EdgeInsets.only(left: 4),
-              child: Icon(Icons.chevron_right, size: 22, color: AppColors.muted),
-            ),
+            if (chevron && onTap != null)
+              const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: Icon(
+                  Icons.chevron_right,
+                  size: 22,
+                  color: AppColors.muted,
+                ),
+              ),
           ],
         ),
       ),
@@ -275,7 +372,12 @@ class OnbRow extends StatelessWidget {
 
 /// White box with a thin border that holds rows or key-value lines.
 class OnbCard extends StatelessWidget {
-  const OnbCard({required this.child, this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 6), this.color, super.key});
+  const OnbCard({
+    required this.child,
+    this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+    this.color,
+    super.key,
+  });
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color? color;
@@ -302,13 +404,32 @@ class OnbKeyValue extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(vertical: 12),
     decoration: BoxDecoration(
-      border: last ? null : const Border(bottom: BorderSide(color: Color(0xFFEEF1F5))),
+      border: last
+          ? null
+          : const Border(bottom: BorderSide(color: Color(0xFFEEF1F5))),
     ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(flex: 2, child: Text(label, style: const TextStyle(fontSize: 16, color: AppColors.muted))),
-        Expanded(flex: 3, child: Text(value, textAlign: TextAlign.right, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.heading))),
+        Expanded(
+          flex: 2,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 16, color: AppColors.muted),
+          ),
+        ),
+        Expanded(
+          flex: 3,
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: AppColors.heading,
+            ),
+          ),
+        ),
       ],
     ),
   );
@@ -332,7 +453,9 @@ class OnbStageBar extends StatelessWidget {
               Expanded(
                 child: Container(
                   height: 3,
-                  color: i < current ? const Color(0xFF2FA866) : AppColors.border,
+                  color: i < current
+                      ? const Color(0xFF2FA866)
+                      : AppColors.border,
                 ),
               ),
           ],
@@ -347,7 +470,11 @@ class OnbStageBar extends StatelessWidget {
               width: 70,
               child: Text(
                 _names[i],
-                textAlign: i == 0 ? TextAlign.left : i == 3 ? TextAlign.right : TextAlign.center,
+                textAlign: i == 0
+                    ? TextAlign.left
+                    : i == 3
+                    ? TextAlign.right
+                    : TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
                   color: i == current ? AppColors.primaryDark : AppColors.muted,
@@ -376,12 +503,25 @@ class _Dot extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: done ? const Color(0xFF2FA866) : now ? AppColors.primary : Colors.white,
-        border: done || now ? null : Border.all(color: AppColors.border, width: 1.5),
+        color: done
+            ? const Color(0xFF2FA866)
+            : now
+            ? AppColors.primary
+            : Colors.white,
+        border: done || now
+            ? null
+            : Border.all(color: AppColors.border, width: 1.5),
       ),
       child: done
           ? const Icon(Icons.check, size: 16, color: Colors.white)
-          : Text('${index + 1}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: now ? Colors.white : AppColors.muted)),
+          : Text(
+              '${index + 1}',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: now ? Colors.white : AppColors.muted,
+              ),
+            ),
     );
   }
 }
@@ -396,8 +536,12 @@ class OnbTextField extends StatelessWidget {
     this.prefix,
     this.maxLines = 1,
     this.onChanged,
+    this.formatters,
+    this.capitalization = TextCapitalization.none,
     super.key,
   });
+  final List<TextInputFormatter>? formatters;
+  final TextCapitalization capitalization;
   final String label;
   final TextEditingController controller;
   final String? error;
@@ -408,36 +552,61 @@ class OnbTextField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(label, style: const TextStyle(fontSize: 14, color: AppColors.muted)),
-      const SizedBox(height: 6),
-      TextField(
-        controller: controller,
-        keyboardType: keyboard,
-        maxLines: maxLines,
-        onChanged: onChanged,
-        style: const TextStyle(fontSize: 17, color: AppColors.heading),
-        decoration: InputDecoration(
-          hintText: hint,
-          prefixText: prefix,
-          errorText: error,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.border)),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.border)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-          errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.error)),
-          focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.error, width: 1.5)),
-        ),
+  Widget build(BuildContext context) => TextField(
+    controller: controller,
+    keyboardType: keyboard,
+    inputFormatters: formatters,
+    maxLines: maxLines,
+    onChanged: onChanged,
+    textCapitalization: capitalization,
+    autocorrect: keyboard != TextInputType.emailAddress,
+    style: const TextStyle(fontSize: 17, color: AppColors.heading),
+    // Material floating label: sits inside the box, moves up when you type.
+    decoration: InputDecoration(
+      labelText: label,
+      floatingLabelBehavior: FloatingLabelBehavior.auto,
+      labelStyle: const TextStyle(fontSize: 17, color: AppColors.muted),
+      floatingLabelStyle: const TextStyle(
+        fontSize: 15,
+        color: AppColors.primaryDark,
       ),
-    ],
+      hintText: hint,
+      hintStyle: const TextStyle(color: Color(0xFF98A2B3)),
+      prefixText: prefix,
+      errorText: error,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AppColors.error),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+      ),
+    ),
   );
 }
 
 /// Outlined (second) button next to the main one.
 class OnbSecondaryButton extends StatelessWidget {
-  const OnbSecondaryButton({required this.label, required this.onPressed, this.danger = false, super.key});
+  const OnbSecondaryButton({
+    required this.label,
+    required this.onPressed,
+    this.danger = false,
+    super.key,
+  });
   final String label;
   final VoidCallback? onPressed;
   final bool danger;
@@ -479,9 +648,24 @@ Future<bool> onbConfirm(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 22,
+                height: 28 / 22,
+                fontWeight: FontWeight.w700,
+                color: AppColors.heading,
+              ),
+            ),
             const SizedBox(height: 6),
-            Text(message, style: const TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted)),
+            Text(
+              message,
+              style: const TextStyle(
+                fontSize: 16,
+                height: 23 / 16,
+                color: AppColors.muted,
+              ),
+            ),
             const SizedBox(height: 20),
             PrimaryButton(
               label: yes,
@@ -489,7 +673,10 @@ Future<bool> onbConfirm(
               onPressed: () => Navigator.pop(context, true),
             ),
             const SizedBox(height: 10),
-            OnbSecondaryButton(label: no, onPressed: () => Navigator.pop(context, false)),
+            OnbSecondaryButton(
+              label: no,
+              onPressed: () => Navigator.pop(context, false),
+            ),
           ],
         ),
       ),
@@ -500,7 +687,14 @@ Future<bool> onbConfirm(
 
 /// Big centred message (sent, done, waiting).
 class OnbCentered extends StatelessWidget {
-  const OnbCentered({required this.icon, required this.title, required this.message, this.kind = 'info', this.loading = false, super.key});
+  const OnbCentered({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.kind = 'info',
+    this.loading = false,
+    super.key,
+  });
   final IconData icon;
   final String title;
   final String message;
@@ -520,17 +714,40 @@ class OnbCentered extends StatelessWidget {
       child: Column(
         children: [
           loading
-              ? const SizedBox.square(dimension: 64, child: CircularProgressIndicator(strokeWidth: 5))
+              ? const SizedBox.square(
+                  dimension: 64,
+                  child: CircularProgressIndicator(strokeWidth: 5),
+                )
               : Container(
                   width: 96,
                   height: 96,
-                  decoration: BoxDecoration(color: background, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: background,
+                    shape: BoxShape.circle,
+                  ),
                   child: Icon(icon, size: 44, color: foreground),
                 ),
           const SizedBox(height: 24),
-          Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 26, height: 32 / 26, fontWeight: FontWeight.w700, color: AppColors.heading)),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 26,
+              height: 32 / 26,
+              fontWeight: FontWeight.w700,
+              color: AppColors.heading,
+            ),
+          ),
           const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, height: 25 / 17, color: AppColors.muted)),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 17,
+              height: 25 / 17,
+              color: AppColors.muted,
+            ),
+          ),
         ],
       ),
     );

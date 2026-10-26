@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -276,7 +277,7 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
           onBack: () => Navigator.of(context).maybePop(),
           footer: [PrimaryButton(label: 'Next', onPressed: _next)],
           children: [
-            OnbTextField(label: 'Owner name', controller: _name, error: _nameError, hint: 'Ramesh Kumar'),
+            OnbTextField(label: 'Owner name', controller: _name, error: _nameError, capitalization: TextCapitalization.words),
             const SizedBox(height: 18),
             const Text('Ask for papers on', style: TextStyle(fontSize: 14, color: AppColors.muted)),
             const SizedBox(height: 8),
@@ -289,12 +290,16 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
             ),
             const SizedBox(height: 18),
             OnbTextField(
+              key: ValueKey('contact-$_channel'),
               label: contactLabel,
               controller: _contact,
               error: _contactError,
-              hint: _channel == 'email' ? 'ramesh@gmail.com' : '98765 43210',
+              // Email: full letter keyboard with @ and dot. WhatsApp: numbers only.
+              keyboard: _channel == 'email' ? TextInputType.emailAddress : TextInputType.number,
+              formatters: _channel == 'email'
+                  ? [FilteringTextInputFormatter.deny(RegExp(r'\s'))]
+                  : [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
               prefix: _channel == 'email' ? null : '+91 ',
-              keyboard: _channel == 'email' ? TextInputType.emailAddress : TextInputType.phone,
             ),
             const SizedBox(height: 14),
             OnbBanner(
@@ -341,7 +346,7 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
               ),
             ],
             const SizedBox(height: 16),
-            OnbTextField(label: 'Another owner name', controller: _other, hint: 'Sunita Kumar'),
+            OnbTextField(label: 'Another owner name', controller: _other, capitalization: TextCapitalization.words),
             const SizedBox(height: 10),
             OnbSecondaryButton(label: 'Add this owner', onPressed: _addOther),
             const SizedBox(height: 14),
