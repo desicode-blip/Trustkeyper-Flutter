@@ -129,7 +129,8 @@ class _BigTile extends StatelessWidget {
   );
 }
 
-/// Ask the owner for papers: owner → other owners → check → sent.
+/// Ask the owner for papers: how many owners → each owner → check → sent.
+/// Same flow as the rent agreement ("How many owners?", then Owner 1, Owner 2...).
 class OnboardNewScreen extends StatefulWidget {
   const OnboardNewScreen({super.key});
 
@@ -137,22 +138,27 @@ class OnboardNewScreen extends StatefulWidget {
   State<OnboardNewScreen> createState() => _OnboardNewScreenState();
 }
 
+class _OwnerForm {
+  final name = TextEditingController();
+  final phone = TextEditingController();
+  final email = TextEditingController();
+  String? nameError;
+  String? phoneError;
+  String? emailError;
+  void dispose() {
+    name.dispose();
+    phone.dispose();
+    email.dispose();
+  }
+}
+
 class _OnboardNewScreenState extends State<OnboardNewScreen> {
   final _store = PropertyOnboardingStore.instance;
-  final _name = TextEditingController();
-  final _contact = TextEditingController();
-  int _step = 0;
+  final List<_OwnerForm> _owners = [_OwnerForm()];
+  int _step = 0; // 0 how many · 1 owner details · 2 check · 3 sent
+  int _person = 0;
+  // How we ask owner 1 for papers: email (best) or WhatsApp.
   String _channel = 'email';
-  final List<({String name, String channel, String contact})> _others = [];
-  // Adding a second, third... owner uses the same form on its own page.
-  bool _adding = false;
-  final _oName = TextEditingController();
-  final _oContact = TextEditingController();
-  String _oChannel = 'email';
-  String? _oNameError;
-  String? _oContactError;
-  String? _nameError;
-  String? _contactError;
   String? _sendError;
   bool _sending = false;
   String? _createdId;
@@ -165,57 +171,105 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
 
   @override
   void dispose() {
-    _name.dispose();
-    _contact.dispose();
-    _oName.dispose();
-    _oContact.dispose();
+    for (final o in _owners) {
+      o.dispose();
+    }
     super.dispose();
   }
 
-  bool get _dirty => _step < 3 && (_name.text.trim().isNotEmpty || _contact.text.trim().isNotEmpty);
-  String get _firstName => _name.text.trim().split(' ').first;
-
   static final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
+
+  _OwnerForm get _first => _owners.first;
+  String get _firstName => _first.name.text.trim().split(' ').first;
+  String get _contact => _channel == 'email' ? _first.email.text.trim() : _first.phone.text.trim();
+  bool get _dirty => _step < 3 && _owners.any((o) => o.name.text.trim().isNotEmpty || o.phone.text.trim().isNotEmpty || o.email.text.trim().isNotEmpty);
+
+  void _resize(int change) {
+    setState(() {
+      if (change > 0 && _owners.length < 10) _owners.add(_OwnerForm());
+      if (change < 0 && _owners.length > 1) _owners.removeLast().dispose();
+    });
+  }
+
+  /// Checks the owner shown now. Owner 1 must have the field we ask on.
+  bool _validate(int index) {
+    final o = _owners[index];
+    final name = o.name.text.trim();
+    final phone = o.phone.text.trim();
+    final email = o.email.text.trim();
+    final needPhone = index == 0 ? _channel == 'whatsapp' : false;
+    final needEmail = index == 0 ? _channel == 'email' : false;
+    setState(() {
+      o.nameError = name.length < 2 ? 'Type the owner name' : null;
+      o.phoneError = phone.isEmpty && !needPhone
+          ? null
+          : (phone.length == 10 ? null : 'Type the 10 digit phone number');
+      o.emailError = email.isEmpty && !needEmail
+          ? null
+          : (_emailPattern.hasMatch(email) ? null : 'This email looks wrong. Check the @ and the dot.');
+    });
+    return o.nameError == null && o.phoneError == null && o.emailError == null;
+  }
 
   Future<void> _next() async {
     if (_step == 0) {
-      final name = _name.text.trim();
-      final contact = _contact.text.trim();
-      final digits = contact.replaceAll(RegExp(r'\D'), '');
       setState(() {
-        _nameError = name.length < 2 ? 'Type the owner name' : null;
-        _contactError = _channel == 'email'
-            ? (_emailPattern.hasMatch(contact) ? null : 'This email looks wrong. Check the @ and the dot.')
-            : (digits.length == 10 ? null : 'Type the 10 digit phone number');
+        _step = 1;
+        _person = 0;
       });
-      if (_nameError != null || _contactError != null) return;
-      // Is this owner already registered (same phone/email, or same name)?
-      final key = _channel == 'email' ? contact : digits;
-      final lower = name.toLowerCase();
-      final matches = _store.items
-          .where((i) => i.contact == key || i.ownerName.trim().toLowerCase() == lower)
-          .toList();
-      if (matches.isNotEmpty) {
-        final same = await _askSameOwner(matches.last, matches.length);
-        if (!mounted) return;
-        if (same == null) return; // closed the sheet: stay and edit
-        if (!same) {
-          // A new person: stay on this page so the broker can change the details.
-          return;
-        }
-        // Same owner, another house: keep their saved name and contact.
-        final saved = matches.last;
-        setState(() {
-          _name.text = saved.ownerName;
-          _channel = saved.channel;
-          _contact.text = saved.contact;
-        });
-      }
-      setState(() => _step = 1);
     } else if (_step == 1) {
-      setState(() => _step = 2);
+      if (!_validate(_person)) return;
+      if (_person == 0) {
+        // Is this owner already registered (same phone/email, or same name)?
+        final lower = _first.name.text.trim().toLowerCase();
+        final key = _contact;
+        final matches = _store.items
+            .where((i) => i.contact == key || i.ownerName.trim().toLowerCase() == lower)
+            .toList();
+        if (matches.isNotEmpty) {
+          final same = await _askSameOwner(matches.last, matches.length);
+          if (!mounted) return;
+          if (same == null || !same) return; // stay and change the details
+          final saved = matches.last;
+          setState(() {
+            _first.name.text = saved.ownerName;
+            _channel = saved.channel;
+            if (saved.channel == 'email') {
+              _first.email.text = saved.contact;
+            } else {
+              _first.phone.text = saved.contact;
+            }
+          });
+        }
+      }
+      setState(() {
+        if (_person + 1 < _owners.length) {
+          _person++;
+        } else {
+          _step = 2;
+        }
+      });
     } else if (_step == 2) {
       await _send();
+    }
+  }
+
+  void _back() {
+    if (_step == 0) {
+      Navigator.of(context).maybePop();
+    } else if (_step == 1) {
+      setState(() {
+        if (_person > 0) {
+          _person--;
+        } else {
+          _step = 0;
+        }
+      });
+    } else if (_step == 2) {
+      setState(() {
+        _step = 1;
+        _person = _owners.length - 1;
+      });
     }
   }
 
@@ -294,12 +348,16 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
       _sendError = null;
     });
     try {
-      final contact = _channel == 'email' ? _contact.text.trim() : _contact.text.replaceAll(RegExp(r'\D'), '');
+      final contact = _channel == 'email' ? _first.email.text.trim() : _first.phone.text.trim();
+      final others = [
+        for (final o in _owners.skip(1))
+          '${o.name.text.trim()} · ${o.phone.text.trim().isNotEmpty ? '+91 ${o.phone.text.trim()}' : o.email.text.trim()}',
+      ];
       final created = await _store.create(
-        ownerName: _name.text,
+        ownerName: _first.name.text.trim(),
         channel: _channel,
         contact: contact,
-        otherOwners: [for (final o in _others) '${o.name} · ${o.channel == 'email' ? o.contact : '+91 ${o.contact}'}'],
+        otherOwners: others,
       );
       if (!mounted) return;
       setState(() {
@@ -316,74 +374,6 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
     }
   }
 
-  void _startAdding() => setState(() {
-    _adding = true;
-    _oName.clear();
-    _oContact.clear();
-    _oChannel = 'email';
-    _oNameError = null;
-    _oContactError = null;
-  });
-
-  void _saveOther() {
-    final name = _oName.text.trim();
-    final contact = _oContact.text.trim();
-    final digits = contact.replaceAll(RegExp(r'\D'), '');
-    setState(() {
-      _oNameError = name.length < 2 ? 'Type the owner name' : null;
-      _oContactError = _oChannel == 'email'
-          ? (_emailPattern.hasMatch(contact) ? null : 'This email looks wrong. Check the @ and the dot.')
-          : (digits.length == 10 ? null : 'Type the 10 digit phone number');
-    });
-    if (_oNameError != null || _oContactError != null) return;
-    setState(() {
-      _others.add((name: name, channel: _oChannel, contact: _oChannel == 'email' ? contact : digits));
-      _adding = false;
-    });
-  }
-
-  /// The owner form: name, how to ask, email or phone. Used for every owner.
-  List<Widget> _ownerForm({
-    required TextEditingController name,
-    required TextEditingController contact,
-    required String channel,
-    required String? nameError,
-    required String? contactError,
-    required void Function(String channel) onChannel,
-  }) => [
-    OnbTextField(label: 'Owner name', controller: name, error: nameError, capitalization: TextCapitalization.words),
-    const SizedBox(height: 26),
-    const Text('Ask for papers on', style: TextStyle(fontSize: 14, color: AppColors.muted)),
-    const SizedBox(height: 8),
-    Row(
-      children: [
-        Expanded(child: _ChannelChip(label: 'Email · best', icon: Icons.mail_outline, selected: channel == 'email', onTap: () => onChannel('email'))),
-        const SizedBox(width: 10),
-        Expanded(child: _ChannelChip(label: 'WhatsApp', icon: Icons.chat_bubble_outline, selected: channel == 'whatsapp', onTap: () => onChannel('whatsapp'))),
-      ],
-    ),
-    const SizedBox(height: 26),
-    OnbTextField(
-      key: ValueKey('contact-$channel-${identical(contact, _contact) ? 1 : 2}'),
-      label: channel == 'email' ? 'Owner email' : 'Owner phone number',
-      controller: contact,
-      error: contactError,
-      // Email: full letter keyboard with @ and dot. WhatsApp: numbers only.
-      keyboard: channel == 'email' ? TextInputType.emailAddress : TextInputType.number,
-      formatters: channel == 'email'
-          ? [FilteringTextInputFormatter.deny(RegExp(r'\s'))]
-          : [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-      prefix: channel == 'email' ? null : '+91 ',
-    ),
-    const SizedBox(height: 14),
-    OnbBanner(
-      channel == 'email'
-          ? 'We send one short email. The owner replies with photos of the papers.'
-          : 'We send a WhatsApp message. The owner sends the papers there.',
-      icon: channel == 'email' ? Icons.mail_outline : Icons.chat_bubble_outline,
-    ),
-  ];
-
   Future<void> _leave() async {
     final leave = await onbConfirm(
       context,
@@ -395,6 +385,147 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
     if (!leave && mounted) context.pop();
   }
 
+  /// Back + Next > bar, same as the rent agreement.
+  List<Widget> _bar(String label, {VoidCallback? onNext, bool loading = false}) => [
+    Row(
+      children: [
+        SizedBox(
+          width: 72,
+          child: TextButton(
+            onPressed: _back,
+            style: TextButton.styleFrom(padding: EdgeInsets.zero),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.chevron_left, size: 20),
+                SizedBox(width: 6),
+                Flexible(child: Text('Back', maxLines: 1, style: TextStyle(fontSize: 17))),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: PrimaryButton(label: label, icon: Icons.chevron_right, loading: loading, onPressed: onNext ?? _next),
+        ),
+      ],
+    ),
+  ];
+
+  Widget _count() => Padding(
+    padding: const EdgeInsets.only(top: 60, bottom: 40),
+    child: Column(
+      children: [
+        const CircleAvatar(
+          radius: 40,
+          backgroundColor: AppColors.primarySoft,
+          child: Icon(Icons.people_outline, size: 40, color: AppColors.primaryDark),
+        ),
+        const SizedBox(height: 24),
+        const Text('How many owners?', style: TextStyle(fontSize: 24, height: 30 / 24, fontWeight: FontWeight.w600, color: AppColors.heading)),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton.filledTonal(
+              onPressed: _owners.length > 1 ? () => _resize(-1) : null,
+              tooltip: 'Remove owner',
+              icon: const Icon(Icons.remove),
+              iconSize: 30,
+            ),
+            const SizedBox(width: 18),
+            Container(
+              width: 100,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.primary, width: 2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text('${_owners.length}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w700, color: AppColors.heading)),
+            ),
+            const SizedBox(width: 18),
+            IconButton.filled(
+              onPressed: _owners.length < 10 ? () => _resize(1) : null,
+              tooltip: 'Add owner',
+              icon: const Icon(Icons.add),
+              iconSize: 30,
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  List<Widget> _person_() {
+    final o = _owners[_person];
+    return [
+      if (_owners.length > 1) ...[
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (var i = 0; i < _owners.length; i++)
+              ChoiceChip(
+                label: Text('Owner ${i + 1}${i == _person ? ' of ${_owners.length}' : ''}'),
+                selected: _person == i,
+                onSelected: (_) {
+                  if (i < _person || _validate(_person)) setState(() => _person = i);
+                },
+              ),
+          ],
+        ),
+        const SizedBox(height: 24),
+      ],
+      Text('Owner ${_person + 1} details', style: const TextStyle(fontSize: 20, height: 26 / 20, fontWeight: FontWeight.w600, color: AppColors.heading)),
+      const SizedBox(height: 26),
+      OnbTextField(label: 'Full name *', controller: o.name, error: o.nameError, capitalization: TextCapitalization.words, onChanged: (_) => setState(() => o.nameError = null)),
+      const SizedBox(height: 26),
+      OnbTextField(
+        key: ValueKey('phone-$_person'),
+        label: 'Mobile number${_person == 0 && _channel == 'whatsapp' ? ' *' : ''}',
+        controller: o.phone,
+        error: o.phoneError,
+        keyboard: TextInputType.number,
+        formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+        prefix: 'IN +91 ',
+        onChanged: (_) => setState(() => o.phoneError = null),
+      ),
+      const SizedBox(height: 26),
+      OnbTextField(
+        key: ValueKey('email-$_person'),
+        label: 'Email Address${_person == 0 && _channel == 'email' ? ' *' : ''}',
+        controller: o.email,
+        error: o.emailError,
+        keyboard: TextInputType.emailAddress,
+        formatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
+        onChanged: (_) => setState(() => o.emailError = null),
+      ),
+      if (_person == 0) ...[
+        const SizedBox(height: 26),
+        const Text('Ask for papers on', style: TextStyle(fontSize: 14, color: AppColors.muted)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(child: _ChannelChip(label: 'Email · best', icon: Icons.mail_outline, selected: _channel == 'email', onTap: () => setState(() => _channel = 'email'))),
+            const SizedBox(width: 10),
+            Expanded(child: _ChannelChip(label: 'WhatsApp', icon: Icons.chat_bubble_outline, selected: _channel == 'whatsapp', onTap: () => setState(() => _channel = 'whatsapp'))),
+          ],
+        ),
+        const SizedBox(height: 14),
+        OnbBanner(
+          _channel == 'email'
+              ? 'We send one short email. The owner replies with photos of the papers.'
+              : 'We send a WhatsApp message. The owner sends the papers there.',
+          icon: _channel == 'email' ? Icons.mail_outline : Icons.chat_bubble_outline,
+        ),
+        if (_owners.length > 1) ...[
+          const SizedBox(height: 10),
+          const OnbBanner('Papers go to owner 1. He can send for everyone.', icon: Icons.groups_outlined),
+        ],
+      ],
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -404,97 +535,29 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
       },
       child: switch (_step) {
         0 => OnbPage(
-          title: 'Who is the owner?',
-          stepLabel: 'Step 1 of 4 · Owner',
-          progress: 1,
-          showCall: true,
-          onBack: () => Navigator.of(context).maybePop(),
-          footer: [PrimaryButton(label: 'Next', onPressed: _next)],
-          children: _ownerForm(
-            name: _name,
-            contact: _contact,
-            channel: _channel,
-            nameError: _nameError,
-            contactError: _contactError,
-            onChannel: (c) => setState(() {
-              _channel = c;
-              _contact.clear();
-              _contactError = null;
-            }),
-          ),
-        ),
-        1 when _adding => OnbPage(
-          title: 'Owner ${_others.length + 2}',
-          onBack: () => setState(() => _adding = false),
-          footer: [PrimaryButton(label: 'Save owner', onPressed: _saveOther)],
-          children: _ownerForm(
-            name: _oName,
-            contact: _oContact,
-            channel: _oChannel,
-            nameError: _oNameError,
-            contactError: _oContactError,
-            onChannel: (c) => setState(() {
-              _oChannel = c;
-              _oContact.clear();
-              _oContactError = null;
-            }),
-          ),
+          title: 'Owner details',
+          subtitle: 'Who is giving the property on rent?',
+          onBack: _back,
+          footer: _bar('Next'),
+          children: [_count()],
         ),
         1 => OnbPage(
-          title: 'Is there another owner?',
-          onBack: () => setState(() => _step = 0),
-          footer: [PrimaryButton(label: 'Next', onPressed: _next)],
-          children: [
-            OnbCard(
-              child: OnbRow(
-                icon: Icons.check,
-                tone: 'ok',
-                title: _name.text.trim(),
-                subtitle: 'Owner 1 · ${_channel == 'email' ? 'email' : 'WhatsApp'}',
-                chevron: false,
-                trailing: const OnbPill('Added', 'ok'),
-              ),
-            ),
-            for (var i = 0; i < _others.length; i++) ...[
-              const SizedBox(height: 10),
-              OnbCard(
-                child: OnbRow(
-                  icon: Icons.check,
-                  tone: 'ok',
-                  title: _others[i].name,
-                  subtitle: 'Owner ${i + 2} · ${_others[i].channel == 'email' ? 'email' : 'WhatsApp'}',
-                  chevron: false,
-                  trailing: IconButton(
-                    tooltip: 'Remove ${_others[i].name}',
-                    onPressed: () => setState(() => _others.removeAt(i)),
-                    icon: const Icon(Icons.close, size: 20, color: AppColors.muted),
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            OnbSecondaryButton(label: '+ Add another owner', onPressed: _startAdding),
-            const SizedBox(height: 14),
-            const OnbBanner('Papers go to the first owner. He can send for everyone.', icon: Icons.groups_outlined),
-          ],
+          title: 'Owner details',
+          subtitle: 'Who is giving the property on rent?',
+          onBack: _back,
+          footer: _bar(_person + 1 < _owners.length ? 'Next: Owner ${_person + 2}' : 'Next'),
+          children: _person_(),
         ),
         2 => OnbPage(
           title: 'We will ask for these',
           subtitle: 'The owner gets this list.',
-          stepLabel: 'Step 3 of 4 · Check',
-          progress: 3,
-          showCall: true,
-          onBack: () => setState(() => _step = 1),
+          onBack: _back,
           footer: [
             if (_sendError != null) ...[
               OnbBanner(_sendError!, kind: 'need', icon: Icons.error_outline),
               const SizedBox(height: 10),
             ],
-            PrimaryButton(
-              label: _sendError != null ? 'Try again' : 'Send to $_firstName',
-              loading: _sending,
-              onPressed: _send,
-            ),
+            ..._bar(_sendError != null ? 'Try again' : 'Send to $_firstName', loading: _sending),
           ],
           children: [
             for (final text in const [
@@ -534,8 +597,8 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
               kind: 'ok',
               title: 'We asked $_firstName',
               message: _channel == 'email'
-                  ? 'We sent an email to ${_contact.text.trim()}. We will tell you when papers come.'
-                  : 'We sent a WhatsApp message to +91 ${_contact.text.trim()}. We will tell you when papers come.',
+                  ? 'We sent an email to $_contact. We will tell you when papers come.'
+                  : 'We sent a WhatsApp message to +91 $_contact. We will tell you when papers come.',
             ),
           ],
         ),

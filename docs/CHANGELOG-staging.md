@@ -344,3 +344,17 @@ file: apps/flutter_app/lib/src/features/broker/presentation/onboarding_start_scr
 note: only owner 1 receives the request (extra owners are saved as names with contact); sending to extra owners needs the backend
 verification: flutter analyze No issues found; property_onboarding_test passes
 ```
+
+## Change 15 – Onboard property: same owner flow as the rent agreement
+Date: 2026-10-26 · Status: built on iPhone for review
+What: replaced my own owner pages with the rent-agreement flow: **How many owners?** (− / number / + stepper, same look) → **Owner 1 details** (Full name, Mobile number with IN +91, Email Address; chips "Owner 1 of 2" when more than one; button "Next: Owner 2") → **We will ask for these** list of papers for this use case → sent. Bottom bar is the agreement's: "‹ Back" + "Next ›". Owner 1 also chooses how we ask for papers (Email · best / WhatsApp); that field is then required. The "We know this owner" sheet still appears after owner 1.
+```
+AGENT RECORD – Change 15
+id: CHG-015
+date: 2026-10-26
+branch: staging (never main)
+file: apps/flutter_app/lib/src/features/broker/presentation/onboarding_start_screens.dart (OnboardNewScreen rewritten: _OwnerForm per owner, steps 0 count / 1 owner / 2 check / 3 sent; _bar = Back+Next bar; reuses wizard visuals in broker_agreement_wizard.dart _count/_person)
+note: only owner 1 receives the request; other owners saved as "Name · contact"
+removed: the old "Is there another owner?" page and "+ Add another owner" button (Change 14)
+verification: flutter analyze No issues found; property_onboarding_test passes
+```
