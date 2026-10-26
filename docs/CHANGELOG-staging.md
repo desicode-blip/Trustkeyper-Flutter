@@ -318,3 +318,16 @@ file: apps/flutter_app/lib/src/features/broker/presentation/onboarding_start_scr
 verification: flutter analyze No issues found
 manual_test: send one request for "Choco"; start another with name Choco -> sheet appears; both buttons behave as above
 ```
+
+## Change 13 – Spacing on Onboard property screens
+Date: 2026-10-26 · Status: built on iPhone for review
+What: removed the line "We will ask this person for the papers." on Who is the owner?; space from the fixed heading to the first content is now 32 (was 20) on every Onboard property screen; gap between fields is now 26 (was 18).
+```
+AGENT RECORD – Change 13
+id: CHG-013
+date: 2026-10-26
+branch: staging (never main)
+files: .../broker/presentation/onboarding_widgets.dart (OnbPage list top padding 32), .../onboarding_start_screens.dart (no subtitle on step 0; field gaps 26)
+spacing_rule_for_design_system: heading -> first field 32; field -> field 26 (other screens not yet changed)
+verification: flutter analyze No issues found
+```

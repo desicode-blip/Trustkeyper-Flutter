@@ -103,7 +103,7 @@ class OnbPage extends StatelessWidget {
             child: Stack(
               children: [
                 ListView(
-                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
                   children: children,
                 ),
                 // Soft shadow under the fixed heading: the list slides under it.

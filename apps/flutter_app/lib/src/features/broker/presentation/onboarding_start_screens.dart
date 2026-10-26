@@ -340,7 +340,6 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
       child: switch (_step) {
         0 => OnbPage(
           title: 'Who is the owner?',
-          subtitle: 'We will ask this person for the papers.',
           stepLabel: 'Step 1 of 4 · Owner',
           progress: 1,
           showCall: true,
@@ -348,7 +347,7 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
           footer: [PrimaryButton(label: 'Next', onPressed: _next)],
           children: [
             OnbTextField(label: 'Owner name', controller: _name, error: _nameError, capitalization: TextCapitalization.words),
-            const SizedBox(height: 18),
+            const SizedBox(height: 26),
             const Text('Ask for papers on', style: TextStyle(fontSize: 14, color: AppColors.muted)),
             const SizedBox(height: 8),
             Row(
@@ -358,7 +357,7 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
                 Expanded(child: _ChannelChip(label: 'WhatsApp', icon: Icons.chat_bubble_outline, selected: _channel == 'whatsapp', onTap: () => setState(() { _channel = 'whatsapp'; _contact.clear(); _contactError = null; }))),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 26),
             OnbTextField(
               key: ValueKey('contact-$_channel'),
               label: contactLabel,
