@@ -144,7 +144,8 @@ class ApprovedBrokerHome extends StatelessWidget {
         ],
       ),
       ?savedDrafts,
-      if (!profile.hasBankAccount) ...[
+      // With saved drafts the bank prompt lives inside the Continue panel.
+      if (!profile.hasBankAccount && savedDrafts == null) ...[
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(16),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/agreement_progress_repository.dart';
@@ -183,10 +184,14 @@ class BrokerDraftSection extends StatefulWidget {
   const BrokerDraftSection({
     required this.repository,
     this.agreements,
+    this.onAddBank,
     super.key,
   });
   final AgreementProgressRepository repository;
   final Stream<List<BrokerAgreementSummary>>? agreements;
+
+  /// When set, an "Add your bank" row is shown inside the same panel.
+  final VoidCallback? onAddBank;
   @override
   State<BrokerDraftSection> createState() => _BrokerDraftSectionState();
 }
@@ -216,8 +221,11 @@ class _BrokerDraftSectionState extends State<BrokerDraftSection> {
                     child: const Text('Retry saved agreements'),
                   );
                 }
+                final hasBank = widget.onAddBank != null;
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const SizedBox.shrink();
+                  return hasBank
+                      ? _panel(context, const [], widget.onAddBank)
+                      : const SizedBox.shrink();
                 }
                 final saved = snapshot.data!
                     .where(
@@ -230,46 +238,182 @@ class _BrokerDraftSectionState extends State<BrokerDraftSection> {
                     )
                     .toList();
                 if (agreements.hasError || saved.isEmpty) {
-                  return const SizedBox.shrink();
+                  return hasBank
+                      ? _panel(context, const [], widget.onAddBank)
+                      : const SizedBox.shrink();
                 }
-                return Container(
-                  margin: const EdgeInsets.only(top: 28),
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceMuted,
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(4, 0, 4, 14),
-                        child: Text(
-                          'Continue your agreement',
-                          style: TextStyle(
-                            fontSize: 18,
-                            height: 24 / 18,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.heading,
-                          ),
-                        ),
-                      ),
-                      BrokerDraftCard(
-                        progress: saved.first,
-                        repository: widget.repository,
-                      ),
-                      if (saved.length > 1)
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton(
-                            onPressed: () => context.push('/broker/unfinished'),
-                            child: Text('See all ${saved.length} saved drafts'),
-                          ),
-                        ),
-                    ],
-                  ),
-                );
+                return _panel(context, saved, widget.onAddBank);
               },
             ),
       );
+
+  static const _maxDraftRows = 2;
+
+  Widget _panel(
+    BuildContext context,
+    List<AgreementProgress> saved,
+    VoidCallback? onAddBank,
+  ) => Container(
+    margin: const EdgeInsets.only(top: 28),
+    padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+    decoration: BoxDecoration(
+      color: AppColors.surfaceMuted,
+      borderRadius: BorderRadius.circular(28),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(4, 0, 4, 14),
+          child: Text(
+            'Continue',
+            style: TextStyle(
+              fontSize: 18,
+              height: 24 / 18,
+              fontWeight: FontWeight.w500,
+              color: AppColors.heading,
+            ),
+          ),
+        ),
+        for (final progress in saved.take(_maxDraftRows))
+          _ContinueRow(
+            title: 'Complete rent agreement',
+            subtitle: progress.draft.propertyAddress.trim().isEmpty
+                ? 'Unnamed property'
+                : progress.draft.propertyAddress,
+            icon: 'agreement',
+            onTap: () => context.push(
+              '/broker/progress/${Uri.encodeComponent(progress.draft.id)}',
+            ),
+          ),
+        if (onAddBank != null)
+          _ContinueRow(
+            title: 'Add your bank',
+            subtitle: 'So we can send your fees',
+            icon: 'bank',
+            warm: true,
+            trailingPlus: true,
+            onTap: onAddBank,
+          ),
+        if (saved.length > _maxDraftRows)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => context.push('/broker/unfinished'),
+              child: Text('See all ${saved.length} saved drafts'),
+            ),
+          )
+        else
+          const SizedBox(height: 8),
+      ],
+    ),
+  );
+}
+
+class _ContinueRow extends StatelessWidget {
+  const _ContinueRow({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+    this.warm = false,
+    this.trailingPlus = false,
+  });
+  final String title;
+  final String subtitle;
+  final String icon;
+  final VoidCallback onTap;
+  final bool warm;
+  final bool trailingPlus;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = warm ? const Color(0xFF8A4500) : AppColors.primaryDark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: warm ? const Color(0xFFFFF3E0) : Colors.white,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(
+            color: warm ? const Color(0xFFF3C98B) : AppColors.border,
+          ),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: warm ? Colors.white : AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: SvgPicture.asset(
+                      'assets/design/home-$icon.svg',
+                      width: 22,
+                      height: 22,
+                      colorFilter: ColorFilter.mode(accent, BlendMode.srcIn),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          height: 22 / 17,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.heading,
+                        ),
+                      ),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 19 / 14,
+                          color: warm ? accent : AppColors.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (trailingPlus)
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: accent),
+                    ),
+                    child: Icon(Icons.add, size: 20, color: accent),
+                  )
+                else
+                  const Icon(
+                    Icons.chevron_right,
+                    size: 22,
+                    color: AppColors.muted,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

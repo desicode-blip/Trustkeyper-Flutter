@@ -183,3 +183,31 @@ not_changed: labels, icons, routes
 verification: flutter analyze/tests NOT run
 manual_test: selected tab pill has a visible gap to the outer border on all five tabs
 ```
+
+## Change 7 – Home "Continue" panel (drafts + bank in one card)
+Date: 2026-10-26 · Status: built on iPhone for review
+
+What & why: pending actions are grouped in ONE panel headed "Continue", following Claude Design artboard "2 · Several items". Each unfinished agreement is a row "Complete rent agreement" with the property name as subtext (no progress bar, no delete icon on Home; delete stays in the saved-drafts list). "Add your bank" is a warm row inside the same panel with a "+" circle instead of an Add button. "See all N saved drafts" sits at the bottom of the panel when more than 2 drafts exist.
+
+Files: `broker_draft_cards.dart` (`BrokerDraftSection` + new `_ContinueRow`; `BrokerDraftCard` unchanged and still used by agreements list / unfinished drafts), `broker_shell.dart` (passes `onAddBank`), `approved_broker_home.dart` (standalone bank card only shown when there is no drafts section).
+
+```
+AGENT RECORD – Change 7
+id: CHG-007
+date: 2026-10-26
+branch: staging (never main)
+files:
+  - apps/flutter_app/lib/src/features/broker/presentation/broker_draft_cards.dart
+  - apps/flutter_app/lib/src/features/broker/presentation/broker_shell.dart
+  - apps/flutter_app/lib/src/features/broker/presentation/approved_broker_home.dart
+rules:
+  - panel: AppColors.surfaceMuted, radius 28, heading 'Continue' 18/w500
+  - draft row: title 'Complete rent agreement', subtitle propertyAddress (or 'Unnamed property'), chevron, tap -> /broker/progress/<id>; max 2 rows
+  - bank row (only if !profile.hasBankAccount): amber FFF3E0/F3C98B, 'Add your bank' / 'So we can send your fees', '+' circle, tap -> /broker/bank
+  - 'See all N saved drafts' -> /broker/unfinished, only if N > 2
+  - panel also renders (bank row only) when there are no drafts but bank is missing
+not_changed: routes, repositories, BrokerDraftCard on other screens
+source_design: Claude Design artboard '2 · Several items'
+verification: flutter analyze/tests NOT run
+manual_test: Home with 3+ drafts and no bank shows heading Continue, 2 draft rows, bank row with +, See all link, all inside one panel
+```

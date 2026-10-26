@@ -155,6 +155,9 @@ class _BrokerShellState extends State<BrokerShell> {
                 : BrokerDraftSection(
                     repository: progressRepository!,
                     agreements: savedDraftAgreements,
+                    onAddBank: profile.hasBankAccount
+                        ? null
+                        : () => context.push('/broker/bank'),
                   ),
           ),
           BrokerAgreementsList(
