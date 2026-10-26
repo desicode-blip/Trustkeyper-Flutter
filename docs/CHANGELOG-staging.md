@@ -159,3 +159,27 @@ not_changed: routes, repositories, bell/profile header
 verification: flutter analyze/tests NOT run (no Flutter in cloud); tests edited by hand
 manual_test: Home shows blue tappable card; tiles renamed; draft card tap continues, trash icon deletes after confirm; Home nav pill has gap on left
 ```
+
+## Change 6 – Bottom navigation matches approved design
+Date: 2026-10-26 · Commit: `f5ae60b` · Status: built on iPhone for review
+
+What & why: bottom bar now matches the Claude Design artboard "1 · One item to continue" (canvas "TrustKeyper Broker Home – redesign"). Selected item is a soft-blue pill inset from the outer pill; unselected items are plain.
+
+Files: `lib/src/core/widgets/approved_navigation.dart` (`ApprovedBrokerNavigation`).
+
+```
+AGENT RECORD – Change 6
+id: CHG-006
+date: 2026-10-26
+branch: staging (never main)
+commit: f5ae60b
+file: apps/flutter_app/lib/src/core/widgets/approved_navigation.dart
+rules:
+  - outer pill: margin L12 R12 B20, height 76, padding horizontal 8, radius 38, white, border #EEF2F8, shadow rgba(heading,.14) blur 28 offset (0,8)
+  - items: Row spaceBetween; icon 24, label 12px (w500 selected / w400), gap 3, item radius 26
+  - selected: bg AppColors.primarySoft, color primaryDark, padding H14 V8; unselected: padding H8 V8, color muted, no fill
+source_design: Claude Design artboard '1 · One item to continue'
+not_changed: labels, icons, routes
+verification: flutter analyze/tests NOT run
+manual_test: selected tab pill has a visible gap to the outer border on all five tabs
+```
