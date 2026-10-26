@@ -303,3 +303,18 @@ not_changed: login phone-number field (large special design, hint only), search 
 verification: flutter analyze No issues; full test suite same 38 failures as before (pixel/font tests), none new
 manual_test: any form screen: label sits inside box, floats up on tap; tap blank area -> keyboard closes and box loses focus
 ```
+
+## Change 12 – Onboard property: "We know this owner" sheet
+Date: 2026-10-26 · Status: built on iPhone for review
+
+What & why: The old warning ("already asked / open that request") was a plain confirm box. It is now a soft sheet with the saved owner's card (initial, name, contact, number of houses) and two choices: **Same owner, new house** (keeps the saved name and number and goes on; a new house request is created) or **No, a new owner** (back to the form to change details). It shows when the typed phone/email OR name matches an earlier request (any status).
+
+```
+AGENT RECORD – Change 12
+id: CHG-012
+date: 2026-10-26
+branch: staging (never main)
+file: apps/flutter_app/lib/src/features/broker/presentation/onboarding_start_screens.dart (_askSameOwner, match by contact or case-insensitive name; same owner -> copies saved ownerName/channel/contact into the form and continues to step 1)
+verification: flutter analyze No issues found
+manual_test: send one request for "Choco"; start another with name Choco -> sheet appears; both buttons behave as above
+```

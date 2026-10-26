@@ -182,26 +182,27 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
             : (digits.length == 10 ? null : 'Type the 10 digit phone number');
       });
       if (_nameError != null || _contactError != null) return;
-      // The same owner may already have a request open.
-      PropertyOnboarding? same;
-      for (final item in _store.items) {
-        if (item.contact == (_channel == 'email' ? contact : digits) && item.phase != OnboardingPhase.ready) {
-          same = item;
-        }
-      }
-      if (same != null) {
-        final open = await onbConfirm(
-          context,
-          title: '${same.ownerName} is already asked',
-          message: 'You already sent a request to this ${_channel == 'email' ? 'email' : 'number'}. Open it instead of asking again?',
-          yes: 'Open that request',
-          no: 'It is a different house',
-        );
+      // Is this owner already registered (same phone/email, or same name)?
+      final key = _channel == 'email' ? contact : digits;
+      final lower = name.toLowerCase();
+      final matches = _store.items
+          .where((i) => i.contact == key || i.ownerName.trim().toLowerCase() == lower)
+          .toList();
+      if (matches.isNotEmpty) {
+        final same = await _askSameOwner(matches.last, matches.length);
         if (!mounted) return;
-        if (open) {
-          context.pushReplacement('/broker/onboarding/${same.id}');
+        if (same == null) return; // closed the sheet: stay and edit
+        if (!same) {
+          // A new person: stay on this page so the broker can change the details.
           return;
         }
+        // Same owner, another house: keep their saved name and contact.
+        final saved = matches.last;
+        setState(() {
+          _name.text = saved.ownerName;
+          _channel = saved.channel;
+          _contact.text = saved.contact;
+        });
       }
       setState(() => _step = 1);
     } else if (_step == 1) {
@@ -209,6 +210,75 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
     } else if (_step == 2) {
       await _send();
     }
+  }
+
+  /// true = same owner (new house) · false = a different person · null = closed.
+  Future<bool?> _askSameOwner(PropertyOnboarding saved, int houses) {
+    final initial = saved.ownerName.trim().isEmpty ? '?' : saved.ownerName.trim()[0].toUpperCase();
+    return showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'We know this owner',
+                style: TextStyle(fontSize: 24, height: 30 / 24, fontWeight: FontWeight.w700, color: AppColors.heading),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Someone with this name or number is already with you.',
+                style: TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(color: AppColors.primarySoft, shape: BoxShape.circle),
+                      child: Text(initial, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.primaryDark)),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(saved.ownerName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading)),
+                          Text(saved.contactText, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, color: AppColors.muted)),
+                          Text(houses == 1 ? '1 house with you' : '$houses houses with you', style: const TextStyle(fontSize: 14, color: AppColors.muted)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              PrimaryButton(label: 'Same owner, new house', onPressed: () => Navigator.pop(sheet, true)),
+              const SizedBox(height: 4),
+              const Padding(
+                padding: EdgeInsets.only(left: 4, bottom: 10),
+                child: Text('We keep the same name and number.', style: TextStyle(fontSize: 14, color: AppColors.muted)),
+              ),
+              OnbSecondaryButton(label: 'No, a new owner', onPressed: () => Navigator.pop(sheet, false)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _send() async {
