@@ -49,7 +49,7 @@ class BrokerAgreementStepsScreen extends StatelessWidget {
         ],
       ),
       child: FilledButton(
-        onPressed: () => context.push('/broker/property'),
+        onPressed: () => context.push('/broker/property/manual'),
         style: FilledButton.styleFrom(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(26),

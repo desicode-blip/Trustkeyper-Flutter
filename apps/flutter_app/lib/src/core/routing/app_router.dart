@@ -20,6 +20,9 @@ import '../../features/broker/presentation/agreement_renewal_screen.dart';
 import '../../features/broker/presentation/sign_only_screen.dart';
 import '../../features/broker/presentation/signing_requests_screen.dart';
 import '../../features/broker/presentation/broker_property_screen.dart';
+import '../../features/broker/presentation/onboarding_agreement_screens.dart';
+import '../../features/broker/presentation/onboarding_house_screens.dart';
+import '../../features/broker/presentation/onboarding_start_screens.dart';
 import '../../features/broker/data/broker_property_repository.dart';
 import '../../features/experiences/presentation/experience_hub_screen.dart';
 import '../../features/owner/presentation/owner_shell.dart';
@@ -243,7 +246,57 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/broker/property',
+      builder: (context, state) => const OnboardChooseScreen(),
+    ),
+    GoRoute(
+      path: '/broker/property/manual',
       builder: (context, state) => const BrokerPropertyScreen(),
+    ),
+    GoRoute(
+      path: '/broker/property/new',
+      builder: (context, state) => const OnboardNewScreen(),
+    ),
+    GoRoute(
+      path: '/broker/onboarding/:id',
+      builder: (context, state) => PropertySetupScreen(id: state.pathParameters['id']!),
+      routes: [
+        GoRoute(
+          path: 'paper/:key',
+          builder: (context, state) => PaperDetailScreen(id: state.pathParameters['id']!, paperKey: state.pathParameters['key']!),
+        ),
+        GoRoute(
+          path: 'ask/:key',
+          builder: (context, state) => AskAgainScreen(id: state.pathParameters['id']!, paperKey: state.pathParameters['key']!),
+        ),
+        GoRoute(
+          path: 'questions',
+          builder: (context, state) => AgreementQuestionsScreen(id: state.pathParameters['id']!),
+        ),
+        GoRoute(
+          path: 'draft',
+          builder: (context, state) => DraftScreen(id: state.pathParameters['id']!),
+        ),
+        GoRoute(
+          path: 'change',
+          builder: (context, state) => AskChangeScreen(id: state.pathParameters['id']!, clause: state.uri.queryParameters['clause']),
+        ),
+        GoRoute(
+          path: 'changes',
+          builder: (context, state) => ChangesScreen(id: state.pathParameters['id']!),
+        ),
+        GoRoute(
+          path: 'change/:cid',
+          builder: (context, state) => ChangeDecisionScreen(id: state.pathParameters['id']!, changeId: state.pathParameters['cid']!),
+        ),
+        GoRoute(
+          path: 'versions',
+          builder: (context, state) => VersionsScreen(id: state.pathParameters['id']!),
+        ),
+        GoRoute(
+          path: 'sign',
+          builder: (context, state) => SignScreen(id: state.pathParameters['id']!),
+        ),
+      ],
     ),
     GoRoute(
       path: '/broker/signing',

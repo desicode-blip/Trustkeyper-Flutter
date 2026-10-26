@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/agreement_progress_repository.dart';
 import '../data/broker_repository.dart';
+import '../data/property_onboarding.dart';
 
 String progressLabel(AgreementProgress progress) => switch (progress.stage) {
   'ownerCount' || 'owner' => 'Owner details',
@@ -198,6 +199,13 @@ class BrokerDraftSection extends StatefulWidget {
 
 class _BrokerDraftSectionState extends State<BrokerDraftSection> {
   late var stream = widget.repository.watch();
+
+  @override
+  void initState() {
+    super.initState();
+    PropertyOnboardingStore.instance.load();
+  }
+
   @override
   void didUpdateWidget(covariant BrokerDraftSection oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -207,7 +215,12 @@ class _BrokerDraftSectionState extends State<BrokerDraftSection> {
   }
 
   @override
-  Widget build(BuildContext context) =>
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: PropertyOnboardingStore.instance,
+    builder: (context, _) => _build(context, PropertyOnboardingStore.instance.open),
+  );
+
+  Widget _build(BuildContext context, List<PropertyOnboarding> houses) =>
       StreamBuilder<List<BrokerAgreementSummary>>(
         stream: widget.agreements,
         builder: (context, agreements) =>
@@ -221,10 +234,10 @@ class _BrokerDraftSectionState extends State<BrokerDraftSection> {
                     child: const Text('Retry saved agreements'),
                   );
                 }
-                final hasBank = widget.onAddBank != null;
+                final hasBank = widget.onAddBank != null || houses.isNotEmpty;
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return hasBank
-                      ? _panel(context, const [], widget.onAddBank)
+                      ? _panel(context, const [], widget.onAddBank, houses)
                       : const SizedBox.shrink();
                 }
                 final saved = snapshot.data!
@@ -239,10 +252,10 @@ class _BrokerDraftSectionState extends State<BrokerDraftSection> {
                     .toList();
                 if (agreements.hasError || saved.isEmpty) {
                   return hasBank
-                      ? _panel(context, const [], widget.onAddBank)
+                      ? _panel(context, const [], widget.onAddBank, houses)
                       : const SizedBox.shrink();
                 }
-                return _panel(context, saved, widget.onAddBank);
+                return _panel(context, saved, widget.onAddBank, houses);
               },
             ),
       );
@@ -253,6 +266,7 @@ class _BrokerDraftSectionState extends State<BrokerDraftSection> {
     BuildContext context,
     List<AgreementProgress> saved,
     VoidCallback? onAddBank,
+    List<PropertyOnboarding> houses,
   ) => Container(
     margin: const EdgeInsets.only(top: 28),
     padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
@@ -275,6 +289,14 @@ class _BrokerDraftSectionState extends State<BrokerDraftSection> {
             ),
           ),
         ),
+        for (final house in houses.take(_maxDraftRows))
+          _ContinueRow(
+            title: house.homeTitle,
+            subtitle: house.homeSubtitle,
+            icon: 'house',
+            warm: house.needYouCount > 0 || house.waitingChanges > 0,
+            onTap: () => context.push('/broker/onboarding/${house.id}'),
+          ),
         for (final progress in saved.take(_maxDraftRows))
           _ContinueRow(
             title: 'Complete rent agreement',

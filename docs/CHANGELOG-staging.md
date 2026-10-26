@@ -230,3 +230,38 @@ rules:
 verification: flutter analyze/tests NOT run
 manual_test: all three labels fully visible on a 390pt-wide phone
 ```
+
+## Change 9 – Onboard property: papers, agreement and signing journey
+Date: 2026-10-26 · Status: built on iPhone for review (approved design: 110-screen "Onboard property" canvas)
+
+What & why: "Onboard property" now opens two choices only: **Send link to owner** or **Add manually** (the old property form). Sending a link asks the owner by WhatsApp (phone) or email for 8 papers (Aadhaar, phone, email, tenant agreement, rent & deposit, bank, address, key holder). The broker sees each paper as Waiting / Checking / Approved / Not approved (with reason) / Needs you, can ask again (2-hour wait), add it themselves, call, or stop the request. When all are approved the house is created and the broker answers 4 questions (fee type, how owner pays, start date + months, notes). Then: agreement "preparing" → Draft review with key points → change requests both ways (max 3 rounds per point, versions kept) → lock final → stamp paper → printing → sign with a code (owner and broker) → house ready. Only the broker can skip the agreement. Home "Continue" panel lists houses that still need something.
+
+IMPORTANT – what is real and what is pretend: everything is stored on the phone only (`PropertyOnboardingStore`, SharedPreferences key `property_onboardings_v1`). Sending email/WhatsApp, reading papers, writing the draft, buying stamp paper and e-sign are NOT connected. A grey "TEST ONLY" card on each house page has buttons to pretend the owner or our team did the next step. Test sign code: 123456.
+
+```
+AGENT RECORD – Change 9
+id: CHG-009
+date: 2026-10-26
+branch: staging (never main)
+new_files:
+  - apps/flutter_app/lib/src/features/broker/data/property_onboarding.dart  (models + local store + test helpers)
+  - .../presentation/onboarding_widgets.dart (shared UI: OnbPage, OnbRow, OnbPill, OnbBanner, OnbStageBar ...)
+  - .../presentation/onboarding_start_screens.dart (OnboardChooseScreen, OnboardNewScreen)
+  - .../presentation/onboarding_house_screens.dart (PropertySetupScreen, PaperDetailScreen, AskAgainScreen)
+  - .../presentation/onboarding_agreement_screens.dart (questions, draft, changes, versions, SignScreen)
+  - apps/flutter_app/test/property_onboarding_test.dart
+changed_files:
+  - core/routing/app_router.dart: /broker/property -> OnboardChooseScreen; /broker/property/manual -> BrokerPropertyScreen (old form); /broker/property/new; /broker/onboarding/:id and children paper/:key, ask/:key, questions, draft, change, changes, change/:cid, versions, sign
+  - broker_agreement_steps_screen.dart: "add property" now pushes /broker/property/manual
+  - broker_draft_cards.dart: Continue panel also lists open PropertyOnboarding rows (title=homeTitle, subtitle=homeSubtitle)
+rules:
+  - phases: papers -> questions -> preparing -> review -> printing -> signing -> ready (agreementSkipped jumps questions -> ready)
+  - ask-again cooldown 2h (lastAskedAt); change rounds max 3 per clause; wrong sign code locks after 3 tries
+  - fee types: days (once), percent (monthly), fixed (monthly), once (one time); percent > 20 asks to confirm; > 100 blocked
+not_connected_needs_backend: WhatsApp/email sending, owner web page, automatic paper reading, draft generation, stamp paper, e-sign OTP, Firestore storage (+ rules), push
+verification:
+  - flutter analyze: No issues found
+  - new tests test/property_onboarding_test.dart: 5 passed
+  - full suite: 38 tests fail, the SAME 38 fail on the branch before this change (pixel/font tests in this Linux cloud); none are new
+manual_test: Home > Onboard property > Send link > fill owner > Sent > open house > tap TEST ONLY buttons through every phase
+```
