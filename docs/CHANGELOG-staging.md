@@ -331,3 +331,16 @@ files: .../broker/presentation/onboarding_widgets.dart (OnbPage list top padding
 spacing_rule_for_design_system: heading -> first field 32; field -> field 26 (other screens not yet changed)
 verification: flutter analyze No issues found
 ```
+
+## Change 14 – Onboard property: "Is there another owner?" step
+Date: 2026-10-26 · Status: built on iPhone for review
+What: no subtitle; no name box on the page. The page lists owners already added and a "+ Add another owner" button. Tapping it opens a page "Owner 2/3..." with the SAME form as owner 1 (name, Email/WhatsApp, email or phone with the right keyboard) and a "Save owner" button, then returns to the list. Bottom button is always just "Next". Each extra owner can be removed with the X.
+```
+AGENT RECORD – Change 14
+id: CHG-014
+date: 2026-10-26
+branch: staging (never main)
+file: apps/flutter_app/lib/src/features/broker/presentation/onboarding_start_screens.dart (_ownerForm shared by owner 1 and extra owners; _others is a list of {name, channel, contact}; otherOwners saved as "Name · contact" strings)
+note: only owner 1 receives the request (extra owners are saved as names with contact); sending to extra owners needs the backend
+verification: flutter analyze No issues found; property_onboarding_test passes
+```
