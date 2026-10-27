@@ -422,3 +422,17 @@ branch: staging (never main)
 file: onboarding_agreement_screens.dart (_pickMonths; used by chips and Other)
 rule: duration > 11 months => cannot be selected; registered agreement not supported yet
 verification: flutter analyze No issues found
+
+## Change 21 – "We know this owner": complete both paths
+Date: 2026-10-27 · Status: built on iPhone for review
+What: 
+- **Same owner, new house**: keeps the saved name and contact and COPIES the ID proofs from the earlier request: Aadhaar, phone, email (ticked, with the old values). House papers (address, tenant agreement, rent and deposit, bank, key holder) are asked again because they belong to the new house. A new house request is created.
+- **No, a new owner**: goes on to the next step with what was typed. NOTHING is copied except the phone or email just typed (ticked). Aadhaar and the rest are asked fresh.
+- Closing the sheet keeps you on the page.
+```
+AGENT RECORD – Change 21
+id: CHG-021
+date: 2026-10-27
+branch: staging (never main)
+files: data/property_onboarding.dart (create(carryFrom) copies approved aadhaar/phone/email), presentation/onboarding_start_screens.dart (_carryFrom set on same owner, cleared otherwise; new owner no longer returns to the form), test/property_onboarding_test.dart
+verification: flutter analyze No issues found; property_onboarding_test 6 passed

@@ -180,6 +180,9 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
 
   static final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
 
+  // Set on 'Same owner, new house': we reuse the ID proofs from that request.
+  PropertyOnboarding? _carryFrom;
+
   _OwnerForm get _first => _owners.first;
   // How we ask owner 1 for papers: email (best) or WhatsApp.
   String get _channel => _first.channel ?? 'email';
@@ -224,20 +227,31 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
         final matches = _store.items
             .where((i) => i.contact == key || i.ownerName.trim().toLowerCase() == lower)
             .toList();
+        _carryFrom = null;
         if (matches.isNotEmpty) {
           final same = await _askSameOwner(matches.last, matches.length);
           if (!mounted) return;
-          if (same == null || !same) return; // stay and change the details
-          final saved = matches.last;
-          setState(() {
-            _first.name.text = saved.ownerName;
-            _first.channel = saved.channel;
-            if (saved.channel == 'email') {
-              _first.email.text = saved.contact;
-            } else {
-              _first.phone.text = saved.contact;
-            }
-          });
+          if (same == null) return; // closed the sheet: stay on this page
+          if (same) {
+            // Same owner, new house: keep the saved name and contact, and reuse
+            // the ID proofs (Aadhaar, phone, email) from the earlier request.
+            final saved = matches.last;
+            _carryFrom = matches.lastWhere(
+              (m) => m.paper(PaperKeys.aadhaar).status == PaperStatus.approved,
+              orElse: () => saved,
+            );
+            setState(() {
+              _first.name.text = saved.ownerName;
+              _first.channel = saved.channel;
+              if (saved.channel == 'email') {
+                _first.email.text = saved.contact;
+              } else {
+                _first.phone.text = saved.contact;
+              }
+            });
+          }
+          // A new owner: carry on with what was typed. Nothing is copied
+          // except the phone or email given now.
         }
       }
       setState(() {
@@ -333,6 +347,10 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
                 child: Text('We keep the same name and number.', style: TextStyle(fontSize: 14, color: AppColors.muted)),
               ),
               OnbSecondaryButton(label: 'No, a new owner', onPressed: () => Navigator.pop(sheet, false)),
+              const Padding(
+                padding: EdgeInsets.only(left: 4, top: 8),
+                child: Text('A different person. We start fresh. Only the phone or email you typed is used.', style: TextStyle(fontSize: 14, color: AppColors.muted)),
+              ),
             ],
           ),
         ),
@@ -356,6 +374,7 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
         channel: _channel,
         contact: contact,
         otherOwners: others,
+        carryFrom: _carryFrom,
       );
       if (!mounted) return;
       setState(() {

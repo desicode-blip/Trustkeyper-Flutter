@@ -560,6 +560,7 @@ class PropertyOnboardingStore extends ChangeNotifier {
     required String channel,
     required String contact,
     List<String> otherOwners = const [],
+    PropertyOnboarding? carryFrom,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final item = PropertyOnboarding(
@@ -572,9 +573,21 @@ class PropertyOnboardingStore extends ChangeNotifier {
       lastAskedAt: now,
     );
     // We already have the contact we used to ask, so that paper is ticked.
-    final first = channel == 'email'
-        ? item.withPaper(PaperKeys.email, PaperStatus.approved, value: contact.trim())
-        : item.withPaper(PaperKeys.phone, PaperStatus.approved, value: '+91 ${contact.trim()}');
+    var first = item;
+    // Same owner, new house: personal ID proofs come from the earlier request.
+    // House papers (address, tenant, rent, bank, keys) are asked again.
+    if (carryFrom != null) {
+      for (final key in const [PaperKeys.aadhaar, PaperKeys.phone, PaperKeys.email]) {
+        final old = carryFrom.paper(key);
+        if (old.status == PaperStatus.approved) {
+          first = first.withPaper(key, PaperStatus.approved, value: old.value);
+        }
+      }
+    }
+    // The contact we used to ask is always ticked.
+    first = channel == 'email'
+        ? first.withPaper(PaperKeys.email, PaperStatus.approved, value: contact.trim())
+        : first.withPaper(PaperKeys.phone, PaperStatus.approved, value: '+91 ${contact.trim()}');
     _items = [first, ..._items];
     notifyListeners();
     await _save();

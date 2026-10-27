@@ -42,6 +42,27 @@ void main() {
     expect(store.byId(item.id)!.ownerSigned, isTrue);
   });
 
+  test('same owner new house reuses ID proofs; new owner copies nothing', () async {
+    final store = PropertyOnboardingStore();
+    await store.load();
+    final first = await store.create(ownerName: 'Ravi Kumar', channel: 'whatsapp', contact: '9876543210');
+    await store.testOwnerSendsPapers(first.id);
+    await store.testFixAllPapers(first.id);
+    final old = store.byId(first.id)!;
+
+    final same = await store.create(ownerName: 'Ravi Kumar', channel: 'email', contact: 'ravi@example.com', carryFrom: old);
+    expect(same.paper(PaperKeys.aadhaar).status, PaperStatus.approved);
+    expect(same.paper(PaperKeys.phone).status, PaperStatus.approved);
+    expect(same.paper(PaperKeys.email).status, PaperStatus.approved);
+    expect(same.paper(PaperKeys.address).status, PaperStatus.waiting);
+    expect(same.paper(PaperKeys.bank).status, PaperStatus.waiting);
+
+    final fresh = await store.create(ownerName: 'Ravi Kumar', channel: 'email', contact: 'other@example.com');
+    expect(fresh.paper(PaperKeys.aadhaar).status, PaperStatus.waiting);
+    expect(fresh.paper(PaperKeys.phone).status, PaperStatus.waiting);
+    expect(fresh.paper(PaperKeys.email).status, PaperStatus.approved);
+  });
+
   test('requests survive an app restart', () async {
     final a = PropertyOnboardingStore();
     await a.load();
