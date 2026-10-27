@@ -537,7 +537,7 @@ class PropertyOnboarding {
         ? (hasManyOwners
               ? '${ownerFirstAt(firstOwnerNeedingYou < 0 ? 0 : firstOwnerNeedingYou)} · ${PaperKeys.title(_everyPaper.firstWhere(_isNeed).key)} needs you'
               : '${PaperKeys.title(_everyPaper.firstWhere(_isNeed).key)} needs you')
-        : 'Waiting for $ownersFirst\'s papers',
+        : 'Waiting for $ownersFirst\'s documents',
     OnboardingPhase.questions => 'Takes 2 minutes',
     OnboardingPhase.preparing => 'We are making the agreement',
     OnboardingPhase.review => waitingChanges > 0

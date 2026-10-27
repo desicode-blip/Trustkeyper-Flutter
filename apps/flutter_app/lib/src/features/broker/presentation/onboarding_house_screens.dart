@@ -160,10 +160,10 @@ class _OnboardingBody extends StatelessWidget {
     final allWaiting = item.papers.every((p) => p.status == PaperStatus.waiting || p.status == PaperStatus.approved);
     return [
       if (item.allPapersDone)
-        const OnbBanner('All papers are checked and approved.', kind: 'ok', icon: Icons.check_circle_outline)
+        const OnbBanner('All documents are checked and approved.', kind: 'ok', icon: Icons.check_circle_outline)
       else if (item.needYouCount > 0)
         OnbBanner(
-          item.needYouCount == 1 ? '1 paper needs you.' : '${item.needYouCount} papers need you.',
+          item.needYouCount == 1 ? '1 document needs you.' : '${item.needYouCount} documents need you.',
           kind: 'need',
           icon: Icons.error_outline,
         )
@@ -215,8 +215,8 @@ class _OnboardingBody extends StatelessWidget {
           onPressed: () async {
             final stop = await onbConfirm(
               context,
-              title: 'Stop asking for papers?',
-              message: '${_firstName(item)} will not get more messages. Papers already received are deleted from this request.',
+              title: 'Stop asking for documents?',
+              message: '${_firstName(item)} will not get more messages. Documents already received are deleted from this request.',
               yes: 'Stop and delete request',
               no: 'Keep going',
               danger: true,
@@ -241,7 +241,7 @@ class _OnboardingBody extends StatelessWidget {
     if (owner == null) return;
     await store.addOwner(item.id, owner);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('We asked ${owner.firstName} for the papers.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('We asked ${owner.firstName} for the documents.')));
     }
   }
 
@@ -250,7 +250,7 @@ class _OnboardingBody extends StatelessWidget {
     final remove = await onbConfirm(
       context,
       title: 'Remove $name?',
-      message: '$name is not an owner of this house any more. Papers $name sent are deleted from this request. $name will not get more messages.',
+      message: '$name is not an owner of this house any more. Documents $name sent are deleted from this request. $name will not get more messages.',
       yes: 'Remove $name',
       no: 'Keep $name',
       danger: true,
@@ -370,7 +370,7 @@ class _OnboardingBody extends StatelessWidget {
   }
 
   List<Widget> _questions(BuildContext context) => [
-    const OnbBanner('Papers are ready. Now tell us what you agreed with the owner.', kind: 'ok', icon: Icons.check_circle_outline),
+    const OnbBanner('Documents are ready. Now tell us what you agreed with the owner.', kind: 'ok', icon: Icons.check_circle_outline),
     const SizedBox(height: 14),
     OnbCard(
       child: Column(
@@ -396,17 +396,21 @@ class _OnboardingBody extends StatelessWidget {
         ],
       ),
     ),
+    const SizedBox(height: 8),
+    Align(alignment: Alignment.centerLeft, child: _callTeamButton()),
   ];
 
   List<Widget> _preparing() => [
     const OnbCentered(
       icon: Icons.description_outlined,
       title: 'Making your agreement',
-      message: 'We are writing it from the papers and what you told us. It will go to the owner soon.',
+      message: 'We are writing it using the documents from the owner and what you told us. It will go to the owner soon.',
       loading: true,
     ),
     const SizedBox(height: 16),
     const OnbBanner('You can close the app. We will tell you when it is ready.', icon: Icons.notifications_none),
+    const SizedBox(height: 8),
+    Align(alignment: Alignment.centerLeft, child: _callTeamButton()),
   ];
 
   List<Widget> _review(BuildContext context) {
@@ -461,9 +465,11 @@ class _OnboardingBody extends StatelessWidget {
         ),
       ],
       const SizedBox(height: 8),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton(
+      Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 16,
+        children: [
+          TextButton(
           onPressed: () async {
             final cancel = await onbConfirm(
               context,
@@ -478,9 +484,18 @@ class _OnboardingBody extends StatelessWidget {
           },
           child: const Text('Cancel agreement', style: TextStyle(color: AppColors.error, fontSize: 16)),
         ),
+          _callTeamButton(),
+        ],
       ),
     ];
   }
+
+  /// Call the team that writes the agreements.
+  Widget _callTeamButton() => TextButton.icon(
+    onPressed: () => launchUrl(Uri.parse('tel:+918088516875')),
+    icon: const Icon(Icons.call_outlined, size: 20),
+    label: const Text('Call our agreement team', style: TextStyle(fontSize: 16)),
+  );
 
   List<Widget> _signing(BuildContext context) {
     final first = _firstName(item);
@@ -538,7 +553,7 @@ class _OnboardingBody extends StatelessWidget {
       title: '${item.houseName} is ready',
       message: item.agreementSkipped
           ? 'You skipped the agreement. You can make it later.'
-          : 'Papers are checked and the agreement is signed. Now find a tenant.',
+          : 'Documents are checked and the agreement is signed. Now find a tenant.',
     ),
     const SizedBox(height: 20),
     OnbCard(
@@ -555,7 +570,25 @@ class _OnboardingBody extends StatelessWidget {
 
   // ---- main button at the bottom ----
 
+  /// In the agreement stage, "Read the full agreement" is the second button.
   List<Widget> _footer(BuildContext context) {
+    final core = _footerCore(context);
+    final read = OnbReadFullButton(
+      label: 'Read the full agreement',
+      onPressed: () => context.push('/broker/onboarding/${item.id}/agreement'),
+    );
+    switch (item.phase) {
+      case OnboardingPhase.questions:
+      case OnboardingPhase.preparing:
+      case OnboardingPhase.review:
+        if (core.isEmpty) return [read];
+        return [core.first, const SizedBox(height: 10), read, ...core.skip(1)];
+      default:
+        return core;
+    }
+  }
+
+  List<Widget> _footerCore(BuildContext context) {
     switch (item.phase) {
       case OnboardingPhase.papers:
         if (item.allPapersDone) {
@@ -651,7 +684,7 @@ class _OnboardingBody extends StatelessWidget {
           final mine = o == 0 ? item.papers : item.personalPapersAt(o);
           if (mine.every((p) => p.status == PaperStatus.waiting || p.status == PaperStatus.approved) && !item.ownerPapersDone(o)) {
             buttons.add((
-              item.hasManyOwners ? '${item.ownerFirstAt(o)} sends papers' : 'Owner sends some papers',
+              item.hasManyOwners ? '${item.ownerFirstAt(o)} sends documents' : 'Owner sends some documents',
               () => store.testOwnerSendsPapers(item.id, owner: o),
             ));
           }
@@ -690,7 +723,7 @@ class _OnboardingBody extends StatelessWidget {
           children: [
             const Text('TEST ONLY', style: TextStyle(fontSize: 12, letterSpacing: 1, fontWeight: FontWeight.w700, color: AppColors.muted)),
             const SizedBox(height: 4),
-            const Text('Email, WhatsApp, reading papers and e-sign are not connected yet. Use these to pretend the next step happened.', style: TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted)),
+            const Text('Email, WhatsApp, reading documents and e-sign are not connected yet. Use these to pretend the next step happened.', style: TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted)),
             const SizedBox(height: 10),
             for (final (label, action) in buttons) ...[
               OnbSecondaryButton(label: label, onPressed: () => action()),
@@ -719,7 +752,7 @@ class PaperDetailScreen extends StatelessWidget {
       if (owner >= item.ownerCount) {
         return OnbPage(
           title: PaperKeys.title(paperKey),
-          footer: [PrimaryButton(label: 'Back to papers', onPressed: () => context.pop())],
+          footer: [PrimaryButton(label: 'Back to documents', onPressed: () => context.pop())],
           children: const [OnbBanner('This owner was removed from the house.', icon: Icons.info_outline)],
         );
       }
@@ -774,13 +807,13 @@ class PaperDetailScreen extends StatelessWidget {
             const SizedBox(height: 14),
             const OnbBanner('Clear and checked. Nothing to do.', kind: 'ok', icon: Icons.check_circle_outline),
           ]);
-          footer.add(PrimaryButton(label: 'Back to papers', onPressed: () => context.pop()));
+          footer.add(PrimaryButton(label: 'Back to documents', onPressed: () => context.pop()));
         case PaperStatus.checking:
           body.add(const OnbBanner('We are reading it. Takes about 1 minute. You can leave this screen.', kind: 'info', icon: Icons.schedule));
-          footer.add(PrimaryButton(label: 'Back to papers', onPressed: () => context.pop()));
+          footer.add(PrimaryButton(label: 'Back to documents', onPressed: () => context.pop()));
         case PaperStatus.notNeeded:
           body.add(const OnbBanner('The owner says this is not needed.', icon: Icons.info_outline));
-          footer.add(PrimaryButton(label: 'Back to papers', onPressed: () => context.pop()));
+          footer.add(PrimaryButton(label: 'Back to documents', onPressed: () => context.pop()));
         case PaperStatus.needsYou:
           body.addAll([
             OnbCard(child: Text(paper.reason, style: const TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.body))),
@@ -861,7 +894,7 @@ class PaperDetailScreen extends StatelessWidget {
           children: [
             Text(PaperKeys.title(paper.key), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
             const SizedBox(height: 6),
-            Text('Type what is on the paper. ${PaperKeys.hint(paper.key)}.', style: const TextStyle(fontSize: 16, color: AppColors.muted)),
+            Text('Type what is on the document. ${PaperKeys.hint(paper.key)}.', style: const TextStyle(fontSize: 16, color: AppColors.muted)),
             const SizedBox(height: 14),
             OnbTextField(label: 'Details', controller: controller, maxLines: 2),
             const SizedBox(height: 14),
@@ -894,9 +927,9 @@ class AskAgainScreen extends StatefulWidget {
 class _AskAgainScreenState extends State<AskAgainScreen> {
   static const _reasons = {
     'Photo is blurry': 'the photo is blurry. Please send a clear photo. Keep all 4 corners inside.',
-    'Wrong paper': 'this is not the paper we need. Please send the right one.',
+    'Wrong document': 'this is not the document we need. Please send the right one.',
     'Pages missing': 'some pages are missing. Please send all pages.',
-    'Name is different': 'the name is different from the other papers. Please send the right paper.',
+    'Name is different': 'the name is different from the other documents. Please send the right document.',
   };
   String _reason = 'Photo is blurry';
 
@@ -1014,7 +1047,7 @@ class _ManyOwnersPapersState extends State<_ManyOwnersPapers> {
   Widget _summary() {
     final names = [for (var o = 0; o < item.ownerCount; o++) item.ownerFirstAt(o)];
     if (item.allPapersDone) {
-      return const OnbBanner('All papers from all owners are approved.', kind: 'ok', icon: Icons.check_circle_outline);
+      return const OnbBanner('All documents from all owners are approved.', kind: 'ok', icon: Icons.check_circle_outline);
     }
     final needs = [
       for (var o = 0; o < item.ownerCount; o++)
@@ -1131,9 +1164,9 @@ class _ManyOwnersPapersState extends State<_ManyOwnersPapers> {
         ),
         const SizedBox(height: 12),
         if (_done(o))
-          OnbBanner(o == 0 ? '$first\'s papers and the house papers are approved.' : '$first\'s papers are approved.', kind: 'ok', icon: Icons.check_circle_outline)
+          OnbBanner(o == 0 ? '$first\'s documents and the house documents are approved.' : '$first\'s documents are approved.', kind: 'ok', icon: Icons.check_circle_outline)
         else if (_need(o) > 0)
-          OnbBanner(_need(o) == 1 ? '1 paper needs you.' : '${_need(o)} papers need you.', kind: 'need', icon: Icons.error_outline)
+          OnbBanner(_need(o) == 1 ? '1 document needs you.' : '${_need(o)} documents need you.', kind: 'need', icon: Icons.error_outline)
         else if (allWaiting && silentDays >= 3)
           OnbBanner('$first has not replied for $silentDays days.', kind: 'wait', icon: Icons.schedule)
         else
@@ -1159,7 +1192,7 @@ class _ManyOwnersPapersState extends State<_ManyOwnersPapers> {
           OnbRow(
             icon: Icons.home_outlined,
             tone: item.sharedPapersDone ? 'ok' : 'mute',
-            title: 'House papers come from ${item.ownerFirstAt(0)}',
+            title: 'House documents come from ${item.ownerFirstAt(0)}',
             subtitle: 'Address, rent, bank, keys. See Owner 1',
             onTap: () => setState(() => _owner = 0),
           ),
@@ -1247,7 +1280,7 @@ class _AddOwnerSheetState extends State<_AddOwnerSheet> {
       children: [
         const Text('Add another owner', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
         const SizedBox(height: 4),
-        Text('We will ask for their Aadhaar, phone and email. House papers still come from ${widget.item.ownerFirstAt(0)}.', style: const TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted)),
+        Text('We will ask for their Aadhaar, phone and email. House documents still come from ${widget.item.ownerFirstAt(0)}.', style: const TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted)),
         const SizedBox(height: 24),
         OnbTextField(label: 'Full name', controller: _name, error: _nameError, capitalization: TextCapitalization.words),
         const SizedBox(height: 26),
@@ -1281,7 +1314,7 @@ class _AddOwnerSheetState extends State<_AddOwnerSheet> {
           formatters: _channel == 'email' ? null : [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
         ),
         const SizedBox(height: 24),
-        PrimaryButton(label: 'Add and ask for papers', onPressed: _save),
+        PrimaryButton(label: 'Add and ask for documents', onPressed: _save),
       ],
     ),
   );

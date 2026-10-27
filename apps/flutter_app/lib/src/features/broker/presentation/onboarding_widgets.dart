@@ -390,7 +390,7 @@ class OnbStageBar extends StatelessWidget {
   const OnbStageBar(this.current, {super.key});
   final int current;
 
-  static const _names = ['Papers', 'Agreement', 'Signing', 'Ready'];
+  static const _names = ['Documents', 'Agreement', 'Signing', 'Ready'];
 
   @override
   Widget build(BuildContext context) => Column(
@@ -550,6 +550,35 @@ class OnbTextField extends StatelessWidget {
 }
 
 /// Outlined (second) button next to the main one.
+/// "Read the full agreement": same look as the read-full button of the rent
+/// agreement review (soft blue, document icon, arrow).
+class OnbReadFullButton extends StatelessWidget {
+  const OnbReadFullButton({required this.label, required this.onPressed, super.key});
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: double.infinity,
+    child: FilledButton.tonalIcon(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        backgroundColor: AppColors.primarySoft,
+        foregroundColor: AppColors.primary,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      icon: const Icon(Icons.description_outlined),
+      label: Row(
+        children: [
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500))),
+          const Icon(Icons.chevron_right),
+        ],
+      ),
+    ),
+  );
+}
+
 class OnbSecondaryButton extends StatelessWidget {
   const OnbSecondaryButton({
     required this.label,

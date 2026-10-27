@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
@@ -424,6 +425,151 @@ class DraftScreen extends StatelessWidget {
         const Text('Our team keeps the legal words correct. You only say what you want in simple words.', style: TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted)),
       ],
     ),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Read the full agreement (owner and broker)
+// Same format as "Read full agreement" in the rent agreement review: a notice,
+// the people who sign, the details in coloured cards (yellow = captured,
+// green = changed since the first draft), then the clauses.
+// ---------------------------------------------------------------------------
+
+/// The broker who signs. It is whoever is registered and logged in: our own
+/// team or an outside broker.
+String _brokerName() {
+  try {
+    final name = FirebaseAuth.instance.currentUser?.displayName?.trim();
+    if (name != null && name.isNotEmpty) return name;
+  } catch (_) {
+    // Not signed in (or not available): use a plain word instead.
+  }
+  return 'You (the broker)';
+}
+
+class OwnerAgreementScreen extends StatelessWidget {
+  const OwnerAgreementScreen({required this.id, super.key});
+  final String id;
+
+  static const _yellow = Color(0xFFFFF4CE);
+  static const _green = Color(0xFFE5F8F0);
+
+  @override
+  Widget build(BuildContext context) => OnbItemView(
+    id: id,
+    builder: (context, item) {
+      final broker = _brokerName();
+      final answers = item.answers;
+      final decided = answers.feeType.isNotEmpty;
+      final changedLabels = {for (final c in item.changes) c.clause};
+      final started = answers.startDate.isEmpty ? 'Not decided yet' : answers.startDate;
+      final terms = <(String, String, bool)>[
+        ('Property', item.address.trim().isEmpty ? 'Address comes from the owner\'s documents' : item.address, true),
+        (item.hasManyOwners ? 'Owners' : 'Owner', item.ownersFull, true),
+        ('Broker', broker, true),
+        ('Rent the owner wants', '${onbMoney(item.rent)} every month', true),
+        ('Deposit', onbMoney(item.deposit), true),
+        ('Broker fee', decided ? answers.feeSummary(item.rent) : 'Not decided yet', decided),
+        ('How the fee is paid', (decided ? answers.payWayText : 'Not decided yet'), decided),
+        ('Start date', started, answers.startDate.isNotEmpty),
+        ('How long', '${answers.months} months', true),
+        if (answers.notes.trim().isNotEmpty) ('Other notes', answers.notes, true),
+      ];
+      // Names the owner and broker use for the same thing in the key points.
+      const alias = {
+        'Broker fee': 'Your fee',
+        'How the fee is paid': 'How owner pays your fee',
+        'Rent the owner wants': 'Rent',
+      };
+      final clauses = <(String, String)>[
+        ('1. What the broker does', '$broker finds and checks tenants, takes tenant calls and complaints, and coordinates small repairs and the move-in and move-out checks. The owner picks the tenant and signs the tenant\'s agreement in their own name.'),
+        ('2. What the owner does', 'The owner gives true documents, answers approval requests on time, pays the broker fee and the costs that are valid, and is responsible for any dispute about who owns the house.'),
+        ('3. The fee', decided ? '${answers.feeSummary(item.rent)}. ${answers.payWayText}. The fee includes all taxes.' : 'The fee is not decided yet. It will be written here once you tell us.'),
+        ('4. Rent and deposit', 'The tenant\'s rent and deposit are for the owner. The broker does not keep them unless the owner agrees in writing.'),
+        ('5. How long', '${answers.months} months${answers.startDate.isEmpty ? '' : ' from ${answers.startDate}'}. After that it ends, unless both sides renew in writing.'),
+        ('6. Keeping things private', 'Both sides keep names, numbers, money and tenant details private. This continues for 3 years after the agreement ends.'),
+        ('7. If something goes wrong', 'Each side is responsible for its own mistakes. The broker\'s total responsibility is limited to the fees paid in the last 12 months. Neither side pays for indirect loss.'),
+        ('8. Ending the agreement', 'Either side can end it by telling the other in writing. The notice time is set in the final draft.'),
+      ];
+      return OnbPage(
+        title: 'Full agreement',
+        subtitle: 'Between the owner and the broker.',
+        footer: [PrimaryButton(label: 'Back', onPressed: () => context.pop())],
+        children: [
+          OnbBanner(
+            item.phase == OnboardingPhase.papers || item.phase == OnboardingPhase.questions || item.phase == OnboardingPhase.preparing
+                ? 'This is how the agreement will read. The final draft is still being made. Yellow means we have it from you.'
+                : 'This is the full agreement for ${item.ownersFirst} and $broker. Yellow means captured. Green means changed since the first draft.',
+            icon: Icons.description_outlined,
+            kind: 'info',
+          ),
+          const SizedBox(height: 14),
+          const Text('Who signs', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
+          const SizedBox(height: 8),
+          OnbCard(
+            child: Column(
+              children: [
+                for (var o = 0; o < item.ownerCount; o++)
+                  OnbRow(
+                    icon: Icons.person_outline,
+                    title: item.ownerNameAt(o),
+                    subtitle: item.hasManyOwners ? 'Owner ${o + 1}' : 'Owner',
+                    chevron: false,
+                  ),
+                OnbRow(icon: Icons.badge_outlined, title: broker, subtitle: 'Broker', chevron: false),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text('The details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
+          const SizedBox(height: 8),
+          for (final (label, value, known) in terms) ...[
+            Builder(
+              builder: (context) {
+                final changed = changedLabels.contains(label) || changedLabels.contains(alias[label]);
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: changed ? _green : (known ? _yellow : AppColors.surfaceMuted),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('$label${changed ? ' · Changed' : ''}', style: const TextStyle(fontSize: 14, color: AppColors.muted)),
+                      const SizedBox(height: 4),
+                      SelectableText(value, style: const TextStyle(fontSize: 17, height: 24 / 17, color: AppColors.heading)),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+          const SizedBox(height: 8),
+          const Text('The words', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
+          const SizedBox(height: 8),
+          for (final (title, text) in clauses) ...[
+            OnbCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
+                  const SizedBox(height: 6),
+                  SelectableText(text, style: const TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.body)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          const Text(
+            'Plain words for reading. Our team keeps the legal words correct in the final draft. Signing, stamp paper and payment come in the next stages.',
+            style: TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted),
+          ),
+        ],
+      );
+    },
   );
 }
 

@@ -463,3 +463,21 @@ branch: staging (never main)
 files: data/property_onboarding.dart (CoOwner model with own papers/signed/lastAskedAt; PaperKeys.personal; owner-aware getters; store.addOwner/removeOwner; create(coOwners) keeps known proofs; test helpers per owner; old otherOwners strings migrate), presentation/onboarding_house_screens.dart (_ManyOwnersPapers tabs, _AddOwnerSheet, per-owner reminder/contact/paper/ask screens, signing rows), presentation/onboarding_start_screens.dart (CoOwner objects, duplicate-owner checks), presentation/onboarding_agreement_screens.dart (all owners sign), core/routing/app_router.dart (?o= owner on paper and ask routes), test/property_onboarding_test.dart
 rule: house papers come only from owner index 0; allPapersDone and allOwnersSigned require every owner
 verification: flutter analyze No issues found; property_onboarding_test 9 passed
+
+## Change 23 – "Documents" wording, read the full agreement, call our team
+Date: 2026-10-27 · Status: built on iPhone for review
+What:
+- **Words:** the first stage is now called **Documents** (was Papers). Every "papers/paper" the broker sees is now "documents/document" (the stamp paper stays "stamp paper"). The line on "Making your agreement" now reads "We are writing it using the documents from the owner and what you told us."
+- **Read the full agreement:** in the agreement stage (questions, making the agreement, review) a soft-blue button **Read the full agreement** sits as the second button, under the main one. It uses the same look as "Read full agreement" in the rent agreement review. It opens a **Full agreement** page between the **owner(s) and the broker**: who signs, the details in yellow cards (green + "Changed" when changed after the first draft), and 8 plain-word clauses. Before the final draft exists it shows how the agreement will read, and anything not decided yet says "Not decided yet".
+- **Who is the broker:** the name of the registered broker who is logged in (our own team or an outside broker). If no name is available it says "You (the broker)".
+- **Call our agreement team:** a call button next to **Cancel agreement** (review), and on "Making your agreement" and the questions screen. It calls the company number already used in the app (+91 80885 16875).
+Not built: the real legal text (the clauses are plain-word template wording, our team confirms the legal words); a broker company name from a registered profile (only the logged-in name is used); a separate number for the agreement team.
+```
+AGENT RECORD – Change 23
+id: CHG-023
+date: 2026-10-27
+branch: staging (never main)
+files: presentation/onboarding_widgets.dart (OnbReadFullButton, stage name Documents), presentation/onboarding_house_screens.dart (_footer inserts read-full as 2nd button in questions/preparing/review; _callTeamButton; wording), presentation/onboarding_agreement_screens.dart (OwnerAgreementScreen, _brokerName from FirebaseAuth displayName), presentation/onboarding_start_screens.dart + data/property_onboarding.dart (wording), core/routing/app_router.dart (route /broker/onboarding/:id/agreement), test/property_onboarding_test.dart
+rule: only string literals were renamed; code names (papers, PaperKeys, routes) unchanged
+verification: flutter analyze No issues found; property_onboarding_test 10 passed
+```

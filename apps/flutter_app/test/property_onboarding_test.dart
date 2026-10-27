@@ -201,7 +201,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('House address'), findsNothing);
     expect(find.text('Aadhaar card'), findsOneWidget);
-    expect(find.textContaining('House papers come from Ravi'), findsOneWidget);
+    expect(find.textContaining('House documents come from Ravi'), findsOneWidget);
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('agreement stage: read full agreement, call team, owner and broker', (tester) async {
+    final store = PropertyOnboardingStore.instance;
+    await store.load();
+    final item = await store.create(ownerName: 'Ravi Kumar', channel: 'email', contact: 'ravi@example.com');
+    await store.update(item.id, (i) => i.copyWith(phase: OnboardingPhase.preparing));
+    await tester.binding.setSurfaceSize(const Size(440, 956));
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (c, s) => PropertySetupScreen(id: item.id)),
+      GoRoute(path: '/broker/onboarding/:id/agreement', builder: (c, s) => OwnerAgreementScreen(id: s.pathParameters['id']!)),
+    ]);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('Documents'), findsOneWidget); // stage name
+    expect(find.text('Call our agreement team'), findsOneWidget);
+    expect(find.textContaining('papers'), findsNothing);
+    await tester.tap(find.text('Read the full agreement'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Full agreement'), findsOneWidget);
+    expect(find.text('Who signs'), findsOneWidget);
+    expect(find.text('Ravi Kumar'), findsWidgets);
+    expect(find.text('Broker'), findsWidgets);
     await tester.binding.setSurfaceSize(null);
   });
 }

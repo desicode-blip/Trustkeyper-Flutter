@@ -269,6 +269,10 @@ final appRouter = GoRouter(
           builder: (context, state) => AskAgainScreen(id: state.pathParameters['id']!, paperKey: state.pathParameters['key']!, owner: int.tryParse(state.uri.queryParameters['o'] ?? '') ?? 0),
         ),
         GoRoute(
+          path: 'agreement',
+          builder: (context, state) => OwnerAgreementScreen(id: state.pathParameters['id']!),
+        ),
+        GoRoute(
           path: 'questions',
           builder: (context, state) => AgreementQuestionsScreen(id: state.pathParameters['id']!),
         ),

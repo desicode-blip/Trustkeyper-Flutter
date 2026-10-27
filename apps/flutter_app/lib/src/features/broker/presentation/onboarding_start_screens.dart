@@ -23,7 +23,7 @@ class OnboardChooseScreen extends StatelessWidget {
       _BigTile(
         icon: Icons.send_outlined,
         title: 'Send link to owner',
-        message: 'Owner sends the papers. We read them.',
+        message: 'Owner sends the documents. We read them.',
         badge: 'Easiest · email or WhatsApp',
         onTap: () => context.push('/broker/property/new'),
       ),
@@ -515,7 +515,7 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
       const SizedBox(height: 26),
       OnbTextField(label: 'Full name *', controller: o.name, error: o.nameError, capitalization: TextCapitalization.words, onChanged: (_) => setState(() => o.nameError = null)),
       const SizedBox(height: 26),
-      Text(_person == 0 ? 'How do we ask for the papers?' : 'How do we reach this owner?', style: const TextStyle(fontSize: 14, color: AppColors.muted)),
+      Text(_person == 0 ? 'How do we ask for the documents?' : 'How do we reach this owner?', style: const TextStyle(fontSize: 14, color: AppColors.muted)),
       const SizedBox(height: 8),
       Row(
         children: [
@@ -633,8 +633,8 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
               kind: 'ok',
               title: 'We asked $_firstName',
               message: _channel == 'email'
-                  ? 'We sent an email to $_contact. We will tell you when papers come.'
-                  : 'We sent a WhatsApp message to +91 $_contact. We will tell you when papers come.',
+                  ? 'We sent an email to $_contact. We will tell you when documents come.'
+                  : 'We sent a WhatsApp message to +91 $_contact. We will tell you when documents come.',
             ),
           ],
         ),
