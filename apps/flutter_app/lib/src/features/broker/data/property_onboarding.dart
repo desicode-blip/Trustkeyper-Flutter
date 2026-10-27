@@ -21,14 +21,15 @@ abstract final class PaperKeys {
   static const bank = 'bank';
   static const address = 'address';
   static const keys = 'keys';
+  /// Order we ask: address first (it creates the house), keys last.
   static const all = [
+    address,
     aadhaar,
     phone,
     email,
     tenantAgreement,
     rentDeposit,
     bank,
-    address,
     keys,
   ];
 
@@ -293,7 +294,8 @@ class PropertyOnboarding {
     this.lastAskedAt = 0,
   }) : otherOwners = List.unmodifiable(otherOwners),
        papers = List.unmodifiable(
-         papers ?? [for (final key in PaperKeys.all) OnboardingPaper(key: key)],
+         ([...(papers ?? [for (final key in PaperKeys.all) OnboardingPaper(key: key)])])
+           ..sort((a, b) => PaperKeys.all.indexOf(a.key).compareTo(PaperKeys.all.indexOf(b.key))),
        ),
        changes = List.unmodifiable(changes),
        versions = List.unmodifiable(versions);
@@ -569,10 +571,14 @@ class PropertyOnboardingStore extends ChangeNotifier {
       otherOwners: otherOwners,
       lastAskedAt: now,
     );
-    _items = [item, ..._items];
+    // We already have the contact we used to ask, so that paper is ticked.
+    final first = channel == 'email'
+        ? item.withPaper(PaperKeys.email, PaperStatus.approved, value: contact.trim())
+        : item.withPaper(PaperKeys.phone, PaperStatus.approved, value: '+91 ${contact.trim()}');
+    _items = [first, ..._items];
     notifyListeners();
     await _save();
-    return item;
+    return first;
   }
 
   Future<void> update(String id, PropertyOnboarding Function(PropertyOnboarding) change) async {

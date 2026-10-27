@@ -381,3 +381,21 @@ date: 2026-10-27
 branch: staging (never main)
 file: apps/flutter_app/lib/src/features/broker/presentation/onboarding_start_screens.dart (_OwnerForm.channel nullable; _validate requires name + channel + that one contact; AnimatedSize+AnimatedSwitcher 250ms for the contact box)
 verification: flutter analyze No issues found; property_onboarding_test passes
+
+## Change 18 – Papers order and auto-ticked contact; owner-side flow recorded
+Date: 2026-10-27 · Status: built on iPhone for review
+What: papers now go in this order: House address, Aadhaar, Phone, Email, Tenant agreement, Rent and deposit, Bank, Key holder. The phone or email we used to ask the owner is ticked (Approved) from the start. Old requests are re-sorted to this order.
+
+OWNER-SIDE FLOW (to build in the house owner's app; the broker app needs few changes):
+1. How many owners does the property have that you want registered with us?
+2. If one: are you that owner? If yes, pre-fill email, phone and other details we already have.
+3. Papers in order: address (creates the house) → Aadhaar → phone (auto-ticked if known) → email (auto-ticked if known) → tenant agreement (now or in the past, if any) → expected rent and deposit → bank → key holder.
+
+```
+AGENT RECORD – Change 18
+id: CHG-018
+date: 2026-10-27
+branch: staging (never main)
+files: data/property_onboarding.dart (PaperKeys.all order; papers sorted in constructor; create() approves email or phone paper from contact), presentation/onboarding_house_screens.dart (test-panel and waiting checks treat approved as ok), presentation/onboarding_start_screens.dart (check list text and order)
+not_built: owner-side screens (owner count, "are you the owner", pre-fill) - need owner app + backend
+verification: flutter analyze No issues found; property_onboarding_test 5 passed

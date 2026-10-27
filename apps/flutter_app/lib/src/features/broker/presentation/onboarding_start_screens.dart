@@ -560,13 +560,13 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
           ],
           children: [
             for (final text in const [
+              'Full house address',
               'Aadhaar card of every owner',
-              'Phone number of every owner',
-              'Email of every owner',
-              'Rent agreement of tenant now (if any)',
+              'Phone number of every owner (we have yours)',
+              'Email of every owner (we have yours)',
+              'Rent agreement of tenant now or before (if any)',
               'Rent and deposit you want',
               'Bank details for rent (cancelled cheque is best)',
-              'Full house address',
               'Who has the keys: name and number',
             ])
               Padding(

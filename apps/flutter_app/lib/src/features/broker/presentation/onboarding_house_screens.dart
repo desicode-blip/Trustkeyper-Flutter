@@ -144,7 +144,7 @@ class _OnboardingBody extends StatelessWidget {
 
   List<Widget> _papers(BuildContext context) {
     final silentDays = (DateTime.now().millisecondsSinceEpoch - item.lastAskedAt) ~/ const Duration(days: 1).inMilliseconds;
-    final allWaiting = item.papers.every((p) => p.status == PaperStatus.waiting);
+    final allWaiting = item.papers.every((p) => p.status == PaperStatus.waiting || p.status == PaperStatus.approved);
     return [
       if (item.allPapersDone)
         const OnbBanner('All papers are checked and approved.', kind: 'ok', icon: Icons.check_circle_outline)
@@ -555,7 +555,7 @@ class _OnboardingBody extends StatelessWidget {
     final buttons = <(String, Future<void> Function())>[];
     switch (item.phase) {
       case OnboardingPhase.papers:
-        if (item.papers.every((p) => p.status == PaperStatus.waiting)) {
+        if (item.papers.every((p) => p.status == PaperStatus.waiting || p.status == PaperStatus.approved)) {
           buttons.add(('Owner sends some papers', () => store.testOwnerSendsPapers(item.id)));
         }
         if (!item.allPapersDone) buttons.add(('Fix everything, all approved', () => store.testFixAllPapers(item.id)));
