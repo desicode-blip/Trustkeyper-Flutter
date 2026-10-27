@@ -9,7 +9,7 @@ import 'onboarding_house_screens.dart';
 import 'onboarding_widgets.dart';
 
 PropertyOnboardingStore get _store => PropertyOnboardingStore.instance;
-String _first(PropertyOnboarding item) => item.ownerName.split(' ').first;
+String _first(PropertyOnboarding item) => item.ownersFirst;
 
 /// The clauses the broker and owner can change, in simple words.
 List<(String, String)> keyPoints(PropertyOnboarding item) => [
@@ -818,7 +818,7 @@ class _SignScreenState extends State<SignScreen> {
                       }
                       await _store.update(item.id, (i) => i.copyWith(
                         brokerSigned: true,
-                        phase: i.ownerSigned ? OnboardingPhase.ready : i.phase,
+                        phase: i.allOwnersSigned ? OnboardingPhase.ready : i.phase,
                       ));
                       if (context.mounted) context.pop();
                     },
@@ -839,7 +839,7 @@ class _SignScreenState extends State<SignScreen> {
             child: Column(
               children: [
                 OnbKeyValue('House', item.houseName),
-                OnbKeyValue('Owner', item.ownerName),
+                OnbKeyValue(item.hasManyOwners ? 'Owners' : 'Owner', item.ownersFull),
                 OnbKeyValue('Your fee', item.answers.feeSummary(item.rent), last: true),
               ],
             ),

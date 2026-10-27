@@ -208,6 +208,20 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
       o.channelError = o.channel == null ? 'Pick one' : null;
       o.phoneError = o.channel == 'whatsapp' && phone.length != 10 ? 'Type the 10 digit phone number' : null;
       o.emailError = o.channel == 'email' && !_emailPattern.hasMatch(email) ? 'This email looks wrong. Check the @ and the dot.' : null;
+      // The same person cannot be added twice.
+      for (var i = 0; i < _owners.length; i++) {
+        if (i == index) continue;
+        final other = _owners[i];
+        if (o.channel == 'email' && o.emailError == null && other.channel == 'email' && other.email.text.trim().toLowerCase() == email.toLowerCase()) {
+          o.emailError = 'Already added as Owner ${i + 1}. Use a different email.';
+        }
+        if (o.channel == 'whatsapp' && o.phoneError == null && other.channel == 'whatsapp' && other.phone.text.trim() == phone) {
+          o.phoneError = 'Already added as Owner ${i + 1}. Use a different number.';
+        }
+        if (o.nameError == null && other.name.text.trim().toLowerCase() == name.toLowerCase()) {
+          o.nameError = 'Owner ${i + 1} has the same name. Add the full name.';
+        }
+      }
     });
     return o.nameError == null && o.channelError == null && o.phoneError == null && o.emailError == null;
   }
@@ -367,13 +381,17 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
       final contact = _channel == 'email' ? _first.email.text.trim() : _first.phone.text.trim();
       final others = [
         for (final o in _owners.skip(1))
-          '${o.name.text.trim()} · ${o.channel == 'whatsapp' ? '+91 ${o.phone.text.trim()}' : o.email.text.trim()}',
+          CoOwner(
+            name: o.name.text.trim(),
+            channel: o.channel ?? 'email',
+            contact: o.channel == 'whatsapp' ? o.phone.text.trim() : o.email.text.trim(),
+          ),
       ];
       final created = await _store.create(
         ownerName: _first.name.text.trim(),
         channel: _channel,
         contact: contact,
-        otherOwners: others,
+        coOwners: others,
         carryFrom: _carryFrom,
       );
       if (!mounted) return;

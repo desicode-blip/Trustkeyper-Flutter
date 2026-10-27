@@ -436,3 +436,30 @@ date: 2026-10-27
 branch: staging (never main)
 files: data/property_onboarding.dart (create(carryFrom) copies approved aadhaar/phone/email), presentation/onboarding_start_screens.dart (_carryFrom set on same owner, cleared otherwise; new owner no longer returns to the form), test/property_onboarding_test.dart
 verification: flutter analyze No issues found; property_onboarding_test 6 passed
+
+## Change 22 – House with more than one owner: a tab for each owner
+Date: 2026-10-27 · Status: built on iPhone for review
+What: when the broker picks 2 or more owners, the house page ("Setting up") shows a **tab for each owner** (Owner 1 · Ravi, Owner 2 · Sita). Each tab shows that owner's own status (Done / 1 needs you / Waiting), own papers, own reminder, own contact. With one owner the page is exactly as before.
+- **Owner 1 tab** = Aadhaar, phone, email AND the house papers (address, tenant agreement, rent and deposit, bank, key holder). House papers are asked once, from the main owner.
+- **Other owner tabs** = Aadhaar, phone, email only. A row "House papers come from Ravi" jumps back to Owner 1.
+- Top banner sums up everyone: "Needs you: Ravi (2), Sita (1)" / "1 of 2 owners done. Waiting for Sita" / "All papers from all owners are approved".
+- **Continue** appears only when every owner's papers and the house papers are approved.
+- Each owner is asked in their own way (email or WhatsApp). Their typed contact is ticked at the start. If an extra owner has the same phone/email as someone from an earlier house, their approved ID proofs are kept.
+Edge cases built:
+1. Same person twice (same name, phone or email) is blocked in the start flow, in "Add owner", and in "Change contact".
+2. "+ Add owner" chip (papers stage, up to 10 owners): asks the new owner for papers.
+3. "Remove X from this house" for other owners (with a confirm). The main owner cannot be removed (use Stop this request). If the removed owner was the last one waiting, Continue appears.
+4. Not replying: remind (2 hour wait counted per owner), call, change contact are per owner.
+5. Ask again / paper pages open for the right owner (`?o=N`); if that owner was removed meanwhile, a plain "owner was removed" page shows.
+6. Questions stage lists every owner as approved.
+7. Signing: every owner must sign. Rows per owner, banner "1 of 2 owners have signed". The house becomes Ready only when the broker and all owners have signed.
+8. Home "Continue" panel names the owner whose paper needs you. Older saved requests (other owners stored as text) still open.
+Not built (needs more thought): making Owner 2 the main owner if Owner 1 is unreachable; adding owners after the papers stage; changes on the draft asked by a specific owner (still shown as "the owners").
+```
+AGENT RECORD – Change 22
+id: CHG-022
+date: 2026-10-27
+branch: staging (never main)
+files: data/property_onboarding.dart (CoOwner model with own papers/signed/lastAskedAt; PaperKeys.personal; owner-aware getters; store.addOwner/removeOwner; create(coOwners) keeps known proofs; test helpers per owner; old otherOwners strings migrate), presentation/onboarding_house_screens.dart (_ManyOwnersPapers tabs, _AddOwnerSheet, per-owner reminder/contact/paper/ask screens, signing rows), presentation/onboarding_start_screens.dart (CoOwner objects, duplicate-owner checks), presentation/onboarding_agreement_screens.dart (all owners sign), core/routing/app_router.dart (?o= owner on paper and ask routes), test/property_onboarding_test.dart
+rule: house papers come only from owner index 0; allPapersDone and allOwnersSigned require every owner
+verification: flutter analyze No issues found; property_onboarding_test 9 passed

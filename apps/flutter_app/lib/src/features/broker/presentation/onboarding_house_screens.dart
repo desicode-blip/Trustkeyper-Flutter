@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -62,21 +63,22 @@ String _ago(int millis) {
   return '$days day${days == 1 ? '' : 's'} ago';
 }
 
-String _firstName(PropertyOnboarding item) => item.ownerName.split(' ').first;
+/// First names of all owners, for lines about the whole house.
+String _firstName(PropertyOnboarding item) => item.ownersFirst;
 
 /// Minutes left before the broker may ask the owner again (2 hours apart).
-int _cooldownMinutes(PropertyOnboarding item) {
+int _cooldownMinutes(PropertyOnboarding item, [int owner = 0]) {
   final left = const Duration(hours: 2).inMinutes -
-      ((DateTime.now().millisecondsSinceEpoch - item.lastAskedAt) ~/ 60000);
+      ((DateTime.now().millisecondsSinceEpoch - item.ownerAskedAt(owner)) ~/ 60000);
   return left > 0 ? left : 0;
 }
 
 String _wait(int minutes) =>
     minutes >= 60 ? '${minutes ~/ 60}h ${minutes % 60}m' : '$minutes min';
 
-Future<void> _callOwner(PropertyOnboarding item) async {
-  if (item.channel == 'whatsapp') {
-    await launchUrl(Uri.parse('tel:+91${item.contact}'));
+Future<void> _callOwner(PropertyOnboarding item, [int owner = 0]) async {
+  if (item.ownerChannelAt(owner) == 'whatsapp') {
+    await launchUrl(Uri.parse('tel:+91${item.ownerContactAt(owner)}'));
   }
 }
 
@@ -106,7 +108,7 @@ class _OnboardingBody extends StatelessWidget {
         child: OnbRow(
           icon: Icons.home_outlined,
           title: item.houseName,
-          subtitle: 'Owner · ${item.ownerName}',
+          subtitle: item.hasManyOwners ? 'Owners · ${item.ownersFull}' : 'Owner · ${item.ownerName}',
           chevron: false,
         ),
       ),
@@ -143,6 +145,17 @@ class _OnboardingBody extends StatelessWidget {
   };
 
   List<Widget> _papers(BuildContext context) {
+    if (item.hasManyOwners) {
+      return [
+        _ManyOwnersPapers(
+          item: item,
+          onNotReplying: (owner) => _notReplying(context, owner),
+          onAddOwner: () => _addOwner(context),
+          onRemoveOwner: (owner) => _removeOwner(context, owner),
+        ),
+        ..._stopButton(context),
+      ];
+    }
     final silentDays = (DateTime.now().millisecondsSinceEpoch - item.lastAskedAt) ~/ const Duration(days: 1).inMilliseconds;
     final allWaiting = item.papers.every((p) => p.status == PaperStatus.waiting || p.status == PaperStatus.approved);
     return [
@@ -184,6 +197,17 @@ class _OnboardingBody extends StatelessWidget {
           onTap: () => _notReplying(context),
         ),
       ],
+      const SizedBox(height: 4),
+      TextButton.icon(
+        onPressed: () => _addOwner(context),
+        icon: const Icon(Icons.person_add_alt_1_outlined, size: 20),
+        label: const Text('Add another owner', style: TextStyle(fontSize: 16)),
+      ),
+      ..._stopButton(context),
+    ];
+  }
+
+  List<Widget> _stopButton(BuildContext context) => [
       const SizedBox(height: 8),
       Align(
         alignment: Alignment.centerLeft,
@@ -205,9 +229,37 @@ class _OnboardingBody extends StatelessWidget {
         ),
       ),
     ];
+
+  Future<void> _addOwner(BuildContext context) async {
+    final owner = await showModalBottomSheet<CoOwner>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      builder: (sheet) => _AddOwnerSheet(item: item),
+    );
+    if (owner == null) return;
+    await store.addOwner(item.id, owner);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('We asked ${owner.firstName} for the papers.')));
+    }
   }
 
-  Future<void> _notReplying(BuildContext context) async {
+  Future<void> _removeOwner(BuildContext context, int owner) async {
+    final name = item.ownerFirstAt(owner);
+    final remove = await onbConfirm(
+      context,
+      title: 'Remove $name?',
+      message: '$name is not an owner of this house any more. Papers $name sent are deleted from this request. $name will not get more messages.',
+      yes: 'Remove $name',
+      no: 'Keep $name',
+      danger: true,
+    );
+    if (!remove) return;
+    await store.removeOwner(item.id, owner);
+  }
+
+  Future<void> _notReplying(BuildContext context, [int owner = 0]) async {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -219,37 +271,37 @@ class _OnboardingBody extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('${_firstName(item)} has not replied', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
+              Text('${item.ownerFirstAt(owner)} has not replied', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
               const SizedBox(height: 6),
               const Text('Most owners reply the same day. Try one of these.', style: TextStyle(fontSize: 16, color: AppColors.muted)),
               const SizedBox(height: 12),
               OnbRow(
                 icon: Icons.send_outlined,
                 title: 'Send a reminder',
-                subtitle: _cooldownMinutes(item) > 0 ? 'You can ask again in ${_wait(_cooldownMinutes(item))}' : null,
-                onTap: _cooldownMinutes(item) > 0
+                subtitle: _cooldownMinutes(item, owner) > 0 ? 'You can ask again in ${_wait(_cooldownMinutes(item, owner))}' : null,
+                onTap: _cooldownMinutes(item, owner) > 0
                     ? null
                     : () async {
                         Navigator.pop(sheet);
-                        await store.update(item.id, (i) => i.copyWith(lastAskedAt: DateTime.now().millisecondsSinceEpoch));
+                        await store.update(item.id, (i) => i.withOwnerAsked(owner, DateTime.now().millisecondsSinceEpoch));
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Reminder sent to ${_firstName(item)}.')));
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Reminder sent to ${item.ownerFirstAt(owner)}.')));
                         }
                       },
               ),
               OnbRow(
                 icon: Icons.call_outlined,
-                title: 'Call ${_firstName(item)}',
-                subtitle: item.channel == 'whatsapp' ? '+91 ${item.contact}' : 'We only have the email',
-                onTap: item.channel == 'whatsapp' ? () => _callOwner(item) : null,
+                title: 'Call ${item.ownerFirstAt(owner)}',
+                subtitle: item.ownerChannelAt(owner) == 'whatsapp' ? '+91 ${item.ownerContactAt(owner)}' : 'We only have the email',
+                onTap: item.ownerChannelAt(owner) == 'whatsapp' ? () => _callOwner(item, owner) : null,
               ),
               OnbRow(
                 icon: Icons.edit_outlined,
                 title: 'Change owner contact',
-                subtitle: item.contactText,
+                subtitle: item.ownerContactTextAt(owner),
                 onTap: () async {
                   Navigator.pop(sheet);
-                  await _changeContact(context);
+                  await _changeContact(context, owner);
                 },
               ),
             ],
@@ -259,17 +311,17 @@ class _OnboardingBody extends StatelessWidget {
     );
   }
 
-  Future<void> _changeContact(BuildContext context) async {
-    final controller = TextEditingController(text: item.contact);
+  Future<void> _changeContact(BuildContext context, [int owner = 0]) async {
+    final controller = TextEditingController(text: item.ownerContactAt(owner));
     String? error;
     final saved = await showDialog<String>(
       context: context,
       builder: (dialog) => StatefulBuilder(
         builder: (dialog, setState) => AlertDialog(
-          title: Text(item.channel == 'email' ? 'New email' : 'New phone number'),
+          title: Text(item.ownerChannelAt(owner) == 'email' ? 'New email' : 'New phone number'),
           content: TextField(
             controller: controller,
-            keyboardType: item.channel == 'email' ? TextInputType.emailAddress : TextInputType.phone,
+            keyboardType: item.ownerChannelAt(owner) == 'email' ? TextInputType.emailAddress : TextInputType.phone,
             decoration: InputDecoration(errorText: error),
           ),
           actions: [
@@ -277,14 +329,22 @@ class _OnboardingBody extends StatelessWidget {
             FilledButton(
               onPressed: () {
                 final value = controller.text.trim();
-                final ok = item.channel == 'email'
+                final ok = item.ownerChannelAt(owner) == 'email'
                     ? RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$').hasMatch(value)
                     : value.replaceAll(RegExp(r'\D'), '').length == 10;
-                if (!ok) {
-                  setState(() => error = item.channel == 'email' ? 'This email looks wrong' : 'Type the 10 digit number');
+                final clash = [
+                  for (var i = 0; i < item.ownerCount; i++)
+                    if (i != owner && item.ownerChannelAt(i) == item.ownerChannelAt(owner)) item.ownerContactAt(i).toLowerCase(),
+                ].contains((item.ownerChannelAt(owner) == 'email' ? value : value.replaceAll(RegExp(r'\D'), '')).toLowerCase());
+                if (ok && clash) {
+                  setState(() => error = 'Another owner already has this');
                   return;
                 }
-                Navigator.pop(dialog, item.channel == 'email' ? value : value.replaceAll(RegExp(r'\D'), ''));
+                if (!ok) {
+                  setState(() => error = item.ownerChannelAt(owner) == 'email' ? 'This email looks wrong' : 'Type the 10 digit number');
+                  return;
+                }
+                Navigator.pop(dialog, item.ownerChannelAt(owner) == 'email' ? value : value.replaceAll(RegExp(r'\D'), ''));
               },
               child: const Text('Send again'),
             ),
@@ -294,7 +354,16 @@ class _OnboardingBody extends StatelessWidget {
     );
     controller.dispose();
     if (saved == null) return;
-    await store.update(item.id, (i) => i.copyWith(contact: saved, lastAskedAt: DateTime.now().millisecondsSinceEpoch));
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await store.update(
+      item.id,
+      (i) => owner == 0
+          ? i.copyWith(contact: saved, lastAskedAt: now)
+          : i.copyWith(coOwners: [
+              for (var n = 0; n < i.coOwners.length; n++)
+                if (n == owner - 1) i.coOwners[n].copyWith(contact: saved, lastAskedAt: now) else i.coOwners[n],
+            ]),
+    );
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('We sent the request to the new contact.')));
     }
@@ -312,6 +381,15 @@ class _OnboardingBody extends StatelessWidget {
               tone: 'ok',
               title: PaperKeys.title(paper.key),
               subtitle: paper.value.isNotEmpty ? paper.value : 'Approved',
+              chevron: false,
+              trailing: const OnbPill('Approved', 'ok'),
+            ),
+          for (var o = 1; o < item.ownerCount; o++)
+            OnbRow(
+              icon: Icons.person_outline,
+              tone: 'ok',
+              title: item.ownerNameAt(o),
+              subtitle: 'Aadhaar, phone and email',
               chevron: false,
               trailing: const OnbPill('Approved', 'ok'),
             ),
@@ -412,7 +490,13 @@ class _OnboardingBody extends StatelessWidget {
       if (item.phase == OnboardingPhase.printing)
         const OnbBanner('The final draft is locked. Our team is getting it ready for signing.', kind: 'info', icon: Icons.lock_outline)
       else if (!item.brokerSigned)
-        OnbBanner('Everyone signs on their phone with a code. $first ${item.ownerSigned ? 'has signed.' : 'has not signed yet.'}', kind: 'wait', icon: Icons.draw_outlined)
+        OnbBanner(
+          item.hasManyOwners
+              ? 'Everyone signs on their phone with a code. ${item.signedOwners} of ${item.ownerCount} owners have signed.'
+              : 'Everyone signs on their phone with a code. $first ${item.ownerSigned ? 'has signed.' : 'has not signed yet.'}',
+          kind: 'wait',
+          icon: Icons.draw_outlined,
+        )
       else
         OnbBanner('You signed. Waiting for $first.', kind: 'wait', icon: Icons.schedule),
       const SizedBox(height: 14),
@@ -431,7 +515,15 @@ class _OnboardingBody extends StatelessWidget {
           child: Column(
             children: [
               OnbRow(icon: Icons.check, tone: item.brokerSigned ? 'ok' : 'wait', title: 'You', subtitle: item.brokerSigned ? 'Signed' : 'Your turn', chevron: false, trailing: OnbPill(item.brokerSigned ? 'Signed' : 'Waiting', item.brokerSigned ? 'ok' : 'wait')),
-              OnbRow(icon: Icons.check, tone: item.ownerSigned ? 'ok' : 'wait', title: item.ownerName, subtitle: item.ownerSigned ? 'Signed' : 'Owner', chevron: false, trailing: OnbPill(item.ownerSigned ? 'Signed' : 'Waiting', item.ownerSigned ? 'ok' : 'wait')),
+              for (var o = 0; o < item.ownerCount; o++)
+                OnbRow(
+                  icon: Icons.check,
+                  tone: item.ownerSignedAt(o) ? 'ok' : 'wait',
+                  title: item.ownerNameAt(o),
+                  subtitle: item.ownerSignedAt(o) ? 'Signed' : (item.hasManyOwners ? 'Owner ${o + 1}' : 'Owner'),
+                  chevron: false,
+                  trailing: OnbPill(item.ownerSignedAt(o) ? 'Signed' : 'Waiting', item.ownerSignedAt(o) ? 'ok' : 'wait'),
+                ),
             ],
           ),
         ),
@@ -452,7 +544,7 @@ class _OnboardingBody extends StatelessWidget {
     OnbCard(
       child: Column(
         children: [
-          OnbKeyValue('Owner', item.ownerName),
+          OnbKeyValue(item.hasManyOwners ? 'Owners' : 'Owner', item.ownersFull),
           OnbKeyValue('Rent', onbMoney(item.rent)),
           OnbKeyValue('Deposit', onbMoney(item.deposit)),
           OnbKeyValue('Agreement', item.agreementSkipped ? 'Skipped' : 'Signed', last: true),
@@ -555,8 +647,14 @@ class _OnboardingBody extends StatelessWidget {
     final buttons = <(String, Future<void> Function())>[];
     switch (item.phase) {
       case OnboardingPhase.papers:
-        if (item.papers.every((p) => p.status == PaperStatus.waiting || p.status == PaperStatus.approved)) {
-          buttons.add(('Owner sends some papers', () => store.testOwnerSendsPapers(item.id)));
+        for (var o = 0; o < item.ownerCount; o++) {
+          final mine = o == 0 ? item.papers : item.personalPapersAt(o);
+          if (mine.every((p) => p.status == PaperStatus.waiting || p.status == PaperStatus.approved) && !item.ownerPapersDone(o)) {
+            buttons.add((
+              item.hasManyOwners ? '${item.ownerFirstAt(o)} sends papers' : 'Owner sends some papers',
+              () => store.testOwnerSendsPapers(item.id, owner: o),
+            ));
+          }
         }
         if (!item.allPapersDone) buttons.add(('Fix everything, all approved', () => store.testFixAllPapers(item.id)));
       case OnboardingPhase.preparing:
@@ -569,7 +667,12 @@ class _OnboardingBody extends StatelessWidget {
       case OnboardingPhase.printing:
         buttons.add(('Our team: next step', () => store.testNextPrintStep(item.id)));
       case OnboardingPhase.signing:
-        if (!item.ownerSigned) buttons.add(('Owner signs', () => store.testOwnerSigns(item.id)));
+        for (var o = 0; o < item.ownerCount; o++) {
+          if (!item.ownerSignedAt(o)) {
+            final who = o;
+            buttons.add((item.hasManyOwners ? '${item.ownerFirstAt(o)} signs' : 'Owner signs', () => store.testOwnerSigns(item.id, owner: who)));
+          }
+        }
       default:
         break;
     }
@@ -602,17 +705,28 @@ class _OnboardingBody extends StatelessWidget {
 
 /// One paper: what we read, why it was not approved, and what the broker can do.
 class PaperDetailScreen extends StatelessWidget {
-  const PaperDetailScreen({required this.id, required this.paperKey, super.key});
+  const PaperDetailScreen({required this.id, required this.paperKey, this.owner = 0, super.key});
   final String id;
   final String paperKey;
+
+  /// 0 is the main owner, 1.. are the other owners.
+  final int owner;
 
   @override
   Widget build(BuildContext context) => OnbItemView(
     id: id,
     builder: (context, item) {
-      final paper = item.paper(paperKey);
+      if (owner >= item.ownerCount) {
+        return OnbPage(
+          title: PaperKeys.title(paperKey),
+          footer: [PrimaryButton(label: 'Back to papers', onPressed: () => context.pop())],
+          children: const [OnbBanner('This owner was removed from the house.', icon: Icons.info_outline)],
+        );
+      }
+      final paper = item.paperAt(owner, paperKey);
       final store = PropertyOnboardingStore.instance;
-      final first = _firstName(item);
+      final first = item.ownerFirstAt(owner);
+      final q = owner == 0 ? '' : '?o=$owner';
       final footer = <Widget>[];
       final body = <Widget>[
         Align(
@@ -675,11 +789,11 @@ class PaperDetailScreen extends StatelessWidget {
           ]);
           footer.addAll([
             PrimaryButton(label: 'Yes, same person', onPressed: () async {
-              await store.update(id, (i) => i.withPaper(paperKey, PaperStatus.approved, value: paper.value));
+              await store.update(id, (i) => i.withOwnerPaper(owner, paperKey, PaperStatus.approved, value: paper.value));
               if (context.mounted) context.pop();
             }),
             const SizedBox(height: 10),
-            OnbSecondaryButton(label: 'No, ask again', onPressed: () => context.push('/broker/onboarding/$id/ask/$paperKey')),
+            OnbSecondaryButton(label: 'No, ask again', onPressed: () => context.push('/broker/onboarding/$id/ask/$paperKey$q')),
           ]);
         case PaperStatus.notClear:
           body.addAll([
@@ -688,24 +802,24 @@ class PaperDetailScreen extends StatelessWidget {
             const Text('What do you want to do?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.heading)),
           ]);
           footer.addAll([
-            PrimaryButton(label: 'Ask $first again', onPressed: () => context.push('/broker/onboarding/$id/ask/$paperKey')),
+            PrimaryButton(label: 'Ask $first again', onPressed: () => context.push('/broker/onboarding/$id/ask/$paperKey$q')),
             const SizedBox(height: 10),
             Row(
               children: [
-                Expanded(child: OnbSecondaryButton(label: 'I add it', onPressed: () => _addMyself(context, item, paper))),
+                Expanded(child: OnbSecondaryButton(label: 'I add it', onPressed: () => _addMyself(context, item, paper, owner))),
                 const SizedBox(width: 10),
-                Expanded(child: OnbSecondaryButton(label: 'Call owner', onPressed: item.channel == 'whatsapp' ? () => _callOwner(item) : null)),
+                Expanded(child: OnbSecondaryButton(label: 'Call owner', onPressed: item.ownerChannelAt(owner) == 'whatsapp' ? () => _callOwner(item, owner) : null)),
               ],
             ),
           ]);
         case PaperStatus.waiting:
-          body.add(OnbBanner('Asked ${_ago(item.lastAskedAt)}. Waiting for $first.', kind: 'wait', icon: Icons.schedule));
+          body.add(OnbBanner('Asked ${_ago(item.ownerAskedAt(owner))}. Waiting for $first.', kind: 'wait', icon: Icons.schedule));
           footer.addAll([
-            PrimaryButton(label: 'Remind $first', onPressed: () => context.push('/broker/onboarding/$id/ask/$paperKey')),
+            PrimaryButton(label: 'Remind $first', onPressed: () => context.push('/broker/onboarding/$id/ask/$paperKey$q')),
             const SizedBox(height: 10),
             Row(
               children: [
-                Expanded(child: OnbSecondaryButton(label: 'I add it', onPressed: () => _addMyself(context, item, paper))),
+                Expanded(child: OnbSecondaryButton(label: 'I add it', onPressed: () => _addMyself(context, item, paper, owner))),
                 const SizedBox(width: 10),
                 if (paperKey == PaperKeys.tenantAgreement)
                   Expanded(
@@ -718,21 +832,21 @@ class PaperDetailScreen extends StatelessWidget {
                     ),
                   )
                 else
-                  Expanded(child: OnbSecondaryButton(label: 'Call owner', onPressed: item.channel == 'whatsapp' ? () => _callOwner(item) : null)),
+                  Expanded(child: OnbSecondaryButton(label: 'Call owner', onPressed: item.ownerChannelAt(owner) == 'whatsapp' ? () => _callOwner(item, owner) : null)),
               ],
             ),
           ]);
       }
       return OnbPage(
         title: PaperKeys.title(paperKey),
-        subtitle: item.ownerName,
+        subtitle: item.ownerNameAt(owner),
         footer: footer,
         children: body,
       );
     },
   );
 
-  Future<void> _addMyself(BuildContext context, PropertyOnboarding item, OnboardingPaper paper) async {
+  Future<void> _addMyself(BuildContext context, PropertyOnboarding item, OnboardingPaper paper, int owner) async {
     final controller = TextEditingController();
     final value = await showModalBottomSheet<String>(
       context: context,
@@ -761,16 +875,17 @@ class PaperDetailScreen extends StatelessWidget {
     );
     controller.dispose();
     if (value == null) return;
-    await PropertyOnboardingStore.instance.update(item.id, (i) => i.withPaper(paper.key, PaperStatus.approved, value: value));
+    await PropertyOnboardingStore.instance.update(item.id, (i) => i.withOwnerPaper(owner, paper.key, PaperStatus.approved, value: value));
     if (context.mounted) context.pop();
   }
 }
 
 /// Ask the owner again, with the reason in simple words.
 class AskAgainScreen extends StatefulWidget {
-  const AskAgainScreen({required this.id, required this.paperKey, super.key});
+  const AskAgainScreen({required this.id, required this.paperKey, this.owner = 0, super.key});
   final String id;
   final String paperKey;
+  final int owner;
 
   @override
   State<AskAgainScreen> createState() => _AskAgainScreenState();
@@ -789,8 +904,15 @@ class _AskAgainScreenState extends State<AskAgainScreen> {
   Widget build(BuildContext context) => OnbItemView(
     id: widget.id,
     builder: (context, item) {
-      final minutes = _cooldownMinutes(item);
-      final first = _firstName(item);
+      if (widget.owner >= item.ownerCount) {
+        return OnbPage(
+          title: 'Ask again',
+          footer: [PrimaryButton(label: 'Back', onPressed: () => context.pop())],
+          children: const [OnbBanner('This owner was removed from the house.', icon: Icons.info_outline)],
+        );
+      }
+      final minutes = _cooldownMinutes(item, widget.owner);
+      final first = item.ownerFirstAt(widget.owner);
       final title = PaperKeys.title(widget.paperKey);
       return OnbPage(
         title: 'Ask $first again',
@@ -808,7 +930,9 @@ class _AskAgainScreenState extends State<AskAgainScreen> {
                     final reason = _reason;
                     await PropertyOnboardingStore.instance.update(
                       item.id,
-                      (i) => i.withPaper(widget.paperKey, PaperStatus.waiting).copyWith(lastAskedAt: DateTime.now().millisecondsSinceEpoch),
+                      (i) => i
+                          .withOwnerPaper(widget.owner, widget.paperKey, PaperStatus.waiting)
+                          .withOwnerAsked(widget.owner, DateTime.now().millisecondsSinceEpoch),
                     );
                     if (!context.mounted) return;
                     context.pop();
@@ -852,5 +976,313 @@ class _AskAgainScreenState extends State<AskAgainScreen> {
         ],
       );
     },
+  );
+}
+
+String _joinNames(List<String> names) {
+  if (names.length <= 1) return names.join();
+  return '${names.sublist(0, names.length - 1).join(', ')} and ${names.last}';
+}
+
+/// More than one owner: one tab for each owner, with that owner's own papers
+/// and status. House papers (address, rent, bank, keys) come from Owner 1, so
+/// they sit in Owner 1's tab.
+class _ManyOwnersPapers extends StatefulWidget {
+  const _ManyOwnersPapers({
+    required this.item,
+    required this.onNotReplying,
+    required this.onAddOwner,
+    required this.onRemoveOwner,
+  });
+  final PropertyOnboarding item;
+  final void Function(int owner) onNotReplying;
+  final VoidCallback onAddOwner;
+  final void Function(int owner) onRemoveOwner;
+
+  @override
+  State<_ManyOwnersPapers> createState() => _ManyOwnersPapersState();
+}
+
+class _ManyOwnersPapersState extends State<_ManyOwnersPapers> {
+  int _owner = 0;
+
+  PropertyOnboarding get item => widget.item;
+
+  bool _done(int o) => item.ownerPapersDone(o) && (o != 0 || item.sharedPapersDone);
+  int _need(int o) => item.ownerNeedYouAt(o) + (o == 0 ? item.sharedNeedYou : 0);
+
+  Widget _summary() {
+    final names = [for (var o = 0; o < item.ownerCount; o++) item.ownerFirstAt(o)];
+    if (item.allPapersDone) {
+      return const OnbBanner('All papers from all owners are approved.', kind: 'ok', icon: Icons.check_circle_outline);
+    }
+    final needs = [
+      for (var o = 0; o < item.ownerCount; o++)
+        if (_need(o) > 0) '${names[o]} (${_need(o)})',
+    ];
+    if (needs.isNotEmpty) {
+      return OnbBanner('Needs you: ${_joinNames(needs)}.', kind: 'need', icon: Icons.error_outline);
+    }
+    final waiting = [for (var o = 0; o < item.ownerCount; o++) if (!_done(o)) names[o]];
+    final done = item.ownerCount - waiting.length;
+    return OnbBanner(
+      done == 0 ? 'Waiting for ${_joinNames(waiting)}.' : '$done of ${item.ownerCount} owners done. Waiting for ${_joinNames(waiting)}.',
+      kind: 'wait',
+      icon: Icons.schedule,
+    );
+  }
+
+  Widget _tab(int o) {
+    final selected = o == _owner;
+    final done = _done(o);
+    final need = _need(o);
+    final (icon, label, color) = done
+        ? (Icons.check_circle, 'Done', AppColors.success)
+        : need > 0
+            ? (Icons.error, '$need need${need == 1 ? 's' : ''} you', AppColors.warning)
+            : (Icons.schedule, 'Waiting', AppColors.muted);
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => setState(() => _owner = o),
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 128, maxWidth: 190),
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primarySoft : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: selected ? AppColors.primary : AppColors.border, width: selected ? 1.5 : 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Owner ${o + 1}', style: const TextStyle(fontSize: 13, color: AppColors.muted)),
+              Text(
+                item.ownerFirstAt(o),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: selected ? AppColors.primaryDark : AppColors.heading),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 15, color: color),
+                  const SizedBox(width: 4),
+                  Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: color)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final o = _owner >= item.ownerCount ? 0 : _owner;
+    final first = item.ownerFirstAt(o);
+    final query = o == 0 ? '' : '?o=$o';
+    final papers = o == 0 ? item.papers : item.personalPapersAt(o);
+    final silentDays = (DateTime.now().millisecondsSinceEpoch - item.ownerAskedAt(o)) ~/ const Duration(days: 1).inMilliseconds;
+    final allWaiting = papers.every((p) => p.status == PaperStatus.waiting || p.status == PaperStatus.approved);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _summary(),
+        const SizedBox(height: 16),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < item.ownerCount; i++) _tab(i),
+              if (item.ownerCount < 10)
+                InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: widget.onAddOwner,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 26),
+                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.add, size: 18, color: AppColors.primaryDark),
+                        SizedBox(width: 4),
+                        Text('Add owner', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        OnbCard(
+          color: AppColors.surfaceMuted,
+          child: OnbRow(
+            icon: Icons.person_outline,
+            title: item.ownerNameAt(o),
+            subtitle: '${item.ownerContactTextAt(o)}${o == 0 ? ' · main owner' : ''}',
+            chevron: false,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_done(o))
+          OnbBanner(o == 0 ? '$first\'s papers and the house papers are approved.' : '$first\'s papers are approved.', kind: 'ok', icon: Icons.check_circle_outline)
+        else if (_need(o) > 0)
+          OnbBanner(_need(o) == 1 ? '1 paper needs you.' : '${_need(o)} papers need you.', kind: 'need', icon: Icons.error_outline)
+        else if (allWaiting && silentDays >= 3)
+          OnbBanner('$first has not replied for $silentDays days.', kind: 'wait', icon: Icons.schedule)
+        else
+          OnbBanner('Asked ${_ago(item.ownerAskedAt(o))}. Waiting for $first.', kind: 'wait', icon: Icons.schedule),
+        const SizedBox(height: 12),
+        OnbCard(
+          child: Column(
+            children: [
+              for (final paper in papers)
+                OnbRow(
+                  icon: paperIcon(paper.key),
+                  tone: paperStatusKind(paper.status),
+                  title: PaperKeys.title(paper.key),
+                  subtitle: paper.value.isNotEmpty ? paper.value : PaperKeys.hint(paper.key),
+                  trailing: OnbPill(paperStatusLabel(paper.status), paperStatusKind(paper.status)),
+                  onTap: () => context.push('/broker/onboarding/${item.id}/paper/${paper.key}$query'),
+                ),
+            ],
+          ),
+        ),
+        if (o > 0) ...[
+          const SizedBox(height: 12),
+          OnbRow(
+            icon: Icons.home_outlined,
+            tone: item.sharedPapersDone ? 'ok' : 'mute',
+            title: 'House papers come from ${item.ownerFirstAt(0)}',
+            subtitle: 'Address, rent, bank, keys. See Owner 1',
+            onTap: () => setState(() => _owner = 0),
+          ),
+        ],
+        if (!_done(o)) ...[
+          const SizedBox(height: 12),
+          OnbRow(
+            icon: Icons.help_outline,
+            tone: 'mute',
+            title: '$first not replying?',
+            subtitle: 'Remind, call or change the contact',
+            onTap: () => widget.onNotReplying(o),
+          ),
+        ],
+        if (o > 0)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => widget.onRemoveOwner(o),
+              icon: const Icon(Icons.person_remove_outlined, size: 20, color: AppColors.error),
+              label: Text('Remove $first from this house', style: const TextStyle(color: AppColors.error, fontSize: 16)),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Add one more owner to a house that is still collecting papers.
+class _AddOwnerSheet extends StatefulWidget {
+  const _AddOwnerSheet({required this.item});
+  final PropertyOnboarding item;
+
+  @override
+  State<_AddOwnerSheet> createState() => _AddOwnerSheetState();
+}
+
+class _AddOwnerSheetState extends State<_AddOwnerSheet> {
+  final _name = TextEditingController();
+  final _contact = TextEditingController();
+  String _channel = 'email';
+  String? _nameError;
+  String? _contactError;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _contact.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final item = widget.item;
+    final name = _name.text.trim();
+    final value = _contact.text.trim();
+    String? nameError = name.length < 2 ? 'Type the owner name' : null;
+    String? contactError;
+    if (_channel == 'email') {
+      if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$').hasMatch(value)) contactError = 'This email looks wrong. Check the @ and the dot.';
+    } else if (value.length != 10) {
+      contactError = 'Type the 10 digit phone number';
+    }
+    for (var i = 0; i < item.ownerCount; i++) {
+      if (nameError == null && item.ownerNameAt(i).trim().toLowerCase() == name.toLowerCase()) {
+        nameError = '${item.ownerFirstAt(i)} is already an owner. Add the full name.';
+      }
+      if (contactError == null && item.ownerChannelAt(i) == _channel && item.ownerContactAt(i).toLowerCase() == value.toLowerCase()) {
+        contactError = 'Already added as Owner ${i + 1}. Use a different ${_channel == 'email' ? 'email' : 'number'}.';
+      }
+    }
+    setState(() {
+      _nameError = nameError;
+      _contactError = contactError;
+    });
+    if (nameError != null || contactError != null) return;
+    Navigator.pop(context, CoOwner(name: name, channel: _channel, contact: value));
+  }
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    padding: EdgeInsets.fromLTRB(24, 0, 24, 20 + MediaQuery.of(context).viewInsets.bottom),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Add another owner', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
+        const SizedBox(height: 4),
+        Text('We will ask for their Aadhaar, phone and email. House papers still come from ${widget.item.ownerFirstAt(0)}.', style: const TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted)),
+        const SizedBox(height: 24),
+        OnbTextField(label: 'Full name', controller: _name, error: _nameError, capitalization: TextCapitalization.words),
+        const SizedBox(height: 26),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final (value, label) in const [('email', 'Email · best'), ('whatsapp', 'WhatsApp')])
+              ChoiceChip(
+                label: Text(label),
+                selected: _channel == value,
+                onSelected: (_) => setState(() {
+                  _channel = value;
+                  _contact.clear();
+                  _contactError = null;
+                }),
+                showCheckmark: false,
+                selectedColor: AppColors.primarySoft,
+                labelStyle: TextStyle(fontSize: 15, color: _channel == value ? AppColors.primaryDark : AppColors.body),
+                side: BorderSide(color: _channel == value ? AppColors.primary : AppColors.border),
+                shape: const StadiumBorder(),
+              ),
+          ],
+        ),
+        const SizedBox(height: 26),
+        OnbTextField(
+          label: _channel == 'email' ? 'Email' : 'WhatsApp number',
+          controller: _contact,
+          error: _contactError,
+          keyboard: _channel == 'email' ? TextInputType.emailAddress : TextInputType.number,
+          prefix: _channel == 'email' ? null : '+91 ',
+          formatters: _channel == 'email' ? null : [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+        ),
+        const SizedBox(height: 24),
+        PrimaryButton(label: 'Add and ask for papers', onPressed: _save),
+      ],
+    ),
   );
 }

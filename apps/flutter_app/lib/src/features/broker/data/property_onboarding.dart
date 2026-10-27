@@ -21,6 +21,8 @@ abstract final class PaperKeys {
   static const bank = 'bank';
   static const address = 'address';
   static const keys = 'keys';
+  /// Papers each owner gives about themselves. The rest are about the house.
+  static const personal = [aadhaar, phone, email];
   /// Order we ask: address first (it creates the house), keys last.
   static const all = [
     address,
@@ -267,6 +269,106 @@ abstract final class OnboardingPhase {
   static const ready = 'ready';
 }
 
+/// An owner after the first one. Each owner has their own Aadhaar, phone and
+/// email papers, their own reminders and their own signature.
+class CoOwner {
+  CoOwner({
+    required this.name,
+    required this.channel,
+    required this.contact,
+    List<OnboardingPaper>? papers,
+    this.signed = false,
+    this.lastAskedAt = 0,
+  }) : papers = List.unmodifiable(
+         papers ??
+             [
+               for (final key in PaperKeys.personal)
+                 // The contact we used to ask is already known.
+                 if ((channel == 'email' && key == PaperKeys.email) || (channel != 'email' && key == PaperKeys.phone))
+                   OnboardingPaper(
+                     key: key,
+                     status: PaperStatus.approved,
+                     value: channel == 'email' ? contact : '+91 $contact',
+                   )
+                 else
+                   OnboardingPaper(key: key),
+             ],
+       );
+
+  final String name;
+
+  /// 'email' or 'whatsapp'.
+  final String channel;
+  final String contact;
+  final List<OnboardingPaper> papers;
+  final bool signed;
+  final int lastAskedAt;
+
+  String get contactText => channel == 'email' ? contact : '+91 $contact';
+  String get firstName => name.trim().split(' ').first;
+
+  OnboardingPaper paper(String key) =>
+      papers.firstWhere((p) => p.key == key, orElse: () => OnboardingPaper(key: key));
+
+  CoOwner copyWith({
+    String? name,
+    String? channel,
+    String? contact,
+    List<OnboardingPaper>? papers,
+    bool? signed,
+    int? lastAskedAt,
+  }) => CoOwner(
+    name: name ?? this.name,
+    channel: channel ?? this.channel,
+    contact: contact ?? this.contact,
+    papers: papers ?? this.papers,
+    signed: signed ?? this.signed,
+    lastAskedAt: lastAskedAt ?? this.lastAskedAt,
+  );
+
+  CoOwner withPaper(String key, PaperStatus status, {String reason = '', String? value}) => copyWith(
+    papers: [
+      for (final p in papers)
+        if (p.key == key) p.copyWith(status: status, reason: reason, value: value) else p,
+    ],
+  );
+
+  Map<String, Object?> toJson() => {
+    'name': name,
+    'channel': channel,
+    'contact': contact,
+    'papers': [for (final p in papers) p.toJson()],
+    'signed': signed,
+    'lastAskedAt': lastAskedAt,
+  };
+
+  factory CoOwner.fromJson(Map<String, dynamic> json) => CoOwner(
+    name: json['name'] as String? ?? '',
+    channel: json['channel'] as String? ?? 'email',
+    contact: json['contact'] as String? ?? '',
+    papers: json['papers'] is List
+        ? [
+            for (final item in json['papers'] as List)
+              if (item is Map) OnboardingPaper.fromJson(Map<String, dynamic>.from(item)),
+          ]
+        : null,
+    signed: json['signed'] as bool? ?? false,
+    lastAskedAt: (json['lastAskedAt'] as num?)?.toInt() ?? 0,
+  );
+
+  /// Older saves kept other owners as "Name · contact" text.
+  factory CoOwner.fromText(String text) {
+    final parts = text.split(' · ');
+    final contact = parts.length > 1 ? parts.sublist(1).join(' · ') : '';
+    final isEmail = contact.contains('@');
+    return CoOwner(
+      name: parts.first,
+      channel: isEmail ? 'email' : 'whatsapp',
+      contact: isEmail ? contact : contact.replaceFirst('+91 ', ''),
+    );
+  }
+}
+
 class PropertyOnboarding {
   PropertyOnboarding({
     required this.id,
@@ -274,7 +376,7 @@ class PropertyOnboarding {
     required this.channel,
     required this.contact,
     required this.createdAt,
-    List<String> otherOwners = const [],
+    List<CoOwner> coOwners = const [],
     List<OnboardingPaper>? papers,
     this.phase = OnboardingPhase.papers,
     this.agreementSkipped = false,
@@ -292,7 +394,7 @@ class PropertyOnboarding {
     this.brokerSigned = false,
     this.ownerSigned = false,
     this.lastAskedAt = 0,
-  }) : otherOwners = List.unmodifiable(otherOwners),
+  }) : coOwners = List.unmodifiable(coOwners),
        papers = List.unmodifiable(
          ([...(papers ?? [for (final key in PaperKeys.all) OnboardingPaper(key: key)])])
            ..sort((a, b) => PaperKeys.all.indexOf(a.key).compareTo(PaperKeys.all.indexOf(b.key))),
@@ -307,7 +409,7 @@ class PropertyOnboarding {
   final String channel;
   final String contact;
   final int createdAt;
-  final List<String> otherOwners;
+  final List<CoOwner> coOwners;
   final List<OnboardingPaper> papers;
   final String phase;
   final bool agreementSkipped;
@@ -334,12 +436,83 @@ class PropertyOnboarding {
   OnboardingPaper paper(String key) =>
       papers.firstWhere((p) => p.key == key, orElse: () => OnboardingPaper(key: key));
 
-  int get approvedCount =>
-      papers.where((p) => p.status == PaperStatus.approved || p.status == PaperStatus.notNeeded).length;
-  bool get allPapersDone => approvedCount == papers.length;
-  int get needYouCount => papers
-      .where((p) => p.status == PaperStatus.notClear || p.status == PaperStatus.needsYou)
-      .length;
+  // ---- owners: owner 0 is the main owner, 1.. are the other owners ----
+
+  int get ownerCount => 1 + coOwners.length;
+  bool get hasManyOwners => coOwners.isNotEmpty;
+  String ownerNameAt(int owner) => owner == 0 ? ownerName : coOwners[owner - 1].name;
+  String ownerFirstAt(int owner) => ownerNameAt(owner).trim().split(' ').first;
+  String ownerChannelAt(int owner) => owner == 0 ? channel : coOwners[owner - 1].channel;
+  String ownerContactAt(int owner) => owner == 0 ? contact : coOwners[owner - 1].contact;
+  String ownerContactTextAt(int owner) => owner == 0 ? contactText : coOwners[owner - 1].contactText;
+  int ownerAskedAt(int owner) => owner == 0 ? lastAskedAt : coOwners[owner - 1].lastAskedAt;
+  bool ownerSignedAt(int owner) => owner == 0 ? ownerSigned : coOwners[owner - 1].signed;
+
+  /// "Avg", "Avg and Ravi", "Avg, Ravi and Sam".
+  String get ownersFirst {
+    final names = [for (var i = 0; i < ownerCount; i++) ownerFirstAt(i)];
+    if (names.length == 1) return names.first;
+    return '${names.sublist(0, names.length - 1).join(', ')} and ${names.last}';
+  }
+
+  String get ownersFull => [for (var i = 0; i < ownerCount; i++) ownerNameAt(i)].join(', ');
+
+  /// Aadhaar, phone and email of one owner.
+  List<OnboardingPaper> personalPapersAt(int owner) => owner == 0
+      ? [for (final p in papers) if (PaperKeys.personal.contains(p.key)) p]
+      : coOwners[owner - 1].papers;
+
+  /// Papers about the house: asked once, from the main owner.
+  List<OnboardingPaper> get sharedPapers => [for (final p in papers) if (!PaperKeys.personal.contains(p.key)) p];
+
+  OnboardingPaper paperAt(int owner, String key) => owner == 0 ? paper(key) : coOwners[owner - 1].paper(key);
+
+  PropertyOnboarding withOwnerPaper(int owner, String key, PaperStatus status, {String reason = '', String? value}) {
+    if (owner == 0) return withPaper(key, status, reason: reason, value: value);
+    return copyWith(
+      coOwners: [
+        for (var i = 0; i < coOwners.length; i++)
+          if (i == owner - 1) coOwners[i].withPaper(key, status, reason: reason, value: value) else coOwners[i],
+      ],
+    );
+  }
+
+  PropertyOnboarding withOwnerAsked(int owner, int at) => owner == 0
+      ? copyWith(lastAskedAt: at)
+      : copyWith(
+          coOwners: [
+            for (var i = 0; i < coOwners.length; i++)
+              if (i == owner - 1) coOwners[i].copyWith(lastAskedAt: at) else coOwners[i],
+          ],
+        );
+
+  static bool _isOk(OnboardingPaper p) => p.status == PaperStatus.approved || p.status == PaperStatus.notNeeded;
+  static bool _isNeed(OnboardingPaper p) => p.status == PaperStatus.notClear || p.status == PaperStatus.needsYou;
+
+  Iterable<OnboardingPaper> get _everyPaper => [...papers, for (final c in coOwners) ...c.papers];
+
+  /// Papers of this owner only. For the main owner this is Aadhaar, phone and email.
+  bool ownerPapersDone(int owner) => personalPapersAt(owner).every(_isOk);
+  int ownerNeedYouAt(int owner) => personalPapersAt(owner).where(_isNeed).length;
+  bool get sharedPapersDone => sharedPapers.every(_isOk);
+  int get sharedNeedYou => sharedPapers.where(_isNeed).length;
+
+  /// First owner (0..) who has a paper that needs the broker, or -1.
+  int get firstOwnerNeedingYou {
+    for (var i = 0; i < ownerCount; i++) {
+      if (ownerNeedYouAt(i) > 0) return i;
+    }
+    return -1;
+  }
+
+  int get approvedCount => _everyPaper.where(_isOk).length;
+  bool get allPapersDone => approvedCount == _everyPaper.length;
+  int get needYouCount => _everyPaper.where(_isNeed).length;
+
+  /// Everyone has signed (main owner and the others).
+  bool get allOwnersSigned => ownerSigned && coOwners.every((c) => c.signed);
+  int get signedOwners => (ownerSigned ? 1 : 0) + coOwners.where((c) => c.signed).length;
+
   int get waitingChanges => changes.where((c) => c.status == 'waitingYou').length;
 
   /// 0 papers · 1 agreement · 2 signing · 3 ready
@@ -361,15 +534,17 @@ class PropertyOnboarding {
 
   String get homeSubtitle => switch (phase) {
     OnboardingPhase.papers => needYouCount > 0
-        ? '${PaperKeys.title(papers.firstWhere((p) => p.status == PaperStatus.notClear || p.status == PaperStatus.needsYou).key)} needs you'
-        : 'Waiting for ${ownerName.split(' ').first}\'s papers',
+        ? (hasManyOwners
+              ? '${ownerFirstAt(firstOwnerNeedingYou < 0 ? 0 : firstOwnerNeedingYou)} · ${PaperKeys.title(_everyPaper.firstWhere(_isNeed).key)} needs you'
+              : '${PaperKeys.title(_everyPaper.firstWhere(_isNeed).key)} needs you')
+        : 'Waiting for $ownersFirst\'s papers',
     OnboardingPhase.questions => 'Takes 2 minutes',
     OnboardingPhase.preparing => 'We are making the agreement',
     OnboardingPhase.review => waitingChanges > 0
         ? 'Tap to answer'
-        : (draftSent ? 'Waiting for ${ownerName.split(' ').first}' : 'Draft $draftNo is ready'),
+        : (draftSent ? 'Waiting for $ownersFirst' : 'Draft $draftNo is ready'),
     OnboardingPhase.printing => 'Getting stamp paper ready',
-    OnboardingPhase.signing => brokerSigned ? 'Waiting for ${ownerName.split(' ').first} to sign' : 'Your turn',
+    OnboardingPhase.signing => brokerSigned ? 'Waiting for $ownersFirst to sign' : 'Your turn',
     _ => 'Ready',
   };
 
@@ -377,7 +552,7 @@ class PropertyOnboarding {
     String? ownerName,
     String? channel,
     String? contact,
-    List<String>? otherOwners,
+    List<CoOwner>? coOwners,
     List<OnboardingPaper>? papers,
     String? phase,
     bool? agreementSkipped,
@@ -401,7 +576,7 @@ class PropertyOnboarding {
     channel: channel ?? this.channel,
     contact: contact ?? this.contact,
     createdAt: createdAt,
-    otherOwners: otherOwners ?? this.otherOwners,
+    coOwners: coOwners ?? this.coOwners,
     papers: papers ?? this.papers,
     phase: phase ?? this.phase,
     agreementSkipped: agreementSkipped ?? this.agreementSkipped,
@@ -435,7 +610,7 @@ class PropertyOnboarding {
     'channel': channel,
     'contact': contact,
     'createdAt': createdAt,
-    'otherOwners': otherOwners,
+    'coOwners': [for (final c in coOwners) c.toJson()],
     'papers': [for (final p in papers) p.toJson()],
     'phase': phase,
     'agreementSkipped': agreementSkipped,
@@ -461,9 +636,14 @@ class PropertyOnboarding {
     channel: json['channel'] as String? ?? 'email',
     contact: json['contact'] as String? ?? '',
     createdAt: (json['createdAt'] as num?)?.toInt() ?? 0,
-    otherOwners: [
-      for (final item in (json['otherOwners'] as List? ?? const [])) item.toString(),
-    ],
+    coOwners: json['coOwners'] is List
+        ? [
+            for (final item in json['coOwners'] as List)
+              if (item is Map) CoOwner.fromJson(Map<String, dynamic>.from(item)),
+          ]
+        : [
+            for (final item in (json['otherOwners'] as List? ?? const [])) CoOwner.fromText(item.toString()),
+          ],
     papers: [
       for (final item in (json['papers'] as List? ?? const []))
         if (item is Map) OnboardingPaper.fromJson(Map<String, dynamic>.from(item)),
@@ -559,7 +739,7 @@ class PropertyOnboardingStore extends ChangeNotifier {
     required String ownerName,
     required String channel,
     required String contact,
-    List<String> otherOwners = const [],
+    List<CoOwner> coOwners = const [],
     PropertyOnboarding? carryFrom,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -569,7 +749,7 @@ class PropertyOnboardingStore extends ChangeNotifier {
       channel: channel,
       contact: contact.trim(),
       createdAt: now,
-      otherOwners: otherOwners,
+      coOwners: [for (final c in coOwners) _withKnownProofs(c, now)],
       lastAskedAt: now,
     );
     // We already have the contact we used to ask, so that paper is ticked.
@@ -594,6 +774,43 @@ class PropertyOnboardingStore extends ChangeNotifier {
     return first;
   }
 
+  /// An extra owner we already know (same phone or email as someone from an
+  /// earlier house) keeps the ID proofs that were approved before.
+  CoOwner _withKnownProofs(CoOwner owner, int now) {
+    var next = owner.copyWith(lastAskedAt: now);
+    for (final old in _items) {
+      final known = <(String, String, List<OnboardingPaper>)>[
+        (old.channel, old.contact, old.personalPapersAt(0)),
+        for (final c in old.coOwners) (c.channel, c.contact, c.papers),
+      ];
+      for (final (channel, contact, papers) in known) {
+        if (channel != owner.channel || contact.toLowerCase() != owner.contact.toLowerCase()) continue;
+        for (final paper in papers) {
+          if (paper.status == PaperStatus.approved) {
+            next = next.withPaper(paper.key, PaperStatus.approved, value: paper.value);
+          }
+        }
+        return next;
+      }
+    }
+    return next;
+  }
+
+  /// The broker forgot an owner: add them to a house that is still being set up.
+  Future<void> addOwner(String id, CoOwner owner) => update(id, (item) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return item.copyWith(coOwners: [...item.coOwners, _withKnownProofs(owner, now)]);
+  });
+
+  /// Take an extra owner off the house. The main owner (first) cannot be removed.
+  Future<void> removeOwner(String id, int owner) => update(id, (item) {
+    if (owner < 1 || owner > item.coOwners.length) return item;
+    return item.copyWith(coOwners: [
+      for (var i = 0; i < item.coOwners.length; i++)
+        if (i != owner - 1) item.coOwners[i],
+    ]);
+  });
+
   Future<void> update(String id, PropertyOnboarding Function(PropertyOnboarding) change) async {
     _items = [
       for (final item in _items)
@@ -611,7 +828,26 @@ class PropertyOnboardingStore extends ChangeNotifier {
 
   // ---- Test helpers: pretend the owner or our team did something. ----
 
-  Future<void> testOwnerSendsPapers(String id) => update(id, (item) {
+  Future<void> testOwnerSendsPapers(String id, {int owner = 0}) => update(id, (item) {
+    if (owner > 0 && owner <= item.coOwners.length) {
+      // An extra owner only gives Aadhaar, phone and email.
+      final first = item.ownerFirstAt(owner);
+      return item
+          .withOwnerPaper(owner, PaperKeys.aadhaar, PaperStatus.approved, value: '$first S · XXXX 7305')
+          .withOwnerPaper(
+            owner,
+            PaperKeys.phone,
+            PaperStatus.approved,
+            value: item.ownerChannelAt(owner) == 'whatsapp' ? '+91 ${item.ownerContactAt(owner)}' : '+91 98765 11223',
+          )
+          .withOwnerPaper(
+            owner,
+            PaperKeys.email,
+            PaperStatus.approved,
+            value: item.ownerChannelAt(owner) == 'email' ? item.ownerContactAt(owner) : 'coowner@gmail.com',
+          )
+          .withOwnerAsked(owner, DateTime.now().millisecondsSinceEpoch - const Duration(hours: 3).inMilliseconds);
+    }
     var next = item
         .withPaper(
           PaperKeys.aadhaar,
@@ -644,6 +880,12 @@ class PropertyOnboardingStore extends ChangeNotifier {
         _ => 'Received',
       };
       next = next.withPaper(paper.key, PaperStatus.approved, value: value);
+    }
+    for (var o = 1; o < item.ownerCount; o++) {
+      for (final paper in item.personalPapersAt(o)) {
+        if (paper.status == PaperStatus.approved || paper.status == PaperStatus.notNeeded) continue;
+        next = next.withOwnerPaper(o, paper.key, PaperStatus.approved, value: 'Received');
+      }
     }
     return next.copyWith(address: 'Flat 402, Madhapur');
   });
@@ -690,8 +932,18 @@ class PropertyOnboardingStore extends ChangeNotifier {
     );
   });
 
-  Future<void> testOwnerSigns(String id) => update(id, (item) {
-    final done = item.brokerSigned;
-    return item.copyWith(ownerSigned: true, phase: done ? OnboardingPhase.ready : item.phase);
+  /// Pretend one owner signs. Without a number, the next owner who has not signed.
+  Future<void> testOwnerSigns(String id, {int? owner}) => update(id, (item) {
+    var next = item;
+    final who = owner ?? [for (var i = 0; i < item.ownerCount; i++) i].firstWhere((i) => !item.ownerSignedAt(i), orElse: () => -1);
+    if (who == 0) {
+      next = next.copyWith(ownerSigned: true);
+    } else if (who > 0) {
+      next = next.copyWith(coOwners: [
+        for (var i = 0; i < next.coOwners.length; i++)
+          if (i == who - 1) next.coOwners[i].copyWith(signed: true) else next.coOwners[i],
+      ]);
+    }
+    return next.copyWith(phase: next.brokerSigned && next.allOwnersSigned ? OnboardingPhase.ready : next.phase);
   });
 }

@@ -107,4 +107,101 @@ void main() {
     expect(store.byId(item.id)!.brokerSigned, isFalse);
     await tester.binding.setSurfaceSize(null);
   });
+
+  test('two owners: own papers, own status, all must be approved and sign', () async {
+    final store = PropertyOnboardingStore();
+    await store.load();
+    final item = await store.create(
+      ownerName: 'Ravi Kumar',
+      channel: 'email',
+      contact: 'ravi@example.com',
+      coOwners: [CoOwner(name: 'Sita Devi', channel: 'whatsapp', contact: '9123456780')],
+    );
+    expect(item.ownerCount, 2);
+    expect(item.ownerFirstAt(1), 'Sita');
+    // Sita's WhatsApp number is already known; Aadhaar and email are waiting.
+    expect(item.paperAt(1, PaperKeys.phone).status, PaperStatus.approved);
+    expect(item.paperAt(1, PaperKeys.aadhaar).status, PaperStatus.waiting);
+    expect(item.allPapersDone, isFalse);
+
+    await store.testOwnerSendsPapers(item.id, owner: 1);
+    var now = store.byId(item.id)!;
+    expect(now.ownerPapersDone(1), isTrue);
+    expect(now.ownerPapersDone(0), isFalse);
+    expect(now.allPapersDone, isFalse);
+
+    // Owner 1 still has to give the house papers: all must be approved.
+    await store.testFixAllPapers(item.id);
+    now = store.byId(item.id)!;
+    expect(now.allPapersDone, isTrue);
+
+    // Remove / add edge cases.
+    await store.addOwner(item.id, CoOwner(name: 'Mohan Lal', channel: 'email', contact: 'mohan@example.com'));
+    now = store.byId(item.id)!;
+    expect(now.ownerCount, 3);
+    expect(now.allPapersDone, isFalse);
+    await store.removeOwner(item.id, 2);
+    expect(store.byId(item.id)!.allPapersDone, isTrue);
+    await store.removeOwner(item.id, 0); // main owner cannot be removed
+    expect(store.byId(item.id)!.ownerCount, 2);
+
+    // Signing: the house is ready only when everybody signed.
+    await store.update(item.id, (i) => i.copyWith(phase: OnboardingPhase.signing, brokerSigned: true));
+    await store.testOwnerSigns(item.id, owner: 0);
+    expect(store.byId(item.id)!.phase, OnboardingPhase.signing);
+    await store.testOwnerSigns(item.id, owner: 1);
+    expect(store.byId(item.id)!.phase, OnboardingPhase.ready);
+  });
+
+  test('an extra owner we already know keeps approved ID proofs; old saves still load', () async {
+    final store = PropertyOnboardingStore();
+    await store.load();
+    final first = await store.create(
+      ownerName: 'Sita Devi',
+      channel: 'email',
+      contact: 'sita@example.com',
+    );
+    await store.testOwnerSendsPapers(first.id);
+    await store.testFixAllPapers(first.id);
+    final second = await store.create(
+      ownerName: 'Ravi Kumar',
+      channel: 'email',
+      contact: 'ravi@example.com',
+      coOwners: [CoOwner(name: 'Sita Devi', channel: 'email', contact: 'sita@example.com')],
+    );
+    expect(second.paperAt(1, PaperKeys.aadhaar).status, PaperStatus.approved);
+    final old = PropertyOnboarding.fromJson({
+      ...second.toJson(),
+      'coOwners': null,
+      'otherOwners': ['Mohan Lal · +91 9988776655'],
+    });
+    expect(old.coOwners.single.channel, 'whatsapp');
+    expect(old.coOwners.single.contact, '9988776655');
+  });
+
+  testWidgets('house page with two owners shows a tab for each owner', (tester) async {
+    final store = PropertyOnboardingStore.instance;
+    await store.load();
+    final item = await store.create(
+      ownerName: 'Ravi Kumar',
+      channel: 'whatsapp',
+      contact: '9876543210',
+      coOwners: [CoOwner(name: 'Sita Devi', channel: 'email', contact: 'sita@example.com')],
+    );
+    await tester.binding.setSurfaceSize(const Size(440, 956));
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (c, s) => PropertySetupScreen(id: item.id)),
+    ]);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.text('Owner 1'), findsOneWidget);
+    expect(find.text('Owner 2'), findsOneWidget);
+    expect(find.text('House address'), findsOneWidget); // Owner 1 tab has house papers
+    await tester.tap(find.text('Sita'));
+    await tester.pumpAndSettle();
+    expect(find.text('House address'), findsNothing);
+    expect(find.text('Aadhaar card'), findsOneWidget);
+    expect(find.textContaining('House papers come from Ravi'), findsOneWidget);
+    await tester.binding.setSurfaceSize(null);
+  });
 }

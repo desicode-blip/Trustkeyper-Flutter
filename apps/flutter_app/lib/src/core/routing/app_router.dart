@@ -262,11 +262,11 @@ final appRouter = GoRouter(
       routes: [
         GoRoute(
           path: 'paper/:key',
-          builder: (context, state) => PaperDetailScreen(id: state.pathParameters['id']!, paperKey: state.pathParameters['key']!),
+          builder: (context, state) => PaperDetailScreen(id: state.pathParameters['id']!, paperKey: state.pathParameters['key']!, owner: int.tryParse(state.uri.queryParameters['o'] ?? '') ?? 0),
         ),
         GoRoute(
           path: 'ask/:key',
-          builder: (context, state) => AskAgainScreen(id: state.pathParameters['id']!, paperKey: state.pathParameters['key']!),
+          builder: (context, state) => AskAgainScreen(id: state.pathParameters['id']!, paperKey: state.pathParameters['key']!, owner: int.tryParse(state.uri.queryParameters['o'] ?? '') ?? 0),
         ),
         GoRoute(
           path: 'questions',
