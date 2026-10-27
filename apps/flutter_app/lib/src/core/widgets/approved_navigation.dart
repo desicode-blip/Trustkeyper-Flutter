@@ -21,14 +21,15 @@ class ApprovedBrokerNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Floating pill: 76px tall, 12px side margin, 8px inner padding. The
-    // selected item is its own soft-blue pill, inset from the outer border.
+    // Floating pill that sits low on the screen (small gap below it, so the
+    // home-bar area is used). Inside: 12 above the icons, 20 below them, so
+    // the icons sit slightly high, not centred. Side margin 12.
     return SafeArea(
       top: false,
+      bottom: false,
       child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 20),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        height: 76,
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        padding: const EdgeInsets.fromLTRB(8, 12, 8, 20),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(38),

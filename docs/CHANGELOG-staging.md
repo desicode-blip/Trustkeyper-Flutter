@@ -358,3 +358,15 @@ note: only owner 1 receives the request; other owners saved as "Name · contact"
 removed: the old "Is there another owner?" page and "+ Add another owner" button (Change 14)
 verification: flutter analyze No issues found; property_onboarding_test passes
 ```
+
+## Change 16 – Bottom navigation sits lower
+Date: 2026-10-27 · Status: built on iPhone for review
+What: the floating bar moves down to use the empty space under it. Inside the bar: 12 above the icons, 20 below, so icons are not centred. Gap under the bar is 8; the iPhone home-bar area is no longer left empty below the bar.
+```
+AGENT RECORD – Change 16
+id: CHG-016
+date: 2026-10-27
+branch: staging (never main)
+file: apps/flutter_app/lib/src/core/widgets/approved_navigation.dart (SafeArea bottom:false; margin 12,0,12,8; inner padding 8,12,8,20; fixed height 76 removed)
+design_system_rule: bottom nav inner padding top 12 / bottom 20; outer gap to screen bottom 8
+verification: flutter analyze No issues found
