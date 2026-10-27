@@ -1012,11 +1012,6 @@ class _AskAgainScreenState extends State<AskAgainScreen> {
   );
 }
 
-String _joinNames(List<String> names) {
-  if (names.length <= 1) return names.join();
-  return '${names.sublist(0, names.length - 1).join(', ')} and ${names.last}';
-}
-
 /// More than one owner: one tab for each owner, with that owner's own papers
 /// and status. House papers (address, rent, bank, keys) come from Owner 1, so
 /// they sit in Owner 1's tab.
@@ -1044,68 +1039,46 @@ class _ManyOwnersPapersState extends State<_ManyOwnersPapers> {
   bool _done(int o) => item.ownerPapersDone(o) && (o != 0 || item.sharedPapersDone);
   int _need(int o) => item.ownerNeedYouAt(o) + (o == 0 ? item.sharedNeedYou : 0);
 
-  Widget _summary() {
-    final names = [for (var o = 0; o < item.ownerCount; o++) item.ownerFirstAt(o)];
-    if (item.allPapersDone) {
-      return const OnbBanner('All documents from all owners are approved.', kind: 'ok', icon: Icons.check_circle_outline);
-    }
-    final needs = [
-      for (var o = 0; o < item.ownerCount; o++)
-        if (_need(o) > 0) '${names[o]} (${_need(o)})',
-    ];
-    if (needs.isNotEmpty) {
-      return OnbBanner('Needs you: ${_joinNames(needs)}.', kind: 'need', icon: Icons.error_outline);
-    }
-    final waiting = [for (var o = 0; o < item.ownerCount; o++) if (!_done(o)) names[o]];
-    final done = item.ownerCount - waiting.length;
-    return OnbBanner(
-      done == 0 ? 'Waiting for ${_joinNames(waiting)}.' : '$done of ${item.ownerCount} owners done. Waiting for ${_joinNames(waiting)}.',
-      kind: 'wait',
-      icon: Icons.schedule,
-    );
-  }
-
-  Widget _tab(int o) {
-    final selected = o == _owner;
+  /// A browser-style tab: the open tab joins the page below it.
+  Widget _tab(int o, bool selected) {
     final done = _done(o);
     final need = _need(o);
-    final (icon, label, color) = done
-        ? (Icons.check_circle, 'Done', AppColors.success)
+    final (icon, color) = done
+        ? (Icons.check_circle, AppColors.success)
         : need > 0
-            ? (Icons.error, '$need need${need == 1 ? 's' : ''} you', AppColors.warning)
-            : (Icons.schedule, 'Waiting', AppColors.muted);
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => setState(() => _owner = o),
+            ? (Icons.error, AppColors.warning)
+            : (Icons.schedule, AppColors.muted);
+    return GestureDetector(
+      onTap: () => setState(() => _owner = o),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        constraints: const BoxConstraints(minWidth: 120, maxWidth: 190),
+        height: selected ? 50 : 44,
+        margin: const EdgeInsets.only(right: 4),
+        // The outer box is the outline; the inner box is the tab itself.
+        padding: EdgeInsets.fromLTRB(1, selected ? 2.5 : 1, 1, selected ? 0 : 1),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : AppColors.border,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+        ),
         child: Container(
-          constraints: const BoxConstraints(minWidth: 128, maxWidth: 190),
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+          padding: const EdgeInsets.symmetric(horizontal: 13),
           decoration: BoxDecoration(
-            color: selected ? AppColors.primarySoft : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: selected ? AppColors.primary : AppColors.border, width: selected ? 1.5 : 1),
+            color: selected ? Colors.white : AppColors.surfaceMuted,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Owner ${o + 1}', style: const TextStyle(fontSize: 13, color: AppColors.muted)),
-              Text(
-                item.ownerFirstAt(o),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: selected ? AppColors.primaryDark : AppColors.heading),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 15, color: color),
-                  const SizedBox(width: 4),
-                  Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: color)),
-                ],
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  'Owner ${o + 1} · ${item.ownerFirstAt(o)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 15, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? AppColors.primaryDark : AppColors.body),
+                ),
               ),
             ],
           ),
@@ -1125,44 +1098,29 @@ class _ManyOwnersPapersState extends State<_ManyOwnersPapers> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _summary(),
-        const SizedBox(height: 16),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var i = 0; i < item.ownerCount; i++) _tab(i),
-              if (item.ownerCount < 10)
-                InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: widget.onAddOwner,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 26),
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.add, size: 18, color: AppColors.primaryDark),
-                        SizedBox(width: 4),
-                        Text('Add owner', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
-                      ],
+        // Tabs, like the tabs of a desktop browser.
+        Container(
+          decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (var i = 0; i < item.ownerCount; i++) _tab(i, i == o),
+                if (item.ownerCount < 10)
+                  GestureDetector(
+                    onTap: widget.onAddOwner,
+                    behavior: HitTestBehavior.opaque,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Icon(Icons.add, size: 22, color: AppColors.primaryDark),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
-        const SizedBox(height: 16),
-        OnbCard(
-          color: AppColors.surfaceMuted,
-          child: OnbRow(
-            icon: Icons.person_outline,
-            title: item.ownerNameAt(o),
-            subtitle: '${item.ownerContactTextAt(o)}${o == 0 ? ' · main owner' : ''}',
-            chevron: false,
-          ),
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         if (_done(o))
           OnbBanner(o == 0 ? '$first\'s documents and the house documents are approved.' : '$first\'s documents are approved.', kind: 'ok', icon: Icons.check_circle_outline)
         else if (_need(o) > 0)
@@ -1171,7 +1129,7 @@ class _ManyOwnersPapersState extends State<_ManyOwnersPapers> {
           OnbBanner('$first has not replied for $silentDays days.', kind: 'wait', icon: Icons.schedule)
         else
           OnbBanner('Asked ${_ago(item.ownerAskedAt(o))}. Waiting for $first.', kind: 'wait', icon: Icons.schedule),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         OnbCard(
           child: Column(
             children: [

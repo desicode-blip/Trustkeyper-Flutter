@@ -194,10 +194,10 @@ void main() {
     ]);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
-    expect(find.text('Owner 1'), findsOneWidget);
-    expect(find.text('Owner 2'), findsOneWidget);
+    expect(find.textContaining('Owner 1'), findsOneWidget);
+    expect(find.textContaining('Owner 2'), findsOneWidget);
     expect(find.text('House address'), findsOneWidget); // Owner 1 tab has house papers
-    await tester.tap(find.text('Sita'));
+    await tester.tap(find.textContaining('Owner 2'));
     await tester.pumpAndSettle();
     expect(find.text('House address'), findsNothing);
     expect(find.text('Aadhaar card'), findsOneWidget);

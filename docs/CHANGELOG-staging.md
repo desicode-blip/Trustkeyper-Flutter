@@ -481,3 +481,16 @@ files: presentation/onboarding_widgets.dart (OnbReadFullButton, stage name Docum
 rule: only string literals were renamed; code names (papers, PaperKeys, routes) unchanged
 verification: flutter analyze No issues found; property_onboarding_test 10 passed
 ```
+
+## Change 24 – More than one owner: back to the earlier page, with browser-style tabs
+Date: 2026-10-27 · Status: built on iPhone for review
+What: the multi-owner Documents page goes back to the same layout as the one-owner page (banner, list of documents, "not replying?", Stop this request). On top there are **tabs like a desktop browser**: "Owner 1 · CTC", "Owner 2 · Sita" and a **+** to add an owner. The open tab joins the page; a small icon on each tab shows done, needs you or waiting. The banner now belongs to the open tab only ("Asked just now. Waiting for Sita."). Removed: the summary banner for everyone, the owner card, the big tab cards.
+```
+AGENT RECORD – Change 24
+id: CHG-024
+date: 2026-10-27
+branch: staging (never main)
+file: presentation/onboarding_house_screens.dart (_ManyOwnersPapers: _tab as browser tab using outer/inner box, no summary banner, no owner card), test/property_onboarding_test.dart
+note: Flutter cannot paint borderRadius with a non-uniform Border, so the tab is an outer coloured box with an inner box
+verification: flutter analyze No issues found; property_onboarding_test 10 passed
+```
