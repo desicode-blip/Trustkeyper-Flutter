@@ -399,3 +399,14 @@ branch: staging (never main)
 files: data/property_onboarding.dart (PaperKeys.all order; papers sorted in constructor; create() approves email or phone paper from contact), presentation/onboarding_house_screens.dart (test-panel and waiting checks treat approved as ok), presentation/onboarding_start_screens.dart (check list text and order)
 not_built: owner-side screens (owner count, "are you the owner", pre-fill) - need owner app + backend
 verification: flutter analyze No issues found; property_onboarding_test 5 passed
+
+## Change 19 – "For how many months?" has an Other option
+Date: 2026-10-27 · Status: built on iPhone for review
+What: next to 11 / 12 / 24 / 36 months there is now an **Other** chip. It opens a small sheet with a number box (1 to 120). After saving, the chip shows the number, e.g. "18 months", and stays selected.
+```
+AGENT RECORD – Change 19
+id: CHG-019
+date: 2026-10-27
+branch: staging (never main)
+file: apps/flutter_app/lib/src/features/broker/presentation/onboarding_agreement_screens.dart (_askMonths, Other chip)
+verification: flutter analyze No issues found

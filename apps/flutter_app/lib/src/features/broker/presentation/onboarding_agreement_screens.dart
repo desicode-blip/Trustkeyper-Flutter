@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -78,6 +79,53 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
     ('direct', 'Owner pays you directly', 'Owner sends you the money.'),
     ('signing', 'Owner pays once, at signing', 'All at the start.'),
   ];
+
+  /// Any number of months, 1 to 120.
+  Future<void> _askMonths() async {
+    final c = TextEditingController(text: const [11, 12, 24, 36].contains(months) ? '' : '$months');
+    String? err;
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      builder: (sheet) => StatefulBuilder(
+        builder: (sheet, setSheet) => Padding(
+          padding: EdgeInsets.fromLTRB(24, 0, 24, 20 + MediaQuery.of(sheet).viewInsets.bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('How many months?', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
+              const SizedBox(height: 20),
+              OnbTextField(
+                label: 'Number of months',
+                controller: c,
+                keyboard: TextInputType.number,
+                formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
+                error: err,
+                onChanged: (_) => setSheet(() => err = null),
+              ),
+              const SizedBox(height: 20),
+              PrimaryButton(
+                label: 'Save',
+                onPressed: () {
+                  final n = int.tryParse(c.text.trim());
+                  if (n == null || n < 1 || n > 120) {
+                    setSheet(() => err = 'Type a number from 1 to 120');
+                    return;
+                  }
+                  Navigator.pop(sheet, n);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    c.dispose();
+    if (picked != null && mounted) setState(() => months = picked);
+  }
 
   void _next() {
     if (step == 0) {
@@ -262,6 +310,17 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
                     side: BorderSide(color: months == m ? AppColors.primary : AppColors.border),
                     shape: const StadiumBorder(),
                   ),
+                ChoiceChip(
+                  label: Text(const [11, 12, 24, 36].contains(months) ? 'Other' : '$months months'),
+                  avatar: const [11, 12, 24, 36].contains(months) ? const Icon(Icons.edit_outlined, size: 18) : null,
+                  selected: !const [11, 12, 24, 36].contains(months),
+                  onSelected: (_) => _askMonths(),
+                  showCheckmark: false,
+                  selectedColor: AppColors.primarySoft,
+                  labelStyle: TextStyle(fontSize: 15, color: !const [11, 12, 24, 36].contains(months) ? AppColors.primaryDark : AppColors.body),
+                  side: BorderSide(color: !const [11, 12, 24, 36].contains(months) ? AppColors.primary : AppColors.border),
+                  shape: const StadiumBorder(),
+                ),
               ],
             ),
           ],
