@@ -80,6 +80,22 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
     ('signing', 'Owner pays once, at signing', 'All at the start.'),
   ];
 
+  /// Over 11 months the law needs a registered agreement. We cannot make that yet.
+  Future<void> _pickMonths(int m) async {
+    if (m <= 11) {
+      setState(() => months = m);
+      return;
+    }
+    final use11 = await onbConfirm(
+      context,
+      title: 'Registered agreement needed',
+      message: 'An agreement for more than 11 months must be registered. We cannot make that in this app yet. For now we can make it for up to 11 months.',
+      yes: 'Use 11 months',
+      no: 'Close',
+    );
+    if (use11 && mounted) setState(() => months = 11);
+  }
+
   /// Any number of months, 1 to 120.
   Future<void> _askMonths() async {
     final c = TextEditingController(text: const [11, 12, 24, 36].contains(months) ? '' : '$months');
@@ -124,7 +140,7 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
       ),
     );
     c.dispose();
-    if (picked != null && mounted) setState(() => months = picked);
+    if (picked != null && mounted) await _pickMonths(picked);
   }
 
   void _next() {
@@ -303,7 +319,7 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
                   ChoiceChip(
                     label: Text('$m months'),
                     selected: months == m,
-                    onSelected: (_) => setState(() => months = m),
+                    onSelected: (_) => _pickMonths(m),
                     showCheckmark: false,
                     selectedColor: AppColors.primarySoft,
                     labelStyle: TextStyle(fontSize: 15, color: months == m ? AppColors.primaryDark : AppColors.body),

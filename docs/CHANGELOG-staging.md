@@ -410,3 +410,15 @@ date: 2026-10-27
 branch: staging (never main)
 file: apps/flutter_app/lib/src/features/broker/presentation/onboarding_agreement_screens.dart (_askMonths, Other chip)
 verification: flutter analyze No issues found
+
+## Change 20 – More than 11 months: registered agreement notice
+Date: 2026-10-27 · Status: built on iPhone for review
+What: choosing 12, 24, 36 or an Other number above 11 shows a small sheet: "Registered agreement needed – an agreement for more than 11 months must be registered. We cannot make that in this app yet." Buttons: **Use 11 months** (sets 11) or **Close** (keeps the earlier choice). Registered agreements are out of scope for now.
+```
+AGENT RECORD – Change 20
+id: CHG-020
+date: 2026-10-27
+branch: staging (never main)
+file: onboarding_agreement_screens.dart (_pickMonths; used by chips and Other)
+rule: duration > 11 months => cannot be selected; registered agreement not supported yet
+verification: flutter analyze No issues found
