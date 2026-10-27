@@ -370,3 +370,14 @@ branch: staging (never main)
 file: apps/flutter_app/lib/src/core/widgets/approved_navigation.dart (SafeArea bottom:false; margin 12,0,12,8; inner padding 8,12,8,20; fixed height 76 removed)
 design_system_rule: bottom nav inner padding top 12 / bottom 20; outer gap to screen bottom 8
 verification: flutter analyze No issues found
+
+## Change 17 – Owner details: choose how to reach first
+Date: 2026-10-27 · Status: built on iPhone for review
+What: on each Owner details page the order is now Full name → "How do we ask for the papers?" (Email · best / WhatsApp, nothing pre-selected) → only after a tap, ONE box slides in (Email Address or Mobile number with IN +91; animated). No star on email: either way is enough. Both grey notes ("We send one short email…" and "Papers go to owner 1…") removed. Each owner has their own choice; owner 1's choice is how the request is sent.
+```
+AGENT RECORD – Change 17
+id: CHG-017
+date: 2026-10-27
+branch: staging (never main)
+file: apps/flutter_app/lib/src/features/broker/presentation/onboarding_start_screens.dart (_OwnerForm.channel nullable; _validate requires name + channel + that one contact; AnimatedSize+AnimatedSwitcher 250ms for the contact box)
+verification: flutter analyze No issues found; property_onboarding_test passes

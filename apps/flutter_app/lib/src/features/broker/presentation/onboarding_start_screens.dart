@@ -139,6 +139,9 @@ class OnboardNewScreen extends StatefulWidget {
 }
 
 class _OwnerForm {
+  /// null until the broker picks: 'email' or 'whatsapp'.
+  String? channel;
+  String? channelError;
   final name = TextEditingController();
   final phone = TextEditingController();
   final email = TextEditingController();
@@ -157,8 +160,6 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
   final List<_OwnerForm> _owners = [_OwnerForm()];
   int _step = 0; // 0 how many · 1 owner details · 2 check · 3 sent
   int _person = 0;
-  // How we ask owner 1 for papers: email (best) or WhatsApp.
-  String _channel = 'email';
   String? _sendError;
   bool _sending = false;
   String? _createdId;
@@ -180,6 +181,8 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
   static final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
 
   _OwnerForm get _first => _owners.first;
+  // How we ask owner 1 for papers: email (best) or WhatsApp.
+  String get _channel => _first.channel ?? 'email';
   String get _firstName => _first.name.text.trim().split(' ').first;
   String get _contact => _channel == 'email' ? _first.email.text.trim() : _first.phone.text.trim();
   bool get _dirty => _step < 3 && _owners.any((o) => o.name.text.trim().isNotEmpty || o.phone.text.trim().isNotEmpty || o.email.text.trim().isNotEmpty);
@@ -191,24 +194,19 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
     });
   }
 
-  /// Checks the owner shown now. Owner 1 must have the field we ask on.
+  /// Checks the owner shown now: name, how to reach, and that one contact.
   bool _validate(int index) {
     final o = _owners[index];
     final name = o.name.text.trim();
     final phone = o.phone.text.trim();
     final email = o.email.text.trim();
-    final needPhone = index == 0 ? _channel == 'whatsapp' : false;
-    final needEmail = index == 0 ? _channel == 'email' : false;
     setState(() {
       o.nameError = name.length < 2 ? 'Type the owner name' : null;
-      o.phoneError = phone.isEmpty && !needPhone
-          ? null
-          : (phone.length == 10 ? null : 'Type the 10 digit phone number');
-      o.emailError = email.isEmpty && !needEmail
-          ? null
-          : (_emailPattern.hasMatch(email) ? null : 'This email looks wrong. Check the @ and the dot.');
+      o.channelError = o.channel == null ? 'Pick one' : null;
+      o.phoneError = o.channel == 'whatsapp' && phone.length != 10 ? 'Type the 10 digit phone number' : null;
+      o.emailError = o.channel == 'email' && !_emailPattern.hasMatch(email) ? 'This email looks wrong. Check the @ and the dot.' : null;
     });
-    return o.nameError == null && o.phoneError == null && o.emailError == null;
+    return o.nameError == null && o.channelError == null && o.phoneError == null && o.emailError == null;
   }
 
   Future<void> _next() async {
@@ -233,7 +231,7 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
           final saved = matches.last;
           setState(() {
             _first.name.text = saved.ownerName;
-            _channel = saved.channel;
+            _first.channel = saved.channel;
             if (saved.channel == 'email') {
               _first.email.text = saved.contact;
             } else {
@@ -351,7 +349,7 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
       final contact = _channel == 'email' ? _first.email.text.trim() : _first.phone.text.trim();
       final others = [
         for (final o in _owners.skip(1))
-          '${o.name.text.trim()} · ${o.phone.text.trim().isNotEmpty ? '+91 ${o.phone.text.trim()}' : o.email.text.trim()}',
+          '${o.name.text.trim()} · ${o.channel == 'whatsapp' ? '+91 ${o.phone.text.trim()}' : o.email.text.trim()}',
       ];
       final created = await _store.create(
         ownerName: _first.name.text.trim(),
@@ -480,49 +478,50 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
       const SizedBox(height: 26),
       OnbTextField(label: 'Full name *', controller: o.name, error: o.nameError, capitalization: TextCapitalization.words, onChanged: (_) => setState(() => o.nameError = null)),
       const SizedBox(height: 26),
-      OnbTextField(
-        key: ValueKey('phone-$_person'),
-        label: 'Mobile number${_person == 0 && _channel == 'whatsapp' ? ' *' : ''}',
-        controller: o.phone,
-        error: o.phoneError,
-        keyboard: TextInputType.number,
-        formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-        prefix: 'IN +91 ',
-        onChanged: (_) => setState(() => o.phoneError = null),
-      ),
-      const SizedBox(height: 26),
-      OnbTextField(
-        key: ValueKey('email-$_person'),
-        label: 'Email Address${_person == 0 && _channel == 'email' ? ' *' : ''}',
-        controller: o.email,
-        error: o.emailError,
-        keyboard: TextInputType.emailAddress,
-        formatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
-        onChanged: (_) => setState(() => o.emailError = null),
-      ),
-      if (_person == 0) ...[
-        const SizedBox(height: 26),
-        const Text('Ask for papers on', style: TextStyle(fontSize: 14, color: AppColors.muted)),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(child: _ChannelChip(label: 'Email · best', icon: Icons.mail_outline, selected: _channel == 'email', onTap: () => setState(() => _channel = 'email'))),
-            const SizedBox(width: 10),
-            Expanded(child: _ChannelChip(label: 'WhatsApp', icon: Icons.chat_bubble_outline, selected: _channel == 'whatsapp', onTap: () => setState(() => _channel = 'whatsapp'))),
-          ],
-        ),
-        const SizedBox(height: 14),
-        OnbBanner(
-          _channel == 'email'
-              ? 'We send one short email. The owner replies with photos of the papers.'
-              : 'We send a WhatsApp message. The owner sends the papers there.',
-          icon: _channel == 'email' ? Icons.mail_outline : Icons.chat_bubble_outline,
-        ),
-        if (_owners.length > 1) ...[
-          const SizedBox(height: 10),
-          const OnbBanner('Papers go to owner 1. He can send for everyone.', icon: Icons.groups_outlined),
+      Text(_person == 0 ? 'How do we ask for the papers?' : 'How do we reach this owner?', style: const TextStyle(fontSize: 14, color: AppColors.muted)),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Expanded(child: _ChannelChip(label: 'Email · best', icon: Icons.mail_outline, selected: o.channel == 'email', onTap: () => setState(() { o.channel = 'email'; o.channelError = null; }))),
+          const SizedBox(width: 10),
+          Expanded(child: _ChannelChip(label: 'WhatsApp', icon: Icons.chat_bubble_outline, selected: o.channel == 'whatsapp', onTap: () => setState(() { o.channel = 'whatsapp'; o.channelError = null; }))),
         ],
-      ],
+      ),
+      if (o.channelError != null)
+        Padding(padding: const EdgeInsets.only(top: 6, left: 4), child: Text(o.channelError!, style: const TextStyle(color: AppColors.error, fontSize: 14))),
+      // The box appears only after a choice, and only for that choice.
+      AnimatedSize(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+        alignment: Alignment.topCenter,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: o.channel == null
+              ? const SizedBox(width: double.infinity)
+              : Padding(
+                  key: ValueKey('contact-$_person-${o.channel}'),
+                  padding: const EdgeInsets.only(top: 26),
+                  child: o.channel == 'email'
+                      ? OnbTextField(
+                          label: 'Email Address',
+                          controller: o.email,
+                          error: o.emailError,
+                          keyboard: TextInputType.emailAddress,
+                          formatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
+                          onChanged: (_) => setState(() => o.emailError = null),
+                        )
+                      : OnbTextField(
+                          label: 'Mobile number',
+                          controller: o.phone,
+                          error: o.phoneError,
+                          keyboard: TextInputType.number,
+                          formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+                          prefix: 'IN +91 ',
+                          onChanged: (_) => setState(() => o.phoneError = null),
+                        ),
+                ),
+        ),
+      ),
     ];
   }
 
