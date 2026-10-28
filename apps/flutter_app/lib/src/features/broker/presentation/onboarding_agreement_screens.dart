@@ -812,9 +812,10 @@ Future<bool> confirmSendDraft(BuildContext context, PropertyOnboarding item) asy
   final result = await showModalBottomSheet<bool>(
     context: context,
     showDragHandle: true,
+    isScrollControlled: true,
     backgroundColor: Colors.white,
     builder: (sheet) => SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -853,6 +854,11 @@ Future<bool> confirmSendDraft(BuildContext context, PropertyOnboarding item) asy
                   ),
               ],
             ),
+            const SizedBox(height: 14),
+            Text(
+              item.trustkeyperSigns ? 'TrustKeyper signs last, after the owners.' : 'You sign last, after the owners.',
+              style: const TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted),
+            ),
             const SizedBox(height: 20),
             PrimaryButton(label: 'Yes, send for signing', onPressed: () => Navigator.pop(sheet, true)),
             const SizedBox(height: 10),
@@ -865,12 +871,11 @@ Future<bool> confirmSendDraft(BuildContext context, PropertyOnboarding item) asy
   return result ?? false;
 }
 
-/// Confirms, marks the draft as sent and shows "Agreement sent!".
+/// Confirms, then opens "Send to each owner".
 Future<void> sendDraftWithConfirm(BuildContext context, PropertyOnboarding item) async {
   if (!await confirmSendDraft(context, item) || !context.mounted) return;
-  // Sending starts a clean page: later changes are measured from this draft.
-  await _store.update(item.id, (i) => i.copyWith(draftSent: true, draftSentAt: DateTime.now().millisecondsSinceEpoch, edits: const []));
-  if (context.mounted) context.push('/broker/onboarding/${item.id}/sent');
+  // Next: send to each owner (RV4). The draft counts as sent when the broker taps Done.
+  if (context.mounted) context.push('/broker/onboarding/${item.id}/send');
 }
 
 /// The owner already has the draft. A change makes a new draft that they must
@@ -1270,68 +1275,6 @@ class _AgreementReader extends StatelessWidget {
       ),
     );
   }
-}
-
-/// "Agreement sent!" and what happens next.
-class AgreementSentScreen extends StatelessWidget {
-  const AgreementSentScreen({required this.id, super.key});
-  final String id;
-
-  @override
-  Widget build(BuildContext context) => OnbItemView(
-    id: id,
-    builder: (context, item) {
-      final first = item.ownersFirst;
-      final steps = <(String, String, String)>[
-        ('Sent', item.hasManyOwners ? 'To all ${item.ownerCount} owners' : 'To $first', 'ok'),
-        ('Owner reviews it', item.hasManyOwners ? 'They read it on WhatsApp or email' : '$first reads it on WhatsApp or email', 'info'),
-        ('They say yes', item.hasManyOwners ? 'All ${item.ownerCount} must agree' : '$first must agree', 'mute'),
-        ('Everyone signs', 'Then the agreement is ready', 'mute'),
-      ];
-      return OnbPage(
-        title: 'Setting up',
-        showBack: false,
-        footer: [
-          PrimaryButton(label: 'Go to home', onPressed: () => context.go('/broker')),
-          const SizedBox(height: 10),
-          OnbSecondaryButton(label: 'See the agreement', onPressed: () => context.pop()),
-        ],
-        children: [
-          OnbCentered(
-            icon: Icons.check,
-            kind: 'ok',
-            title: 'Agreement sent',
-            message: item.hasManyOwners
-                ? 'All ${item.ownerCount} owners have it. We will tell you when they reply.'
-                : '$first has it. We will tell you when $first replies.',
-          ),
-          const SizedBox(height: 24),
-          const Text('What happens next', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
-          const SizedBox(height: 8),
-          OnbCard(
-            child: Column(
-              children: [
-                for (final (title, sub, kind) in steps)
-                  OnbRow(
-                    icon: kind == 'ok' ? Icons.check_circle : Icons.radio_button_unchecked,
-                    tone: kind,
-                    title: title,
-                    subtitle: sub,
-                    chevron: false,
-                    trailing: kind == 'info' ? const OnbPill('Now', 'info') : null,
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Sending on WhatsApp or email is not connected yet. On the house page, use the test buttons to pretend the owner replied.',
-            style: TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted),
-          ),
-        ],
-      );
-    },
-  );
 }
 
 // ---------------------------------------------------------------------------

@@ -181,6 +181,36 @@ class DraftVersion {
   );
 }
 
+/// How one owner is doing with the draft that was sent for signing.
+class OwnerReply {
+  const OwnerReply({this.status = '', this.via = '', this.sentAt = 0, this.remindedAt = 0});
+
+  /// '' not opened · seen (opened, no answer) · yes · change (asked a change)
+  final String status;
+
+  /// '' not sent yet · whatsapp · email · both
+  final String via;
+  final int sentAt;
+  final int remindedAt;
+
+  bool get sent => via.isNotEmpty;
+
+  OwnerReply copyWith({String? status, String? via, int? sentAt, int? remindedAt}) => OwnerReply(
+    status: status ?? this.status,
+    via: via ?? this.via,
+    sentAt: sentAt ?? this.sentAt,
+    remindedAt: remindedAt ?? this.remindedAt,
+  );
+
+  Map<String, Object?> toJson() => {'status': status, 'via': via, 'sentAt': sentAt, 'remindedAt': remindedAt};
+  factory OwnerReply.fromJson(Map<String, dynamic> json) => OwnerReply(
+    status: json['status'] as String? ?? '',
+    via: json['via'] as String? ?? '',
+    sentAt: (json['sentAt'] as num?)?.toInt() ?? 0,
+    remindedAt: (json['remindedAt'] as num?)?.toInt() ?? 0,
+  );
+}
+
 /// One part of the agreement the broker changed after the first draft. It
 /// remembers how that part was before, so the change can be undone.
 class AgreementEdit {
@@ -455,6 +485,8 @@ class PropertyOnboarding {
     List<DraftChange> changes = const [],
     List<DraftVersion> versions = const [],
     List<AgreementEdit> edits = const [],
+    List<OwnerReply> replies = const [],
+    this.signsAs = 'trustkeyper',
     this.printStep = 0,
     this.brokerSigned = false,
     this.ownerSigned = false,
@@ -466,7 +498,8 @@ class PropertyOnboarding {
        ),
        changes = List.unmodifiable(changes),
        versions = List.unmodifiable(versions),
-       edits = List.unmodifiable(edits);
+       edits = List.unmodifiable(edits),
+       replies = List.unmodifiable(replies);
 
   final String id;
   final String ownerName;
@@ -495,6 +528,13 @@ class PropertyOnboarding {
 
   /// Parts the broker changed after the first draft (shown green, can be undone).
   final List<AgreementEdit> edits;
+
+  /// One per owner, same order as the owners (padded when read).
+  final List<OwnerReply> replies;
+
+  /// Who signs as the manager: 'trustkeyper' (TrustKeyper / Paravent signs)
+  /// or 'me' (the broker signs for their own business).
+  final String signsAs;
 
   /// 0 stamp paper · 1 printing · 2 ready to sign
   final int printStep;
@@ -578,6 +618,34 @@ class PropertyOnboarding {
   }
 
   int get approvedCount => _everyPaper.where(_isOk).length;
+  // ---- sending for signing ----
+
+  OwnerReply replyAt(int owner) => owner < replies.length ? replies[owner] : const OwnerReply();
+
+  PropertyOnboarding withReply(int owner, OwnerReply reply) => copyWith(
+    replies: [for (var i = 0; i < ownerCount; i++) i == owner ? reply : replyAt(i)],
+  );
+
+  int get sentCount => [for (var i = 0; i < ownerCount; i++) replyAt(i)].where((r) => r.sent).length;
+  int get yesCount => [for (var i = 0; i < ownerCount; i++) replyAt(i)].where((r) => r.status == 'yes').length;
+
+  /// TrustKeyper signs for the company, or the broker signs.
+  bool get trustkeyperSigns => signsAs != 'me';
+  String get managerName => trustkeyperSigns ? 'TrustKeyper' : 'You';
+
+  /// Owner's WhatsApp number and email as we know them ('' when not known).
+  String ownerPhoneAt(int owner) {
+    final v = paperAt(owner, PaperKeys.phone).value.trim();
+    if (v.isNotEmpty) return v;
+    return ownerChannelAt(owner) == 'email' ? '' : '+91 ${ownerContactAt(owner)}';
+  }
+
+  String ownerEmailAt(int owner) {
+    final v = paperAt(owner, PaperKeys.email).value.trim();
+    if (v.isNotEmpty) return v;
+    return ownerChannelAt(owner) == 'email' ? ownerContactAt(owner) : '';
+  }
+
   /// The broker already told us the fee, dates and notes (can happen while papers are still coming).
   bool get hasAgreementDetails => answers.feeType.isNotEmpty;
 
@@ -655,6 +723,8 @@ class PropertyOnboarding {
     List<DraftChange>? changes,
     List<DraftVersion>? versions,
     List<AgreementEdit>? edits,
+    List<OwnerReply>? replies,
+    String? signsAs,
     int? printStep,
     bool? brokerSigned,
     bool? ownerSigned,
@@ -681,6 +751,8 @@ class PropertyOnboarding {
     changes: changes ?? this.changes,
     versions: versions ?? this.versions,
     edits: edits ?? this.edits,
+    replies: replies ?? this.replies,
+    signsAs: signsAs ?? this.signsAs,
     printStep: printStep ?? this.printStep,
     brokerSigned: brokerSigned ?? this.brokerSigned,
     ownerSigned: ownerSigned ?? this.ownerSigned,
@@ -717,6 +789,8 @@ class PropertyOnboarding {
     'changes': [for (final c in changes) c.toJson()],
     'versions': [for (final v in versions) v.toJson()],
     'edits': [for (final e in edits) e.toJson()],
+    'replies': [for (final r in replies) r.toJson()],
+    'signsAs': signsAs,
     'printStep': printStep,
     'brokerSigned': brokerSigned,
     'ownerSigned': ownerSigned,
@@ -766,6 +840,11 @@ class PropertyOnboarding {
       for (final item in (json['edits'] as List? ?? const []))
         if (item is Map) AgreementEdit.fromJson(Map<String, dynamic>.from(item)),
     ],
+    replies: [
+      for (final item in (json['replies'] as List? ?? const []))
+        if (item is Map) OwnerReply.fromJson(Map<String, dynamic>.from(item)),
+    ],
+    signsAs: json['signsAs'] as String? ?? 'trustkeyper',
     printStep: (json['printStep'] as num?)?.toInt() ?? 0,
     brokerSigned: json['brokerSigned'] as bool? ?? false,
     ownerSigned: json['ownerSigned'] as bool? ?? false,
@@ -1029,10 +1108,50 @@ class PropertyOnboardingStore extends ChangeNotifier {
     return item.copyWith(
       ownerAgreedFinal: false,
       draftSent: false,
+      replies: const [],
       draftNo: item.draftNo + 1,
       versions: [...item.versions, DraftVersion(number: item.draftNo + 1, summary: summary, at: now)],
     );
   }
+
+  /// Sends the draft to one owner ('whatsapp', 'email' or 'both').
+  /// Not really sent yet: messaging needs the backend.
+  Future<void> sendDraftTo(String id, int owner, String via) => update(id, (item) =>
+      item.withReply(owner, item.replyAt(owner).copyWith(via: via, sentAt: DateTime.now().millisecondsSinceEpoch)));
+
+  /// Done sending: the draft is now with the owners.
+  Future<void> finishSending(String id) => update(id, (item) => item.copyWith(
+    draftSent: true,
+    draftSentAt: DateTime.now().millisecondsSinceEpoch,
+    edits: const [],
+  ));
+
+  Future<void> remindOwner(String id, int owner) => update(id, (item) =>
+      item.withReply(owner, item.replyAt(owner).copyWith(remindedAt: DateTime.now().millisecondsSinceEpoch)));
+
+  Future<void> setSignsAs(String id, String who) => update(id, (item) => item.copyWith(signsAs: who));
+
+  Future<void> testOwnerOpens(String id, int owner) => update(id, (item) =>
+      item.replyAt(owner).status.isEmpty ? item.withReply(owner, item.replyAt(owner).copyWith(status: 'seen')) : item);
+
+  /// One owner says yes. When every owner has, the draft is agreed.
+  Future<void> testOwnerSaysYes(String id, int owner) => update(id, (item) {
+    final next = item.withReply(owner, item.replyAt(owner).copyWith(status: 'yes'));
+    if (next.yesCount < next.ownerCount) return next;
+    return next.copyWith(
+      ownerAgreedFinal: true,
+      changes: [
+        for (final c in next.changes)
+          if (c.status == 'waitingOwner') c.copyWith(status: 'agreed') else c,
+      ],
+    );
+  });
+
+  /// TrustKeyper signs as the manager (when TrustKeyper is the manager).
+  Future<void> testManagerSigns(String id) => update(id, (item) {
+    final next = item.copyWith(brokerSigned: true);
+    return next.copyWith(phase: next.allOwnersSigned ? OnboardingPhase.ready : next.phase);
+  });
 
   Future<void> testDraftReady(String id) => update(id, (item) => item.copyWith(
     phase: OnboardingPhase.review,
@@ -1047,7 +1166,7 @@ class PropertyOnboardingStore extends ChangeNotifier {
 
   Future<void> testOwnerAsksChange(String id) => update(id, (item) {
     final before = item.answers.feeSummary(item.rent);
-    return item.copyWith(
+    return item.withReply(0, item.replyAt(0).copyWith(status: 'change')).copyWith(
       changes: [
         ...item.changes,
         DraftChange(
@@ -1064,6 +1183,7 @@ class PropertyOnboardingStore extends ChangeNotifier {
 
   Future<void> testOwnerAgrees(String id) => update(id, (item) => item.copyWith(
     ownerAgreedFinal: true,
+    replies: [for (var i = 0; i < item.ownerCount; i++) item.replyAt(i).copyWith(status: 'yes')],
     changes: [
       for (final c in item.changes)
         if (c.status == 'waitingOwner') c.copyWith(status: 'agreed') else c,

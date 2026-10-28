@@ -7,6 +7,7 @@ import 'package:trustkeyper/src/features/broker/data/property_onboarding.dart';
 import 'package:trustkeyper/src/features/broker/presentation/onboarding_agreement_screens.dart';
 import 'package:trustkeyper/src/features/broker/presentation/onboarding_house_screens.dart';
 import 'package:trustkeyper/src/features/broker/presentation/onboarding_start_screens.dart';
+import 'package:trustkeyper/src/features/broker/presentation/send_for_signing_screens.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -449,6 +450,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(440, 956));
     final router = GoRouter(routes: [
       GoRoute(path: '/', builder: (c, s) => OwnerAgreementScreen(id: item.id)),
+      GoRoute(path: '/broker/onboarding/:id/send', builder: (c, s) => SendToEachScreen(id: s.pathParameters['id']!)),
       GoRoute(path: '/broker/onboarding/:id/sent', builder: (c, s) => AgreementSentScreen(id: s.pathParameters['id']!)),
     ]);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
@@ -461,10 +463,30 @@ void main() {
     expect(store.byId(item.id)!.draftSent, isFalse);
     await tester.tap(find.text('Send for signing'));
     await tester.pumpAndSettle();
+    expect(find.text('TrustKeyper signs last, after the owners.'), findsOneWidget);
     await tester.tap(find.text('Yes, send for signing'));
     await tester.pumpAndSettle();
+    // Send to each owner: nothing counts as sent yet.
+    expect(find.text('Send to each owner'), findsOneWidget);
+    expect(store.byId(item.id)!.draftSent, isFalse);
+    expect(find.text('No WhatsApp number'), findsNWidgets(2)); // both gave email only
+    // Untick Email: nobody can be reached, the card says why.
+    await tester.tap(find.text('Email').first);
+    await tester.pumpAndSettle();
+    expect(find.text('No WhatsApp number for Ravi. Tick Email too.'), findsOneWidget);
+    await tester.tap(find.text('Email').first);
+    await tester.pumpAndSettle();
+    // Send to Ravi only: 1 not sent yet, then Done.
+    await tester.tap(find.text('Send to Ravi'));
+    await tester.pumpAndSettle();
+    expect(store.byId(item.id)!.replyAt(0).via, 'email');
+    expect(find.text('1 owner not sent yet'), findsOneWidget);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
     expect(store.byId(item.id)!.draftSent, isTrue);
-    expect(find.text('Agreement sent'), findsOneWidget);
+    expect(find.text('Draft 1 sent!'), findsOneWidget);
+    expect(find.text('See who replied'), findsOneWidget);
+    expect(find.textContaining('and TrustKeyper'), findsOneWidget);
     expect(find.text('Go to home'), findsOneWidget);
     expect(find.text('Go to this house'), findsNothing);
     expect(find.text('What happens next'), findsOneWidget);
@@ -515,15 +537,16 @@ void main() {
     final router = GoRouter(routes: [GoRoute(path: '/', builder: (c, s) => PropertySetupScreen(id: item.id))]);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
-    expect(find.text('Draft 2 status'), findsOneWidget);
-    expect(find.text('Sent'), findsOneWidget);
-    expect(find.text('Opened'), findsOneWidget);
-    expect(find.text('Answer'), findsOneWidget);
+    expect(find.text('Draft 2 · who replied'), findsOneWidget);
+    expect(find.text('Not opened'), findsOneWidget);
+    expect(find.text('Who said yes'), findsOneWidget);
     expect(find.text('Make changes'), findsOneWidget);
     expect(find.text('Read full agreement'), findsOneWidget);
+    expect(find.text('Remind Ravi'), findsOneWidget);
     // Quiet links are below the status card.
-    expect(tester.getTopLeft(find.text('Changes')).dy, greaterThan(tester.getTopLeft(find.text('Answer')).dy));
-    expect(tester.getTopLeft(find.text('Versions')).dy, greaterThan(tester.getTopLeft(find.text('Answer')).dy));
+    await tester.scrollUntilVisible(find.text('Versions'), 200, scrollable: find.byType(Scrollable).first);
+    expect(tester.getTopLeft(find.text('Changes')).dy, greaterThan(tester.getTopLeft(find.text('Who said yes')).dy));
+    expect(tester.getTopLeft(find.text('Versions')).dy, greaterThan(tester.getTopLeft(find.text('Who said yes')).dy));
     // Make changes opens the part picker (the new draft itself is covered by the store test).
     await tester.tap(find.text('Make changes'));
     await tester.pumpAndSettle();
@@ -593,6 +616,61 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600)); // spinner never settles
     expect(store.byId(item.id)!.phase, OnboardingPhase.preparing);
     await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('who replied: per owner status, remind once an hour, manager row', (tester) async {
+    final store = PropertyOnboardingStore.instance;
+    await store.load();
+    final item = await store.create(
+      ownerName: 'Ravi Kumar',
+      channel: 'email',
+      contact: 'ravi@example.com',
+      coOwners: [CoOwner(name: 'Sita Devi', channel: 'email', contact: 'sita@example.com')],
+    );
+    await store.update(item.id, (i) => i.copyWith(phase: OnboardingPhase.review, draftNo: 1, answers: const AgreementAnswers(feeType: 'percent', feeValue: 5, payWay: 'cut', startDate: '2026-12-01')));
+    await store.sendDraftTo(item.id, 0, 'email');
+    await store.sendDraftTo(item.id, 1, 'email');
+    await store.finishSending(item.id);
+    await store.testOwnerSaysYes(item.id, 0);
+    await store.testOwnerOpens(item.id, 1);
+    await tester.binding.setSurfaceSize(const Size(440, 1400));
+    final router = GoRouter(routes: [GoRoute(path: '/', builder: (c, s) => PropertySetupScreen(id: item.id))]);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.text('Draft 1 · who replied'), findsOneWidget);
+    expect(find.text('1 of 2'), findsOneWidget);
+    expect(find.text('Said yes'), findsOneWidget);
+    expect(find.text('Seen, no reply'), findsOneWidget);
+    expect(find.text('5% a month'), findsOneWidget);
+    expect(find.textContaining('TrustKeyper · Manager', findRichText: true), findsOneWidget);
+    expect(find.text('Signs last'), findsOneWidget);
+    expect(find.text('Remind Sita'), findsOneWidget);
+    await tester.tap(find.text('Remind').first);
+    await tester.pumpAndSettle();
+    expect(store.byId(item.id)!.replyAt(1).remindedAt, greaterThan(0));
+    expect(find.text('Remind Sita'), findsNothing); // once an hour
+    expect(find.textContaining('Reminded'), findsWidgets);
+    // Second yes: all agreed.
+    await store.testOwnerSaysYes(item.id, 1);
+    expect(store.byId(item.id)!.ownerAgreedFinal, isTrue);
+    // A new draft clears the replies.
+    await store.changeAgreementPart(item.id, 'notes', const AgreementAnswers(notes: 'No pets'));
+    expect(store.byId(item.id)!.yesCount, 0);
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  test('TrustKeyper or the broker signs as the manager', () async {
+    final store = PropertyOnboardingStore.instance;
+    await store.load();
+    final item = await store.create(ownerName: 'Ravi Kumar', channel: 'email', contact: 'ravi@example.com');
+    expect(store.byId(item.id)!.trustkeyperSigns, isTrue);
+    await store.update(item.id, (i) => i.copyWith(phase: OnboardingPhase.signing));
+    await store.testOwnerSigns(item.id, owner: 0);
+    expect(store.byId(item.id)!.phase, OnboardingPhase.signing); // TrustKeyper has not signed
+    await store.testManagerSigns(item.id);
+    expect(store.byId(item.id)!.phase, OnboardingPhase.ready);
+    await store.setSignsAs(item.id, 'me');
+    expect(store.byId(item.id)!.managerName, 'You');
   });
 
   test('home notices: ready to review, then under review by the owner', () async {

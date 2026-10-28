@@ -718,3 +718,24 @@ branch: staging (never main)
 files: presentation/onboarding_house_screens.dart (papers footer when hasAgreementDetails), test/property_onboarding_test.dart
 verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 29 passed
 ```
+
+## Change 40 – Send for signing rebuilt from the canvas (page 06: RV3–RV6, home HM1)
+Date: 2026-10-28 · Status: on the phone after the next build
+The journey after "Send for signing" now follows the artboard:
+1. **Confirm (RV3):** "Send to Ravi for signing?" with every owner, plus a line saying who signs last: "TrustKeyper signs last, after the owners." (or "You sign last").
+2. **Send to each owner (RV4) – new screen:** "Send on (you can pick both)" ticks for **WhatsApp** (logo) and **Email**. One card per owner: name · Owner N, what we have for them (WhatsApp / Email, or a warning "No WhatsApp number" / "No email"), and **Send to Ravi**. After sending: green **Sent** pill and "On email · just now". The bottom says "1 owner not sent yet" and the button changes from **Send to everyone** to **Done**. A **Signs at the end** card shows the manager: **TrustKeyper · Manager** or **You · Broker**, with **Change**.
+3. **Agreement sent (RV5):** green tick, "Draft 1 sent!", and a joined timeline: Sent → They read it (Now) → They say yes → Everyone signs ("Ravi and TrustKeyper"). Buttons: **Go to home** and **See who replied**.
+4. **Who replied (RV6) on the house page:** Rent · Starts · Your fee strip, **Who said yes 1 of 2** bar, one row per owner (Said yes / Seen, no reply / Not opened / Asked a change) with **Remind** (or **See** for a change), and the manager row "Signs last". Bottom: **Remind all 2** (soft green), Read full agreement, Make changes.
+5. **Home (HM1):** the amber notice now says "1 of 2 said yes".
+6. **Signing:** the manager row says **TrustKeyper · Signs for the company** or **You · Your turn**. "Sign now" shows only when you sign; when TrustKeyper signs, the test button "TrustKeyper signs" finishes it.
+Edge cases covered: owner with no WhatsApp number or no email (warning, Send off for that owner until the other tick is on), both ticks off ("Pick WhatsApp or email above."), send to some then Done, leaving after sending to some ("Leave this page?" → marks as sent), remind once an hour ("Reminded · 5 min ago"), owner asks a change (row says so, "See"), all say yes (Lock and continue), a change after sending makes the next draft and clears every reply, more than one owner, old saves (shown as "Not opened"). Not possible yet without the backend: real sending, delivery failures, "not on WhatsApp", email bounces, copy link.
+```
+AGENT RECORD – Change 40
+id: CHG-040
+date: 2026-10-28
+branch: staging (never main)
+files: data/property_onboarding.dart (OwnerReply, replies[], signsAs, replyAt/withReply/yesCount/sentCount/trustkeyperSigns/ownerPhoneAt/ownerEmailAt, store sendDraftTo/finishSending/remindOwner/setSignsAs/testOwnerOpens/testOwnerSaysYes/testManagerSigns; _newDraftIfSent clears replies), presentation/send_for_signing_screens.dart (new: SendToEachScreen, AgreementSentScreen moved here, SignTimeline, WhoReplied, ManagerSignRow, pickWhoSigns), presentation/onboarding_agreement_screens.dart (confirm sheet scrolls + manager line, send goes to /send), presentation/onboarding_house_screens.dart (review uses WhoReplied, Remind all, signing manager row, test buttons), presentation/broker_draft_cards.dart (notice progress), presentation/onboarding_widgets.dart (OnbPill label ellipsis), core/routing/app_router.dart (route send), test/property_onboarding_test.dart
+source design: v2 canvas page 06 RV3, RV4, RV5, RV6; A2; HM1; ES1/ES5 for "everyone signs"
+rule: signsAs defaults to 'trustkeyper' (templates name Paravent); 'me' = broker signs
+verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 31 passed; full suite 39 failures, the same 39 as before this change (old golden/layout tests)
+```

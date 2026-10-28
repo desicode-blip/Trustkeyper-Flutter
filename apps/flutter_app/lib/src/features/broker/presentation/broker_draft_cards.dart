@@ -283,6 +283,7 @@ class _BrokerDraftSectionState extends State<BrokerDraftSection> {
               ready: house.agreementJustReady,
               house: house.houseName,
               owners: house.ownersFirst,
+              progress: '${house.yesCount} of ${house.ownerCount} said yes',
               onTap: () => context.push('/broker/onboarding/${house.id}'),
             ),
         const Padding(
@@ -342,8 +343,10 @@ class _BrokerDraftSectionState extends State<BrokerDraftSection> {
 
 /// Home notice: the agreement is ready to review, or it is with the owner.
 class _AgreementNotice extends StatelessWidget {
-  const _AgreementNotice({required this.ready, required this.house, required this.owners, required this.onTap});
+  const _AgreementNotice({required this.ready, required this.house, required this.owners, required this.onTap, this.progress = ''});
   final bool ready;
+  /// "1 of 2 said yes" while the owners review.
+  final String progress;
   final String house;
   final String owners;
   final VoidCallback onTap;
@@ -381,7 +384,7 @@ class _AgreementNotice extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        ready ? '$house · Review it' : '$house · Agreement sent for signing',
+                        ready ? '$house · Review it' : '$house · $progress',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.heading),

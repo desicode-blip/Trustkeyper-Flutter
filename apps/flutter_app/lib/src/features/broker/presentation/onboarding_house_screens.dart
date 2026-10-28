@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../data/property_onboarding.dart';
 import 'onboarding_agreement_screens.dart' show sendDraftWithConfirm, showWhatToChange;
+import 'send_for_signing_screens.dart';
 import 'onboarding_widgets.dart';
 
 /// Rebuilds when the request changes. Shows a plain message if it was removed.
@@ -448,7 +449,6 @@ class _OnboardingBody extends StatelessWidget {
   List<Widget> _review(BuildContext context) {
     final changesWaiting = item.waitingChanges;
     final ownerFirst = _firstName(item);
-    final opened = item.changes.isNotEmpty || item.ownerAgreedFinal;
     final many = item.hasManyOwners;
     return [
       if (changesWaiting > 0)
@@ -460,36 +460,14 @@ class _OnboardingBody extends StatelessWidget {
       else if (item.ownerAgreedFinal)
         OnbBanner('${many ? 'All owners agree' : '$ownerFirst agrees'} with everything.', kind: 'ok', icon: Icons.check_circle_outline)
       else
-        OnbBanner('Draft ${item.draftNo} sent ${_ago(item.draftSentAt)}. Waiting for $ownerFirst.', kind: 'wait', icon: Icons.schedule),
+        OnbBanner('Draft ${item.draftNo} sent ${_ago(item.draftSentAt)}. ${many ? '${item.yesCount} of ${item.ownerCount} owners said yes.' : 'Waiting for $ownerFirst.'}', kind: 'wait', icon: Icons.schedule),
       if (item.draftSent) ...[
         const SizedBox(height: 18),
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text('Draft ${item.draftNo} status', style: const TextStyle(fontSize: 18, height: 24 / 18, fontWeight: FontWeight.w600, color: AppColors.heading)),
+          padding: const EdgeInsets.only(left: 4, bottom: 10),
+          child: Text('Draft ${item.draftNo} · who replied', style: const TextStyle(fontSize: 18, height: 24 / 18, fontWeight: FontWeight.w600, color: AppColors.heading)),
         ),
-        OnbCard(
-          child: Column(
-            children: [
-              OnbRow(icon: Icons.send_outlined, tone: 'ok', title: 'Sent', subtitle: _ago(item.draftSentAt), chevron: false),
-              OnbRow(
-                icon: Icons.visibility_outlined,
-                tone: opened ? 'ok' : 'mute',
-                title: 'Opened',
-                subtitle: opened ? 'Yes' : 'Not yet',
-                chevron: false,
-              ),
-              OnbRow(
-                icon: item.ownerAgreedFinal ? Icons.check : (changesWaiting > 0 ? Icons.chat_bubble_outline : Icons.hourglass_empty),
-                tone: item.ownerAgreedFinal ? 'ok' : (changesWaiting > 0 ? 'wait' : 'mute'),
-                title: 'Answer',
-                subtitle: item.ownerAgreedFinal
-                    ? (many ? 'All owners agreed' : '$ownerFirst agreed')
-                    : (changesWaiting > 0 ? '$ownerFirst asked a change' : 'Waiting'),
-                chevron: false,
-              ),
-            ],
-          ),
-        ),
+        WhoReplied(item: item),
       ],
       const SizedBox(height: 22),
       _moreLinks(context),
@@ -557,21 +535,20 @@ class _OnboardingBody extends StatelessWidget {
         const OnbBanner('The final draft is locked. Our team is getting it ready for signing.', kind: 'info', icon: Icons.lock_outline)
       else if (!item.brokerSigned)
         OnbBanner(
-          item.hasManyOwners
-              ? 'Everyone signs on their phone with a code. ${item.signedOwners} of ${item.ownerCount} owners have signed.'
-              : 'Everyone signs on their phone with a code. $first ${item.ownerSigned ? 'has signed.' : 'has not signed yet.'}',
+          '${item.hasManyOwners ? 'Everyone signs on their phone with a code. ${item.signedOwners} of ${item.ownerCount} owners have signed.' : 'Everyone signs on their phone with a code. $first ${item.ownerSigned ? 'has signed.' : 'has not signed yet.'}'}'
+          '${item.trustkeyperSigns ? ' TrustKeyper signs for the company.' : ''}',
           kind: 'wait',
           icon: Icons.draw_outlined,
         )
       else
-        OnbBanner('You signed. Waiting for $first.', kind: 'wait', icon: Icons.schedule),
+        OnbBanner('${item.trustkeyperSigns ? 'TrustKeyper' : 'You'} signed. Waiting for $first.', kind: 'wait', icon: Icons.schedule),
       const SizedBox(height: 14),
       OnbCard(
         child: Column(
           children: [
             OnbRow(icon: Icons.approval_outlined, tone: tone(0), title: 'Stamp paper', subtitle: item.printStep > 0 ? 'Done' : 'Our team is buying it', chevron: false, trailing: OnbPill(label(0), tone(0))),
             OnbRow(icon: Icons.print_outlined, tone: tone(1), title: 'Printing', subtitle: item.printStep > 1 ? 'Done' : 'Printed on stamp paper', chevron: false, trailing: OnbPill(label(1), tone(1))),
-            OnbRow(icon: Icons.draw_outlined, tone: item.phase == OnboardingPhase.signing ? 'info' : 'mute', title: 'Sign online', subtitle: 'You and $first', chevron: false, trailing: OnbPill(item.phase == OnboardingPhase.signing ? 'Now' : 'Later', item.phase == OnboardingPhase.signing ? 'info' : 'mute')),
+            OnbRow(icon: Icons.draw_outlined, tone: item.phase == OnboardingPhase.signing ? 'info' : 'mute', title: 'Sign online', subtitle: item.trustkeyperSigns ? '$first and TrustKeyper' : '$first and you', chevron: false, trailing: OnbPill(item.phase == OnboardingPhase.signing ? 'Now' : 'Later', item.phase == OnboardingPhase.signing ? 'info' : 'mute')),
           ],
         ),
       ),
@@ -580,7 +557,14 @@ class _OnboardingBody extends StatelessWidget {
         OnbCard(
           child: Column(
             children: [
-              OnbRow(icon: Icons.check, tone: item.brokerSigned ? 'ok' : 'wait', title: 'You', subtitle: item.brokerSigned ? 'Signed' : 'Your turn', chevron: false, trailing: OnbPill(item.brokerSigned ? 'Signed' : 'Waiting', item.brokerSigned ? 'ok' : 'wait')),
+              OnbRow(
+                icon: Icons.check,
+                tone: item.brokerSigned ? 'ok' : 'wait',
+                title: item.trustkeyperSigns ? 'TrustKeyper' : 'You',
+                subtitle: item.brokerSigned ? 'Signed' : (item.trustkeyperSigns ? 'Signs for the company' : 'Your turn'),
+                chevron: false,
+                trailing: OnbPill(item.brokerSigned ? 'Signed' : 'Waiting', item.brokerSigned ? 'ok' : 'wait'),
+              ),
               for (var o = 0; o < item.ownerCount; o++)
                 OnbRow(
                   icon: Icons.check,
@@ -714,11 +698,20 @@ class _OnboardingBody extends StatelessWidget {
             OnbSecondaryButton(label: 'Make changes', onPressed: () => showWhatToChange(context, item)),
           ];
         }
+        final remindable = [for (var o = 0; o < item.ownerCount; o++) if (canRemind(item, o)) o];
         return [
+          if (remindable.isNotEmpty) ...[
+            _RemindAllButton(
+              label: remindable.length == 1 ? 'Remind ${item.ownerFirstAt(remindable.first)}' : 'Remind all ${remindable.length}',
+              onPressed: () => remindOwners(context, item, remindable),
+            ),
+            const SizedBox(height: 10),
+          ],
           OnbSecondaryButton(label: 'Make changes', onPressed: () => showWhatToChange(context, item)),
         ];
       case OnboardingPhase.signing:
-        if (!item.brokerSigned) {
+        // TrustKeyper signs for itself; only a broker who signs sees "Sign now".
+        if (!item.trustkeyperSigns && !item.brokerSigned) {
           return [PrimaryButton(label: 'Sign now', onPressed: () => context.push('/broker/onboarding/${item.id}/sign'))];
         }
         return const [];
@@ -759,12 +752,19 @@ class _OnboardingBody extends StatelessWidget {
         buttons.add(('Agreement is ready (Draft 1)', () => store.testDraftReady(item.id)));
       case OnboardingPhase.review:
         if (item.draftSent && !item.ownerAgreedFinal) {
+          for (var o = 0; o < item.ownerCount; o++) {
+            final who = o;
+            final name = item.hasManyOwners ? item.ownerFirstAt(o) : 'Owner';
+            final r = item.replyAt(o);
+            if (r.status.isEmpty) buttons.add(('$name opens it', () => store.testOwnerOpens(item.id, who)));
+            if (r.status != 'yes' && item.waitingChanges == 0) buttons.add(('$name says yes', () => store.testOwnerSaysYes(item.id, who)));
+          }
           buttons.add(('Owner asks a change', () => store.testOwnerAsksChange(item.id)));
-          if (item.waitingChanges == 0) buttons.add(('Owner says yes to everything', () => store.testOwnerAgrees(item.id)));
         }
       case OnboardingPhase.printing:
         buttons.add(('Our team: next step', () => store.testNextPrintStep(item.id)));
       case OnboardingPhase.signing:
+        if (item.trustkeyperSigns && !item.brokerSigned) buttons.add(('TrustKeyper signs', () => store.testManagerSigns(item.id)));
         for (var o = 0; o < item.ownerCount; o++) {
           if (!item.ownerSignedAt(o)) {
             final who = o;
@@ -1361,6 +1361,30 @@ class _AddOwnerSheetState extends State<_AddOwnerSheet> {
         const SizedBox(height: 24),
         PrimaryButton(label: 'Add and ask for documents', onPressed: _save),
       ],
+    ),
+  );
+}
+
+/// Soft green "Remind" button (canvas RV6 footer).
+class _RemindAllButton extends StatelessWidget {
+  const _RemindAllButton({required this.label, required this.onPressed});
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: double.infinity,
+    height: 56,
+    child: TextButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.notifications_none, size: 20),
+      label: Text(label),
+      style: TextButton.styleFrom(
+        backgroundColor: AppColors.successSoft,
+        foregroundColor: AppColors.success,
+        shape: const StadiumBorder(),
+        textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+      ),
     ),
   );
 }

@@ -21,6 +21,7 @@ import '../../features/broker/presentation/sign_only_screen.dart';
 import '../../features/broker/presentation/signing_requests_screen.dart';
 import '../../features/broker/presentation/broker_property_screen.dart';
 import '../../features/broker/presentation/onboarding_agreement_screens.dart';
+import '../../features/broker/presentation/send_for_signing_screens.dart';
 import '../../features/broker/presentation/onboarding_house_screens.dart';
 import '../../features/broker/presentation/onboarding_start_screens.dart';
 import '../../features/broker/data/broker_property_repository.dart';
@@ -275,6 +276,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: 'edit',
           builder: (context, state) => AgreementEditScreen(id: state.pathParameters['id']!, part: state.uri.queryParameters['part'] ?? 'fee'),
+        ),
+        GoRoute(
+          path: 'send',
+          builder: (context, state) => SendToEachScreen(id: state.pathParameters['id']!),
         ),
         GoRoute(
           path: 'sent',
