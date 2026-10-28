@@ -4,7 +4,7 @@ id: monthly_percent
 name: Every month: percent of rent
 use when: Fee is a percent of the rent, every month. Owner pays directly, or the fee is deducted from rent paid through the app.
 Drive source: 1AMTnUD7EdTP_V2CDBRumZbF9b80aDZNa (Word file)
-cleaned: Cleaned from the filled Krishna/Shruthi agreement: names, addresses, dates, 9.1%, owner email, property and fixtures, owner bank details removed.
+cleaned: Cleaned from a filled agreement: names, addresses, dates, 9.1%, owner email, property and fixtures, owner bank details removed.
 rule: do NOT replace this copy unless Aman asks. Fixed company details (Paravent, GST, addresses, manager bank) are kept on purpose.
 placeholders (17): [ACCOUNT HOLDER NAME], [ACCOUNT NUMBER], [BANK NAME], [EFFECTIVE DATE], [END DATE OF INITIAL TERM], [EXECUTION DATE], [FATHER’S / SPOUSE’S NAME], [FEE PERCENT], [IFSC CODE], [MR./MS.], [OWNER 1 FULL NAME], [OWNER 1 FULL RESIDENTIAL ADDRESS WITH PIN CODE], [OWNER 2 FULL NAME], [OWNER 2 FULL RESIDENTIAL ADDRESS WITH PIN CODE], [OWNER EMAIL ADDRESS], [SAVINGS / CURRENT], [UPI ID / NA]
 -->

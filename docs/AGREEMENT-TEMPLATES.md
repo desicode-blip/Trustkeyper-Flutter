@@ -47,7 +47,7 @@ Until then the app shows a plain-word summary. It is not the legal text.
 
 ## Update 2026-10-28 – percent template link
 - The percent link is a Word file in Drive. Because Drive's Doc export does not work on Word files, the fetch must use the download call for that one. The app now records this per template (`isWordFile`). Simplest long-term fix: open it in Google Docs and "Save as Google Docs", then share the new link.
-- The file is a **filled agreement** (Krishna Bhargav Juturu and Esikela Shruthi, 21 Aug 2025, 9.1%, 1 Aug 2025 to 31 Jul 2026, their address). It must be turned into a blank template with placeholders before it can be used for other owners.
+- The file is a **filled agreement** (one past owner's names, address, 9.1% and Aug 2025 dates). It must be turned into a blank template with placeholders before it can be used for other owners.
 - The attached "3 days" file is already a clean template with placeholders such as [OWNER 1 FULL NAME], [EFFECTIVE DATE], [END DATE OF INITIAL TERM], [OWNER EMAIL ADDRESS], [AREA], and a bank table. It makes a good model for how the other three should look. Only its Drive link is missing.
 
 ## Update 2026-10-28 – copies kept in the repo
