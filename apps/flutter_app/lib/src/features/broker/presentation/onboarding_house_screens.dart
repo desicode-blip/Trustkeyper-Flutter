@@ -154,6 +154,7 @@ class _OnboardingBody extends StatelessWidget {
           onAddOwner: () => _addOwner(context),
           onRemoveOwner: (owner) => _removeOwner(context, owner),
         ),
+        ..._detailsSaved(context),
         ..._stopButton(context),
       ];
     }
@@ -204,9 +205,27 @@ class _OnboardingBody extends StatelessWidget {
         icon: const Icon(Icons.person_add_alt_1_outlined, size: 20),
         label: const Text('Add another owner', style: TextStyle(fontSize: 16)),
       ),
+      ..._detailsSaved(context),
       ..._stopButton(context),
     ];
   }
+
+  /// Collaboration details added while the owner's papers are still coming.
+  List<Widget> _detailsSaved(BuildContext context) => !item.hasAgreementDetails
+      ? const []
+      : [
+          const SizedBox(height: 12),
+          OnbCard(
+            child: OnbRow(
+              icon: Icons.handshake_outlined,
+              tone: 'ok',
+              title: 'Collaboration details',
+              subtitle: item.answers.feeSummary(item.rent),
+              trailing: const OnbPill('Saved', 'ok'),
+              onTap: () => context.push('/broker/onboarding/${item.id}/questions'),
+            ),
+          ),
+        ];
 
   List<Widget> _stopButton(BuildContext context) => [
       const SizedBox(height: 8),
@@ -626,9 +645,29 @@ class _OnboardingBody extends StatelessWidget {
     switch (item.phase) {
       case OnboardingPhase.papers:
         if (item.allPapersDone) {
-          return [PrimaryButton(label: 'Continue', onPressed: () => store.update(item.id, (i) => i.copyWith(phase: OnboardingPhase.questions)))];
+          // Details already added while waiting: go straight to making the agreement.
+          return [
+            PrimaryButton(
+              label: item.hasAgreementDetails ? 'Make the agreement' : 'Continue',
+              onPressed: () => store.update(item.id, (i) => i.copyWith(phase: i.hasAgreementDetails ? OnboardingPhase.preparing : OnboardingPhase.questions)),
+            ),
+          ];
         }
-        return const [];
+        if (item.hasAgreementDetails) {
+          return [OnbSecondaryButton(label: 'Change collaboration details', onPressed: () => context.push('/broker/onboarding/${item.id}/questions'))];
+        }
+        // Don't wait for the owner: fill the rest now.
+        return [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(
+              '${_firstName(item)} can take their time. You can go on.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted),
+            ),
+          ),
+          PrimaryButton(label: 'Add collaboration details', onPressed: () => context.push('/broker/onboarding/${item.id}/questions')),
+        ];
       case OnboardingPhase.questions:
         // One button only.
         return [

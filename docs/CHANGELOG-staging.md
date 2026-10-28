@@ -692,3 +692,17 @@ branch: staging (never main)
 files: presentation/onboarding_widgets.dart (OnbChannelChip, OnbTextField.focusNode), presentation/onboarding_start_screens.dart (_pickChannel, focus nodes, old _ChannelChip removed), presentation/onboarding_house_screens.dart (_AddOwnerSheet channel nullable, box after pick, focus), assets/design/whatsapp.svg (Simple Icons, CC0, fill #25D366), test/property_onboarding_test.dart
 verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 28 passed
 ```
+
+## Change 38 – Don't wait for the owner: add collaboration details while papers come
+Date: 2026-10-28 · Status: on the phone after the next build
+- **Documents stage, still waiting:** new main button **Add collaboration details** with the line "{owner} can take their time. You can go on." It opens the same questions (What is your fee? → how the owner pays → start date → anything else → check).
+- The last button there says **Save details** (not "Make the agreement") while documents are still coming. Saving keeps the house in Documents, shows "Saved. We make the agreement when {owner} sends the documents." and a green **Collaboration details · Saved** row on the house page (tap to change). The footer then offers **Change collaboration details**.
+- **When all documents are approved:** if details are already saved, the button is **Make the agreement** and goes straight to making it (no questions again). If not, it is **Continue** as before.
+```
+AGENT RECORD – Change 38
+id: CHG-038
+date: 2026-10-28
+branch: staging (never main)
+files: data/property_onboarding.dart (hasAgreementDetails), presentation/onboarding_house_screens.dart (papers footer, _detailsSaved), presentation/onboarding_agreement_screens.dart (_send keeps papers phase, Save details label), test/property_onboarding_test.dart
+verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 29 passed
+```

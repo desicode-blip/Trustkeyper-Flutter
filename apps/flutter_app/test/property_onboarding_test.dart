@@ -559,6 +559,41 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('waiting for papers: broker can add collaboration details now', (tester) async {
+    final store = PropertyOnboardingStore.instance;
+    await store.load();
+    final item = await store.create(ownerName: 'Ravi Kumar', channel: 'email', contact: 'ravi@example.com');
+    await tester.binding.setSurfaceSize(const Size(440, 956));
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (c, s) => PropertySetupScreen(id: item.id)),
+      GoRoute(path: '/broker/onboarding/:id/questions', builder: (c, s) => AgreementQuestionsScreen(id: s.pathParameters['id']!)),
+    ]);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(store.byId(item.id)!.phase, OnboardingPhase.papers);
+    expect(find.text('Add collaboration details'), findsOneWidget);
+    await tester.tap(find.text('Add collaboration details'));
+    await tester.pumpAndSettle();
+    expect(find.text('What is your fee?'), findsOneWidget);
+    // Save details while papers are still coming: phase stays papers.
+    await store.update(item.id, (i) => i.copyWith(answers: const AgreementAnswers(feeType: 'percent', feeValue: 5, payWay: 'cut', startDate: '2026-12-01')));
+    router.go('/');
+    await tester.pumpAndSettle();
+    expect(store.byId(item.id)!.phase, OnboardingPhase.papers);
+    await tester.scrollUntilVisible(find.text('Collaboration details'), 200, scrollable: find.byType(Scrollable).first);
+    expect(find.text('Collaboration details'), findsOneWidget);
+    expect(find.text('Saved'), findsOneWidget);
+    expect(find.text('Change collaboration details'), findsOneWidget);
+    // Owner sends everything: one tap makes the agreement (no questions again).
+    await store.testFixAllPapers(item.id);
+    await tester.pumpAndSettle();
+    expect(store.byId(item.id)!.allPapersDone, isTrue);
+    await tester.tap(find.text('Make the agreement'));
+    await tester.pump(const Duration(milliseconds: 600)); // spinner never settles
+    expect(store.byId(item.id)!.phase, OnboardingPhase.preparing);
+    await tester.binding.setSurfaceSize(null);
+  });
+
   test('home notices: ready to review, then under review by the owner', () async {
     final store = PropertyOnboardingStore.instance;
     await store.load();

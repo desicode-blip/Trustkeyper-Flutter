@@ -578,6 +578,9 @@ class PropertyOnboarding {
   }
 
   int get approvedCount => _everyPaper.where(_isOk).length;
+  /// The broker already told us the fee, dates and notes (can happen while papers are still coming).
+  bool get hasAgreementDetails => answers.feeType.isNotEmpty;
+
   bool get allPapersDone => approvedCount == _everyPaper.length;
   int get needYouCount => _everyPaper.where(_isNeed).length;
 

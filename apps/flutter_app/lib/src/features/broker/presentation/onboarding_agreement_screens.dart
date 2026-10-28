@@ -269,6 +269,19 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
       months: months,
       notes: notes.text.trim(),
     );
+    final now = _store.byId(item.id) ?? item;
+    // Papers still coming: save the details, keep waiting for the owner.
+    if (now.phase == OnboardingPhase.papers && !now.allPapersDone) {
+      await _store.update(item.id, (i) => i.copyWith(answers: answers));
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      context.pop();
+      messenger.showSnackBar(SnackBar(
+        content: Text('Saved. We make the agreement when ${now.ownersFirst} sends the documents.'),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
     await _store.update(item.id, (i) => i.copyWith(answers: answers, phase: OnboardingPhase.preparing));
     if (mounted) context.pop();
   }
@@ -691,7 +704,7 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
       },
       footer: [
         PrimaryButton(
-          label: step == 4 ? 'Make the agreement' : 'Next',
+          label: step == 4 ? (item.phase == OnboardingPhase.papers && !item.allPapersDone ? 'Save details' : 'Make the agreement') : 'Next',
           onPressed: step == 4 ? _send : _next,
         ),
       ],
