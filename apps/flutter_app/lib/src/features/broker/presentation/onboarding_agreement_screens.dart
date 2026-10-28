@@ -232,7 +232,7 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
         body = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final (key, label, hint) in _feeTypes)
+            for (final (key, label, hint) in _feeTypes) ...[
               OnbRow(
                 icon: feeType == key ? Icons.radio_button_checked : Icons.radio_button_unchecked,
                 tone: feeType == key ? 'info' : 'mute',
@@ -245,31 +245,47 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
                   understood20 = false;
                 }),
               ),
-            if (feeType.isNotEmpty && feeType != 'none' && feeType != 'later') ...[
-              OnbTextField(
-                label: switch (feeType) {
-                  'days' => 'How many days of rent?',
-                  'percent' => 'How many percent?',
-                  _ => 'How many rupees?',
-                },
-                controller: fee,
-                keyboard: TextInputType.number,
-                prefix: feeType == 'fixed' || feeType == 'once' ? '₹ ' : null,
-                error: feeError,
-                onChanged: (_) => setState(() {
-                  feeError = null;
-                  understood20 = false;
-                }),
+              // The number box opens right under the option that was picked.
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                alignment: Alignment.topCenter,
+                child: feeType == key && key != 'none' && key != 'later'
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 4, bottom: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            OnbTextField(
+                              label: switch (key) {
+                                'days' => 'How many days of rent?',
+                                'percent' => 'How many percent?',
+                                _ => 'How many rupees?',
+                              },
+                              controller: fee,
+                              keyboard: TextInputType.number,
+                              prefix: key == 'fixed' || key == 'once' ? '₹ ' : null,
+                              error: feeError,
+                              onChanged: (_) => setState(() {
+                                feeError = null;
+                                understood20 = false;
+                              }),
+                            ),
+                            if (feeValue > 0 && feeError == null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'Fee: ${AgreementAnswers(feeType: feeType, feeValue: feeValue).feeSummary(item.rent)}',
+                                  style: const TextStyle(fontSize: 16, color: AppColors.muted),
+                                ),
+                              ),
+                          ],
+                        ),
+                      )
+                    : const SizedBox(width: double.infinity),
               ),
-              if (feeValue > 0 && feeError == null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    'Fee: ${AgreementAnswers(feeType: feeType, feeValue: feeValue).feeSummary(item.rent)}',
-                    style: const TextStyle(fontSize: 16, color: AppColors.muted),
-                  ),
-                ),
-            ] else if (feeError != null)
+            ],
+            if ((feeType.isEmpty || feeType == 'none' || feeType == 'later') && feeError != null)
               Padding(padding: const EdgeInsets.only(top: 8), child: Text(feeError!, style: const TextStyle(color: AppColors.error, fontSize: 14))),
           ],
         );

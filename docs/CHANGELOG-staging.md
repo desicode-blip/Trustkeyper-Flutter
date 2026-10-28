@@ -506,3 +506,16 @@ branch: staging (never main)
 files: data/property_onboarding.dart (AgreementAnswers feeType none/later, feeHasNoAmount, feeSummary, payWayText), presentation/onboarding_agreement_screens.dart (_feeTypes, _next skips pay-way step, back, check page, keyPoints, clause 3), test/property_onboarding_test.dart
 verification: flutter analyze No issues found; property_onboarding_test passed
 ```
+
+## Change 26 – Fee number box opens under the option you picked
+Date: 2026-10-28 · Status: built on iPhone for review
+What: on "What is your fee?", the box for the number (days, percent, rupees) now opens **right under the option you tap**, with a short slide. The picked option stays where it is and the options below move down. "No fee" and "Decide on every deal" open no box. Before, the box was at the very end of the list.
+```
+AGENT RECORD – Change 26
+id: CHG-026
+date: 2026-10-28
+branch: staging (never main)
+files: presentation/onboarding_agreement_screens.dart (fee step: field inside the option loop with AnimatedSize), test/property_onboarding_test.dart
+rule (design system): when an option needs an entry field, the field opens directly under that option
+verification: flutter analyze No issues found; property_onboarding_test 11 passed
+```

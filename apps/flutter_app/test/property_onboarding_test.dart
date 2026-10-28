@@ -233,4 +233,24 @@ void main() {
     expect(find.text('Broker'), findsWidgets);
     await tester.binding.setSurfaceSize(null);
   });
+
+  testWidgets('fee number box opens right under the picked option', (tester) async {
+    final store = PropertyOnboardingStore.instance;
+    await store.load();
+    final item = await store.create(ownerName: 'Ravi Kumar', channel: 'email', contact: 'ravi@example.com');
+    await tester.binding.setSurfaceSize(const Size(440, 956));
+    final router = GoRouter(routes: [GoRoute(path: '/', builder: (c, s) => AgreementQuestionsScreen(id: item.id))]);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsNothing);
+    await tester.tap(find.text('Percent of rent'));
+    await tester.pumpAndSettle();
+    final field = tester.getTopLeft(find.byType(TextField)).dy;
+    expect(field, greaterThan(tester.getTopLeft(find.text('Percent of rent')).dy));
+    expect(field, lessThan(tester.getTopLeft(find.text('Fixed amount')).dy));
+    await tester.tap(find.text('No fee'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsNothing);
+    await tester.binding.setSurfaceSize(null);
+  });
 }
