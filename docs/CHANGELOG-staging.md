@@ -678,3 +678,17 @@ files: data/property_onboarding.dart (_newDraftIfSent: draftSent=false, draftNo+
 rule: a change after sending makes draftNo+1 and draftSent=false; send sets draftSent=true and clears edits
 verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 27 passed
 ```
+
+## Change 37 – Email / WhatsApp: box only after you pick, cursor jumps in, WhatsApp logo
+Date: 2026-10-28 · Status: on the phone after the next build
+- **Owner details** and **Add another owner**: nothing is picked at first and there is no contact box. Tap **Email · best** or **WhatsApp** and the box appears with the cursor already in it, so the keypad opens by itself: letters with @ for email, numbers for WhatsApp. Switching between the two moves the cursor to the new box.
+- **Add another owner** no longer starts with Email already picked. If you press the button without picking one, it says "Pick one".
+- The WhatsApp button now shows the **WhatsApp logo** (green) instead of a chat bubble. One shared button is used in both places.
+```
+AGENT RECORD – Change 37
+id: CHG-037
+date: 2026-10-28
+branch: staging (never main)
+files: presentation/onboarding_widgets.dart (OnbChannelChip, OnbTextField.focusNode), presentation/onboarding_start_screens.dart (_pickChannel, focus nodes, old _ChannelChip removed), presentation/onboarding_house_screens.dart (_AddOwnerSheet channel nullable, box after pick, focus), assets/design/whatsapp.svg (Simple Icons, CC0, fill #25D366), test/property_onboarding_test.dart
+verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 28 passed
+```

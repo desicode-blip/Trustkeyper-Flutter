@@ -145,6 +145,8 @@ class _OwnerForm {
   final name = TextEditingController();
   final phone = TextEditingController();
   final email = TextEditingController();
+  final emailFocus = FocusNode();
+  final phoneFocus = FocusNode();
   String? nameError;
   String? phoneError;
   String? emailError;
@@ -152,6 +154,8 @@ class _OwnerForm {
     name.dispose();
     phone.dispose();
     email.dispose();
+    emailFocus.dispose();
+    phoneFocus.dispose();
   }
 }
 
@@ -491,6 +495,19 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
     ),
   );
 
+  /// Shows the right box and puts the cursor in it, so the right keypad opens
+  /// (letters for email, numbers for WhatsApp).
+  void _pickChannel(_OwnerForm o, String channel) {
+    setState(() {
+      o.channel = channel;
+      o.channelError = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      (channel == 'email' ? o.emailFocus : o.phoneFocus).requestFocus();
+    });
+  }
+
   List<Widget> _person_() {
     final o = _owners[_person];
     return [
@@ -519,9 +536,9 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
       const SizedBox(height: 8),
       Row(
         children: [
-          Expanded(child: _ChannelChip(label: 'Email · best', icon: Icons.mail_outline, selected: o.channel == 'email', onTap: () => setState(() { o.channel = 'email'; o.channelError = null; }))),
+          Expanded(child: OnbChannelChip(channel: 'email', selected: o.channel == 'email', onTap: () => _pickChannel(o, 'email'))),
           const SizedBox(width: 10),
-          Expanded(child: _ChannelChip(label: 'WhatsApp', icon: Icons.chat_bubble_outline, selected: o.channel == 'whatsapp', onTap: () => setState(() { o.channel = 'whatsapp'; o.channelError = null; }))),
+          Expanded(child: OnbChannelChip(channel: 'whatsapp', selected: o.channel == 'whatsapp', onTap: () => _pickChannel(o, 'whatsapp'))),
         ],
       ),
       if (o.channelError != null)
@@ -542,6 +559,7 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
                       ? OnbTextField(
                           label: 'Email Address',
                           controller: o.email,
+                          focusNode: o.emailFocus,
                           error: o.emailError,
                           keyboard: TextInputType.emailAddress,
                           formatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
@@ -550,6 +568,7 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
                       : OnbTextField(
                           label: 'Mobile number',
                           controller: o.phone,
+                          focusNode: o.phoneFocus,
                           error: o.phoneError,
                           keyboard: TextInputType.number,
                           formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
@@ -643,31 +662,3 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
   }
 }
 
-class _ChannelChip extends StatelessWidget {
-  const _ChannelChip({required this.label, required this.icon, required this.selected, required this.onTap});
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: selected ? AppColors.primarySoft : Colors.white,
-    shape: StadiumBorder(side: BorderSide(color: selected ? AppColors.primary : AppColors.border)),
-    child: InkWell(
-      customBorder: const StadiumBorder(),
-      onTap: onTap,
-      child: SizedBox(
-        height: 48,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 18, color: selected ? AppColors.primaryDark : AppColors.muted),
-            const SizedBox(width: 6),
-            Text(label, style: TextStyle(fontSize: 16, fontWeight: selected ? FontWeight.w500 : FontWeight.w400, color: selected ? AppColors.primaryDark : AppColors.muted)),
-          ],
-        ),
-      ),
-    ),
-  );
-}

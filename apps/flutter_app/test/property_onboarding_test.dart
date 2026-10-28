@@ -6,6 +6,7 @@ import 'package:trustkeyper/src/features/broker/data/agreement_templates.dart';
 import 'package:trustkeyper/src/features/broker/data/property_onboarding.dart';
 import 'package:trustkeyper/src/features/broker/presentation/onboarding_agreement_screens.dart';
 import 'package:trustkeyper/src/features/broker/presentation/onboarding_house_screens.dart';
+import 'package:trustkeyper/src/features/broker/presentation/onboarding_start_screens.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -527,6 +528,34 @@ void main() {
     await tester.tap(find.text('Make changes'));
     await tester.pumpAndSettle();
     expect(find.text('What to change?'), findsOneWidget);
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('owner details: contact box only after Email or WhatsApp, cursor in it, right keypad', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(440, 956));
+    final router = GoRouter(routes: [GoRoute(path: '/', builder: (c, s) => const OnboardNewScreen())]);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('Owner 1 details'), findsOneWidget);
+    // Only the name box at first.
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.text('Mobile number'), findsNothing);
+    expect(find.text('Email Address'), findsNothing);
+    // WhatsApp: number box appears, has the cursor, number keypad.
+    await tester.tap(find.text('WhatsApp'));
+    await tester.pumpAndSettle();
+    final phone = tester.widget<TextField>(find.widgetWithText(TextField, 'Mobile number'));
+    expect(phone.focusNode!.hasFocus, isTrue);
+    expect(phone.keyboardType, TextInputType.number);
+    // Email: email box instead, has the cursor, letters keypad with @.
+    await tester.tap(find.text('Email · best'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mobile number'), findsNothing);
+    final mail = tester.widget<TextField>(find.widgetWithText(TextField, 'Email Address'));
+    expect(mail.focusNode!.hasFocus, isTrue);
+    expect(mail.keyboardType, TextInputType.emailAddress);
     await tester.binding.setSurfaceSize(null);
   });
 

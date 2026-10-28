@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -492,8 +493,10 @@ class OnbTextField extends StatelessWidget {
     this.onChanged,
     this.formatters,
     this.capitalization = TextCapitalization.none,
+    this.focusNode,
     super.key,
   });
+  final FocusNode? focusNode;
   final List<TextInputFormatter>? formatters;
   final TextCapitalization capitalization;
   final String label;
@@ -508,6 +511,7 @@ class OnbTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) => TextField(
     controller: controller,
+    focusNode: focusNode,
     keyboardType: keyboard,
     inputFormatters: formatters,
     maxLines: maxLines,
@@ -551,6 +555,48 @@ class OnbTextField extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// "Email · best" or "WhatsApp" pill. WhatsApp shows its own logo.
+class OnbChannelChip extends StatelessWidget {
+  const OnbChannelChip({required this.channel, required this.selected, required this.onTap, super.key});
+  final String channel; // 'email' | 'whatsapp'
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final email = channel == 'email';
+    final color = selected ? AppColors.primaryDark : AppColors.muted;
+    return Material(
+      color: selected ? AppColors.primarySoft : Colors.white,
+      shape: StadiumBorder(side: BorderSide(color: selected ? AppColors.primary : AppColors.border)),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          height: 48,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              email
+                  ? Icon(Icons.mail_outline, size: 18, color: color)
+                  : SvgPicture.asset('assets/design/whatsapp.svg', width: 20, height: 20, semanticsLabel: 'WhatsApp'),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  email ? 'Email · best' : 'WhatsApp',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 16, fontWeight: selected ? FontWeight.w500 : FontWeight.w400, color: color),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Outlined (second) button next to the main one.

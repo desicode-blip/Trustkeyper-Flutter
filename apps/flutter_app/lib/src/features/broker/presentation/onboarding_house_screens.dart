@@ -1216,7 +1216,10 @@ class _AddOwnerSheet extends StatefulWidget {
 class _AddOwnerSheetState extends State<_AddOwnerSheet> {
   final _name = TextEditingController();
   final _contact = TextEditingController();
-  String _channel = 'email';
+  final _contactFocus = FocusNode();
+  /// null until the broker picks one; the box appears only after that.
+  String? _channel;
+  String? _channelError;
   String? _nameError;
   String? _contactError;
 
@@ -1224,6 +1227,7 @@ class _AddOwnerSheetState extends State<_AddOwnerSheet> {
   void dispose() {
     _name.dispose();
     _contact.dispose();
+    _contactFocus.dispose();
     super.dispose();
   }
 
@@ -1233,6 +1237,13 @@ class _AddOwnerSheetState extends State<_AddOwnerSheet> {
     final value = _contact.text.trim();
     String? nameError = name.length < 2 ? 'Type the owner name' : null;
     String? contactError;
+    if (_channel == null) {
+      setState(() {
+        _nameError = nameError;
+        _channelError = 'Pick one';
+      });
+      return;
+    }
     if (_channel == 'email') {
       if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$').hasMatch(value)) contactError = 'This email looks wrong. Check the @ and the dot.';
     } else if (value.length != 10) {
@@ -1251,7 +1262,7 @@ class _AddOwnerSheetState extends State<_AddOwnerSheet> {
       _contactError = contactError;
     });
     if (nameError != null || contactError != null) return;
-    Navigator.pop(context, CoOwner(name: name, channel: _channel, contact: value));
+    Navigator.pop(context, CoOwner(name: name, channel: _channel!, contact: value));
   }
 
   @override
@@ -1267,35 +1278,46 @@ class _AddOwnerSheetState extends State<_AddOwnerSheet> {
         const SizedBox(height: 24),
         OnbTextField(label: 'Full name', controller: _name, error: _nameError, capitalization: TextCapitalization.words),
         const SizedBox(height: 26),
-        Wrap(
-          spacing: 8,
+        Row(
           children: [
-            for (final (value, label) in const [('email', 'Email · best'), ('whatsapp', 'WhatsApp')])
-              ChoiceChip(
-                label: Text(label),
-                selected: _channel == value,
-                onSelected: (_) => setState(() {
-                  _channel = value;
-                  _contact.clear();
-                  _contactError = null;
-                }),
-                showCheckmark: false,
-                selectedColor: AppColors.primarySoft,
-                labelStyle: TextStyle(fontSize: 15, color: _channel == value ? AppColors.primaryDark : AppColors.body),
-                side: BorderSide(color: _channel == value ? AppColors.primary : AppColors.border),
-                shape: const StadiumBorder(),
+            for (final value in const ['email', 'whatsapp']) ...[
+              if (value == 'whatsapp') const SizedBox(width: 10),
+              Expanded(
+                child: OnbChannelChip(
+                  channel: value,
+                  selected: _channel == value,
+                  onTap: () {
+                    setState(() {
+                      if (_channel != value) _contact.clear();
+                      _channel = value;
+                      _channelError = null;
+                      _contactError = null;
+                    });
+                    // Cursor in the box: letters keypad for email, numbers for WhatsApp.
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _contactFocus.requestFocus();
+                    });
+                  },
+                ),
               ),
+            ],
           ],
         ),
-        const SizedBox(height: 26),
-        OnbTextField(
-          label: _channel == 'email' ? 'Email' : 'WhatsApp number',
-          controller: _contact,
-          error: _contactError,
-          keyboard: _channel == 'email' ? TextInputType.emailAddress : TextInputType.number,
-          prefix: _channel == 'email' ? null : '+91 ',
-          formatters: _channel == 'email' ? null : [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-        ),
+        if (_channelError != null)
+          Padding(padding: const EdgeInsets.only(top: 6, left: 4), child: Text(_channelError!, style: const TextStyle(color: AppColors.error, fontSize: 14))),
+        if (_channel != null) ...[
+          const SizedBox(height: 26),
+          OnbTextField(
+            key: ValueKey('add-owner-$_channel'),
+            label: _channel == 'email' ? 'Email' : 'WhatsApp number',
+            controller: _contact,
+            focusNode: _contactFocus,
+            error: _contactError,
+            keyboard: _channel == 'email' ? TextInputType.emailAddress : TextInputType.number,
+            prefix: _channel == 'email' ? null : '+91 ',
+            formatters: _channel == 'email' ? null : [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+          ),
+        ],
         const SizedBox(height: 24),
         PrimaryButton(label: 'Add and ask for documents', onPressed: _save),
       ],
