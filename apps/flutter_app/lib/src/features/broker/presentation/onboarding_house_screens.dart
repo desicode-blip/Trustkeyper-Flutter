@@ -6,7 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../data/property_onboarding.dart';
-import 'onboarding_agreement_screens.dart' show sendDraftWithConfirm;
+import 'onboarding_agreement_screens.dart' show sendDraftWithConfirm, showWhatToChange;
 import 'onboarding_widgets.dart';
 
 /// Rebuilds when the request changes. Shows a plain message if it was removed.
@@ -429,83 +429,97 @@ class _OnboardingBody extends StatelessWidget {
   List<Widget> _review(BuildContext context) {
     final changesWaiting = item.waitingChanges;
     final ownerFirst = _firstName(item);
+    final opened = item.changes.isNotEmpty || item.ownerAgreedFinal;
+    final many = item.hasManyOwners;
     return [
       if (changesWaiting > 0)
         OnbBanner('$ownerFirst asked ${changesWaiting == 1 ? 'a change' : '$changesWaiting changes'}. Your turn.', kind: 'wait', icon: Icons.chat_bubble_outline)
+      else if (!item.draftSent && item.draftNo > 1)
+        OnbBanner('Draft ${item.draftNo} has your changes. Read it, then send it for signing.', kind: 'info', icon: Icons.visibility_outlined)
       else if (!item.draftSent)
         OnbBanner('Your agreement is ready. Read it, then send it to $ownerFirst for signing.', kind: 'info', icon: Icons.visibility_outlined)
       else if (item.ownerAgreedFinal)
-        OnbBanner('$ownerFirst agrees with everything.', kind: 'ok', icon: Icons.check_circle_outline)
+        OnbBanner('${many ? 'All owners agree' : '$ownerFirst agrees'} with everything.', kind: 'ok', icon: Icons.check_circle_outline)
       else
-        OnbBanner('Sent ${_ago(item.draftSentAt)}. Waiting for $ownerFirst.', kind: 'wait', icon: Icons.schedule),
-      const SizedBox(height: 14),
-      const Padding(
-        padding: EdgeInsets.only(left: 4, bottom: 8),
-        child: Text('More', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.muted)),
-      ),
-      OnbCard(
-        child: Column(
-          children: [
-            if (item.draftSent)
-              OnbRow(
-                icon: Icons.description_outlined,
-                title: 'Draft ${item.draftNo}',
-                subtitle: 'Read key points in simple words',
-                onTap: () => context.push('/broker/onboarding/${item.id}/draft'),
-              ),
-            OnbRow(
-              icon: Icons.compare_arrows,
-              tone: changesWaiting > 0 ? 'wait' : 'info',
-              title: 'Changes',
-              subtitle: item.changes.isEmpty ? 'None yet' : '${item.changes.length} asked',
-              trailing: changesWaiting > 0 ? OnbPill('$changesWaiting for you', 'wait') : null,
-              onTap: () => context.push('/broker/onboarding/${item.id}/changes'),
-            ),
-            OnbRow(
-              icon: Icons.history,
-              title: 'Versions',
-              subtitle: '${item.versions.length} saved',
-              onTap: () => context.push('/broker/onboarding/${item.id}/versions'),
-            ),
-          ],
-        ),
-      ),
+        OnbBanner('Draft ${item.draftNo} sent ${_ago(item.draftSentAt)}. Waiting for $ownerFirst.', kind: 'wait', icon: Icons.schedule),
       if (item.draftSent) ...[
-        const SizedBox(height: 14),
+        const SizedBox(height: 18),
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text('Draft ${item.draftNo} status', style: const TextStyle(fontSize: 18, height: 24 / 18, fontWeight: FontWeight.w600, color: AppColors.heading)),
+        ),
         OnbCard(
           child: Column(
             children: [
               OnbRow(icon: Icons.send_outlined, tone: 'ok', title: 'Sent', subtitle: _ago(item.draftSentAt), chevron: false),
-              OnbRow(icon: Icons.visibility_outlined, tone: item.changes.isNotEmpty || item.ownerAgreedFinal ? 'ok' : 'mute', title: 'Opened', subtitle: item.changes.isNotEmpty || item.ownerAgreedFinal ? 'Yes' : 'Not yet', chevron: false),
-              OnbRow(icon: Icons.check, tone: item.ownerAgreedFinal ? 'ok' : 'mute', title: 'Answer', subtitle: item.ownerAgreedFinal ? '$ownerFirst agreed' : 'Waiting', chevron: false),
+              OnbRow(
+                icon: Icons.visibility_outlined,
+                tone: opened ? 'ok' : 'mute',
+                title: 'Opened',
+                subtitle: opened ? 'Yes' : 'Not yet',
+                chevron: false,
+              ),
+              OnbRow(
+                icon: item.ownerAgreedFinal ? Icons.check : (changesWaiting > 0 ? Icons.chat_bubble_outline : Icons.hourglass_empty),
+                tone: item.ownerAgreedFinal ? 'ok' : (changesWaiting > 0 ? 'wait' : 'mute'),
+                title: 'Answer',
+                subtitle: item.ownerAgreedFinal
+                    ? (many ? 'All owners agreed' : '$ownerFirst agreed')
+                    : (changesWaiting > 0 ? '$ownerFirst asked a change' : 'Waiting'),
+                chevron: false,
+              ),
             ],
           ),
         ),
       ],
-      const SizedBox(height: 8),
-      Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 16,
-        children: [
-          TextButton(
-          onPressed: () async {
-            final cancel = await onbConfirm(
-              context,
-              title: 'Cancel this agreement?',
-              message: '${_firstName(item)} is told. The house stays in your app. You can make a new one.',
-              yes: 'Yes, cancel',
-              no: 'Keep it',
-              danger: true,
-            );
-            if (!cancel) return;
-            await store.update(item.id, (i) => PropertyOnboarding.fromJson({...i.toJson(), 'phase': OnboardingPhase.questions, 'draftNo': 0, 'draftSent': false, 'ownerAgreedFinal': false, 'changes': <Object>[], 'versions': <Object>[]}));
-          },
-          child: const Text('Cancel agreement', style: TextStyle(color: AppColors.error, fontSize: 16)),
-        ),
-          _callTeamButton(),
-        ],
-      ),
+      const SizedBox(height: 22),
+      _moreLinks(context),
     ];
+  }
+
+  /// Small, quiet links at the very end of the page.
+  Widget _moreLinks(BuildContext context) {
+    const style = TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted);
+    Widget link(String label, VoidCallback onTap, {Color? color}) => TextButton(
+      onPressed: onTap,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(0, 36),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        foregroundColor: color ?? AppColors.muted,
+        textStyle: style.copyWith(fontWeight: FontWeight.w500),
+      ),
+      child: Text(label),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 10),
+          child: Text('More', style: TextStyle(fontSize: 13, color: AppColors.muted)),
+        ),
+        Wrap(
+          children: [
+            if (item.draftSent) link('Key points', () => context.push('/broker/onboarding/${item.id}/draft')),
+            link(item.waitingChanges > 0 ? 'Changes · ${item.waitingChanges} for you' : 'Changes', () => context.push('/broker/onboarding/${item.id}/changes')),
+            link('Versions', () => context.push('/broker/onboarding/${item.id}/versions')),
+            link('Call our agreement team', () => launchUrl(Uri.parse('tel:+918088516875'))),
+            link('Cancel agreement', () async {
+              final cancel = await onbConfirm(
+                context,
+                title: 'Cancel this agreement?',
+                message: '${_firstName(item)} is told. The house stays in your app. You can make a new one.',
+                yes: 'Yes, cancel',
+                no: 'Keep it',
+                danger: true,
+              );
+              if (!cancel) return;
+              await store.update(item.id, (i) => PropertyOnboarding.fromJson({...i.toJson(), 'phase': OnboardingPhase.questions, 'draftNo': 0, 'draftSent': false, 'ownerAgreedFinal': false, 'changes': <Object>[], 'versions': <Object>[]}));
+            }, color: AppColors.error),
+          ],
+        ),
+      ],
+    );
   }
 
   /// Call the team that writes the agreements.
@@ -656,13 +670,12 @@ class _OnboardingBody extends StatelessWidget {
                 await store.update(item.id, (i) => i.copyWith(phase: OnboardingPhase.printing, printStep: 0));
               },
             ),
+            const SizedBox(height: 10),
+            OnbSecondaryButton(label: 'Make changes', onPressed: () => showWhatToChange(context, item)),
           ];
         }
         return [
-          OnbSecondaryButton(
-            label: 'Call ${_firstName(item)}',
-            onPressed: item.channel == 'whatsapp' ? () => _callOwner(item) : null,
-          ),
+          OnbSecondaryButton(label: 'Make changes', onPressed: () => showWhatToChange(context, item)),
         ];
       case OnboardingPhase.signing:
         if (!item.brokerSigned) {

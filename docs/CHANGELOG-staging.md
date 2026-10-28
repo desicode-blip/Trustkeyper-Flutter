@@ -662,3 +662,19 @@ files: data/property_onboarding.dart (readyAck, agreementJustReady, underOwnerRe
 rule: readyAck defaults true for old saves; only testDraftReady sets it false
 verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 26 passed
 ```
+
+## Change 36 – Status first, Make changes, Draft 2, 3, 4...
+Date: 2026-10-28 · Status: on the phone after the next build
+- **Draft / Changes / Versions card removed from the top.** They are now small grey links at the very end of the page under "More" (Key points · Changes · Versions · Call our agreement team · Cancel agreement).
+- **After you send:** the page shows **"Draft N status"** first: **Sent** (when) → **Opened** (Yes / Not yet) → **Answer** (Waiting / asked a change / agreed).
+- **Make changes** button (until the owner signs): opens "What to change?" (fee, start date and length, notes). Saving makes the **next draft** (Draft 2, then 3, 4...). It is **not** sent by itself: the page says "Draft 2 has your changes. Read it, then send it for signing." and **Send for signing** sends it. Changes made before sending stay in the same unsent draft (no extra numbers). Every send of a new version is the next draft, and the owner must say yes again.
+- After you send, the green "just changed" marks start fresh from that draft.
+```
+AGENT RECORD – Change 36
+id: CHG-036
+date: 2026-10-28
+branch: staging (never main)
+files: data/property_onboarding.dart (_newDraftIfSent: draftSent=false, draftNo+1), presentation/onboarding_house_screens.dart (_review rewritten, _moreLinks, Make changes in footer), presentation/onboarding_agreement_screens.dart (showWhatToChange public, confirmNewDraft text, send clears edits), test/property_onboarding_test.dart
+rule: a change after sending makes draftNo+1 and draftSent=false; send sets draftSent=true and clears edits
+verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 27 passed
+```

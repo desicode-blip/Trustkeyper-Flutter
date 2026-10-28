@@ -389,7 +389,7 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
       return;
     }
     if (item.phase == OnboardingPhase.review && item.draftSent) {
-      if (!await confirmNewDraft(context, item, yes: 'Yes, change and resend') || !mounted) return;
+      if (!await confirmNewDraft(context, item, yes: 'Yes, make a new draft') || !mounted) return;
     }
     await _store.changeAgreementPart(item.id, part, _now);
     if (!mounted) return;
@@ -855,7 +855,8 @@ Future<bool> confirmSendDraft(BuildContext context, PropertyOnboarding item) asy
 /// Confirms, marks the draft as sent and shows "Agreement sent!".
 Future<void> sendDraftWithConfirm(BuildContext context, PropertyOnboarding item) async {
   if (!await confirmSendDraft(context, item) || !context.mounted) return;
-  await _store.update(item.id, (i) => i.copyWith(draftSent: true, draftSentAt: DateTime.now().millisecondsSinceEpoch));
+  // Sending starts a clean page: later changes are measured from this draft.
+  await _store.update(item.id, (i) => i.copyWith(draftSent: true, draftSentAt: DateTime.now().millisecondsSinceEpoch, edits: const []));
   if (context.mounted) context.push('/broker/onboarding/${item.id}/sent');
 }
 
@@ -865,12 +866,48 @@ Future<bool> confirmNewDraft(BuildContext context, PropertyOnboarding item, {req
   final who = item.hasManyOwners ? 'all ${item.ownerCount} owners' : item.ownerFirstAt(0);
   return onbConfirm(
     context,
-    title: 'Everyone must say yes again',
-    message: '${item.ownerAgreedFinal ? '${item.hasManyOwners ? 'The owners' : item.ownerFirstAt(0)} already said yes. ' : '$who already have the draft. '}'
-        'If you change the agreement, $who get the new draft to approve.',
+    title: 'Make Draft ${item.draftNo + 1}?',
+    message: '${item.ownerAgreedFinal ? '${item.hasManyOwners ? 'The owners' : item.ownerFirstAt(0)} already said yes. ' : '$who already have Draft ${item.draftNo}. '}'
+        'Your change makes Draft ${item.draftNo + 1}. Send it for signing again. $who must say yes again.',
     yes: yes,
     no: 'Don\'t change',
   );
+}
+
+/// "What to change?" sheet; opens the edit screen for the part picked.
+Future<void> showWhatToChange(BuildContext context, PropertyOnboarding item) async {
+  final part = await showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    backgroundColor: Colors.white,
+    builder: (sheet) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('What to change?', style: TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
+            const SizedBox(height: 12),
+            for (final (key, icon) in const [('fee', Icons.payments_outlined), ('dates', Icons.calendar_today_outlined), ('notes', Icons.edit_note_outlined)])
+              OnbRow(
+                icon: icon,
+                tone: 'info',
+                title: AgreementAnswers.groupLabel(key),
+                subtitle: item.answers.feeType.isEmpty && key == 'fee' ? 'Not decided yet' : item.answers.groupText(key, item.rent),
+                onTap: () => Navigator.pop(sheet, key),
+              ),
+            const SizedBox(height: 4),
+            const Text(
+              'Rent, deposit and owners come from the owner\'s documents. To change them, go back to the house page.',
+              style: TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+  if (part != null && context.mounted) context.push('/broker/onboarding/${item.id}/edit?part=$part');
 }
 
 class OwnerAgreementScreen extends StatelessWidget {
@@ -1154,40 +1191,7 @@ class _AgreementReader extends StatelessWidget {
 
   // ---- Edit: what to change? ----
 
-  Future<void> _showWhatToChange(BuildContext context) async {
-    final part = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      builder: (sheet) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('What to change?', style: TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
-              const SizedBox(height: 12),
-              for (final (key, icon) in const [('fee', Icons.payments_outlined), ('dates', Icons.calendar_today_outlined), ('notes', Icons.edit_note_outlined)])
-                OnbRow(
-                  icon: icon,
-                  tone: 'info',
-                  title: AgreementAnswers.groupLabel(key),
-                  subtitle: item.answers.feeType.isEmpty && key == 'fee' ? 'Not decided yet' : item.answers.groupText(key, item.rent),
-                  onTap: () => Navigator.pop(sheet, key),
-                ),
-              const SizedBox(height: 4),
-              const Text(
-                'Rent, deposit and owners come from the owner\'s documents. To change them, go back to the house page.',
-                style: TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (part != null && context.mounted) context.push('/broker/onboarding/${item.id}/edit?part=$part');
-  }
+  Future<void> _showWhatToChange(BuildContext context) => showWhatToChange(context, item);
 
   // ---- all the changes, with Undo ----
 
@@ -1236,7 +1240,7 @@ class _AgreementReader extends StatelessWidget {
                             ),
                             TextButton(
                               onPressed: () async {
-                                if (now.phase == OnboardingPhase.review && now.draftSent && !await confirmNewDraft(sheet, now, yes: 'Yes, undo and resend')) return;
+                                if (now.phase == OnboardingPhase.review && now.draftSent && !await confirmNewDraft(sheet, now, yes: 'Yes, undo and make a new draft')) return;
                                 await _store.undoAgreementPart(now.id, e.group);
                               },
                               child: const Text('Undo', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),

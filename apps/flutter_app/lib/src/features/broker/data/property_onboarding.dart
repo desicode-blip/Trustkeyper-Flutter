@@ -1022,10 +1022,11 @@ class PropertyOnboardingStore extends ChangeNotifier {
   PropertyOnboarding _newDraftIfSent(PropertyOnboarding item, String summary) {
     if (!item.draftSent) return item;
     final now = DateTime.now().millisecondsSinceEpoch;
+    // A new draft the broker must send again for signing.
     return item.copyWith(
       ownerAgreedFinal: false,
+      draftSent: false,
       draftNo: item.draftNo + 1,
-      draftSentAt: now,
       versions: [...item.versions, DraftVersion(number: item.draftNo + 1, summary: summary, at: now)],
     );
   }

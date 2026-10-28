@@ -336,13 +336,21 @@ void main() {
     await store.changeAgreementPart(item.id, 'dates', const AgreementAnswers(startDate: '2026-12-01', months: 6));
     now = store.byId(item.id)!;
     expect(now.draftNo, 2);
+    expect(now.draftSent, isFalse); // Draft 2 waits for Send for signing
     expect(now.ownerAgreedFinal, isFalse);
     expect(now.versions.last.summary, contains('Start date and length'));
     await store.undoAgreementPart(item.id, 'dates');
     now = store.byId(item.id)!;
     expect(now.edits, isEmpty);
     expect(now.answers.months, 11);
+    expect(now.draftNo, 2); // still the same unsent draft
+    // Send Draft 2, then change again: Draft 3.
+    await store.update(item.id, (i) => i.copyWith(draftSent: true));
+    await store.changeAgreementPart(item.id, 'dates', const AgreementAnswers(startDate: '2026-12-01', months: 6));
+    now = store.byId(item.id)!;
     expect(now.draftNo, 3);
+    expect(now.draftSent, isFalse);
+    await store.undoAgreementPart(item.id, 'dates');
     // Survives a restart.
     await store.changeAgreementPart(item.id, 'notes', const AgreementAnswers(notes: 'No pets'));
     final again = PropertyOnboardingStore();
@@ -488,6 +496,37 @@ void main() {
     expect(find.text('More'), findsOneWidget);
     expect(find.text('Changes'), findsOneWidget);
     expect(find.text('Versions'), findsOneWidget);
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('after sending: status first, Make changes, small links at the end', (tester) async {
+    final store = PropertyOnboardingStore.instance;
+    await store.load();
+    final item = await store.create(ownerName: 'Ravi Kumar', channel: 'email', contact: 'ravi@example.com');
+    await store.update(item.id, (i) => i.copyWith(
+      phase: OnboardingPhase.review,
+      draftNo: 2,
+      draftSent: true,
+      draftSentAt: DateTime.now().millisecondsSinceEpoch,
+      answers: const AgreementAnswers(feeType: 'percent', feeValue: 5, payWay: 'cut', startDate: '2026-12-01'),
+    ));
+    await tester.binding.setSurfaceSize(const Size(440, 956));
+    final router = GoRouter(routes: [GoRoute(path: '/', builder: (c, s) => PropertySetupScreen(id: item.id))]);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.text('Draft 2 status'), findsOneWidget);
+    expect(find.text('Sent'), findsOneWidget);
+    expect(find.text('Opened'), findsOneWidget);
+    expect(find.text('Answer'), findsOneWidget);
+    expect(find.text('Make changes'), findsOneWidget);
+    expect(find.text('Read full agreement'), findsOneWidget);
+    // Quiet links are below the status card.
+    expect(tester.getTopLeft(find.text('Changes')).dy, greaterThan(tester.getTopLeft(find.text('Answer')).dy));
+    expect(tester.getTopLeft(find.text('Versions')).dy, greaterThan(tester.getTopLeft(find.text('Answer')).dy));
+    // Make changes opens the part picker (the new draft itself is covered by the store test).
+    await tester.tap(find.text('Make changes'));
+    await tester.pumpAndSettle();
+    expect(find.text('What to change?'), findsOneWidget);
     await tester.binding.setSurfaceSize(null);
   });
 
