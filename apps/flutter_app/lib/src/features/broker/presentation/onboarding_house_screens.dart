@@ -578,7 +578,6 @@ class _OnboardingBody extends StatelessWidget {
       onPressed: () => context.push('/broker/onboarding/${item.id}/agreement'),
     );
     switch (item.phase) {
-      case OnboardingPhase.questions:
       case OnboardingPhase.preparing:
       case OnboardingPhase.review:
         if (core.isEmpty) return [read];
@@ -596,22 +595,11 @@ class _OnboardingBody extends StatelessWidget {
         }
         return const [];
       case OnboardingPhase.questions:
+        // One button only.
         return [
-          PrimaryButton(label: 'Tell us what you agreed', onPressed: () => context.push('/broker/onboarding/${item.id}/questions')),
-          const SizedBox(height: 10),
-          OnbSecondaryButton(
-            label: 'Skip agreement',
-            onPressed: () async {
-              final skip = await onbConfirm(
-                context,
-                title: 'Skip the agreement?',
-                message: 'You can still use this house. The owner will not have a signed agreement with you. You can make it later. Only you can skip, the owner cannot.',
-                yes: 'Skip for now',
-                no: 'No, make it',
-              );
-              if (!skip) return;
-              await store.update(item.id, (i) => i.copyWith(agreementSkipped: true, phase: OnboardingPhase.ready));
-            },
+          PrimaryButton(
+            label: 'Next: collaboration details',
+            onPressed: () => context.push('/broker/onboarding/${item.id}/questions'),
           ),
         ];
       case OnboardingPhase.review:

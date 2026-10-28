@@ -535,3 +535,15 @@ branch: staging (never main)
 files: data/property_onboarding.dart (feeType daysMonthly in feeSummary), presentation/onboarding_agreement_screens.dart (_feeGroups with headings, validation max 30 days), test/property_onboarding_test.dart
 verification: flutter analyze No issues found; property_onboarding_test passed
 ```
+
+## Change 28 – Agreement stage start: one button only
+Date: 2026-10-28 · Status: built on iPhone for review
+What: on the page shown after all documents are approved, the bottom now has **one button: "Next: collaboration details"** (opens the questions about fee, start date and so on). Removed here: "Read the full agreement" and "Skip agreement". "Read the full agreement" is still on the "Making your agreement" and review pages. Because "Skip agreement" is gone from this page, the only way to skip the agreement is no longer offered (the "Make the agreement now" option for houses skipped earlier stays).
+```
+AGENT RECORD – Change 28
+id: CHG-028
+date: 2026-10-28
+branch: staging (never main)
+files: presentation/onboarding_house_screens.dart (_footerCore questions, _footer no longer adds read-full for questions), test/property_onboarding_test.dart
+verification: flutter analyze No issues found; property_onboarding_test passed
+```

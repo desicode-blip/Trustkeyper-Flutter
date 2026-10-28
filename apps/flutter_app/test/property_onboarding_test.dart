@@ -255,4 +255,19 @@ void main() {
     expect(find.byType(TextField), findsNothing);
     await tester.binding.setSurfaceSize(null);
   });
+
+  testWidgets('questions stage has one button only', (tester) async {
+    final store = PropertyOnboardingStore.instance;
+    await store.load();
+    final item = await store.create(ownerName: 'Ravi Kumar', channel: 'email', contact: 'ravi@example.com');
+    await store.update(item.id, (i) => i.copyWith(phase: OnboardingPhase.questions));
+    await tester.binding.setSurfaceSize(const Size(440, 956));
+    final router = GoRouter(routes: [GoRoute(path: '/', builder: (c, s) => PropertySetupScreen(id: item.id))]);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.text('Next: collaboration details'), findsOneWidget);
+    expect(find.text('Read the full agreement'), findsNothing);
+    expect(find.text('Skip agreement'), findsNothing);
+    await tester.binding.setSurfaceSize(null);
+  });
 }
