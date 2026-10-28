@@ -479,6 +479,7 @@ void main() {
     final clash = AgreementTemplates.pick(const AgreementAnswers(feeType: 'daysMonthly', feeValue: 3, payWay: 'direct'), isNri: false, brokerIsTrustkeyper: true);
     expect(clash.warning, isNotNull);
     expect(AgreementTemplates.yearlyDays.exportUrl.toString(), contains('12Duaqq-_kU3H_915GM3mLh0mIp2dbcYgniTnHQCjNZ0'));
-    expect(AgreementTemplates.monthlyPercent.exportUrl, isNull); // link not shared yet
+    expect(AgreementTemplates.monthlyPercent.exportUrl.toString(), contains('alt=media')); // Word file in Drive
+    expect(AgreementTemplates.monthlyDays.exportUrl, isNull); // link not shared yet
   });
 }

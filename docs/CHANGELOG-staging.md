@@ -598,3 +598,15 @@ files: data/agreement_templates.dart (new), test/property_onboarding_test.dart, 
 rule: template text is always fetched from Drive at agreement time, never copied into the app
 verification: flutter analyze No issues found; property_onboarding_test 19 passed
 ```
+
+## Change 32 – Percent template link added
+Date: 2026-10-28 · Status: not on the phone yet (no screen changed)
+What: you shared the Drive link for the **percent of rent** template. The app now knows its file. It is a Word file in Drive (not a Google Doc), so it will be read a different way later. It is also a filled agreement of one real owner (9.1%, Aug 2025 dates), so it needs placeholders before use. The 3-days template link is still missing.
+```
+AGENT RECORD – Change 32
+id: CHG-032
+date: 2026-10-28
+branch: staging (never main)
+files: data/agreement_templates.dart (monthlyPercent.driveDocId, isWordFile, exportUrl for Word files), test/property_onboarding_test.dart, docs/AGREEMENT-TEMPLATES.md
+verification: flutter analyze No issues found; property_onboarding_test 19 passed
+```

@@ -10,6 +10,7 @@ class AgreementTemplate {
     required this.name,
     required this.when,
     this.driveDocId,
+    this.isWordFile = false,
     this.rentThroughPlatform = false,
   });
 
@@ -22,12 +23,18 @@ class AgreementTemplate {
   /// Google Docs file id. Null until the link is shared.
   final String? driveDocId;
 
+  /// True when the file in Drive is an uploaded Word file (.docx), not a
+  /// Google Doc. The two are read in different ways by the backend.
+  final bool isWordFile;
+
   /// The tenant must pay the rent through the TrustKeyper app.
   final bool rentThroughPlatform;
 
   Uri? get exportUrl => driveDocId == null
       ? null
-      : Uri.https('docs.google.com', '/document/d/$driveDocId/export', {'format': 'txt'});
+      : isWordFile
+          ? Uri.https('www.googleapis.com', '/drive/v3/files/$driveDocId', {'alt': 'media'})
+          : Uri.https('docs.google.com', '/document/d/$driveDocId/export', {'format': 'txt'});
 }
 
 /// Which template, and anything the broker should fix first.
@@ -42,6 +49,8 @@ abstract final class AgreementTemplates {
     id: 'monthly_percent',
     name: 'Every month: percent of rent',
     when: 'Fee is a percent of the rent, every month. The owner pays directly or we deduct it.',
+    driveDocId: '1AMTnUD7EdTP_V2CDBRumZbF9b80aDZNa',
+    isWordFile: true,
   );
 
   static const monthlyDays = AgreementTemplate(
