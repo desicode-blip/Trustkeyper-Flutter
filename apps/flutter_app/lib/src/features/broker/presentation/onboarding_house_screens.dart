@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../data/property_onboarding.dart';
+import 'onboarding_agreement_screens.dart' show sendDraftWithConfirm;
 import 'onboarding_widgets.dart';
 
 /// Rebuilds when the request changes. Shows a plain message if it was removed.
@@ -610,7 +611,7 @@ class _OnboardingBody extends StatelessWidget {
           return [
             PrimaryButton(
               label: 'Send to ${_firstName(item)}',
-              onPressed: () => store.update(item.id, (i) => i.copyWith(draftSent: true, draftSentAt: DateTime.now().millisecondsSinceEpoch)),
+              onPressed: () => sendDraftWithConfirm(context, item),
             ),
             const SizedBox(height: 10),
             OnbSecondaryButton(label: 'Read key points', onPressed: () => context.push('/broker/onboarding/${item.id}/draft')),

@@ -23,9 +23,12 @@ class OnbPage extends StatelessWidget {
     this.onBack,
     this.showBack = true,
     this.showCall = false,
+    this.topBanner,
     super.key,
   });
 
+  /// A strip above the heading, for example "Editing agreement".
+  final Widget? topBanner;
   final String title;
   final String? subtitle;
   final List<Widget> children;
@@ -43,6 +46,7 @@ class OnbPage extends StatelessWidget {
     body: SafeArea(
       child: Column(
         children: [
+          ?topBanner,
           Container(
             color: Colors.white,
             padding: const EdgeInsets.only(bottom: 12),

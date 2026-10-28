@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../auth/presentation/approved_auth_widgets.dart';
 import '../data/property_onboarding.dart';
 import 'onboarding_house_screens.dart';
 import 'onboarding_widgets.dart';
@@ -38,9 +39,29 @@ class AgreementQuestionsScreen extends StatelessWidget {
   );
 }
 
+/// Change one part (fee, dates or notes) of an agreement that is already made.
+class AgreementEditScreen extends StatelessWidget {
+  const AgreementEditScreen({required this.id, required this.part, super.key});
+  final String id;
+  final String part;
+
+  @override
+  Widget build(BuildContext context) => OnbItemView(
+    id: id,
+    builder: (context, item) => _QuestionsBody(
+      item: item,
+      part: AgreementAnswers.groups.contains(part) ? part : 'fee',
+    ),
+  );
+}
+
 class _QuestionsBody extends StatefulWidget {
-  const _QuestionsBody({required this.item});
+  const _QuestionsBody({required this.item, this.part});
   final PropertyOnboarding item;
+
+  /// Null: the first time through all the questions. Otherwise the broker is
+  /// changing one part of a finished agreement: fee · dates · notes.
+  final String? part;
 
   @override
   State<_QuestionsBody> createState() => _QuestionsBodyState();
@@ -58,7 +79,9 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
   late final notes = TextEditingController(text: widget.item.answers.notes);
   String? feeError;
   String? dateError;
+  String? payError;
   bool understood20 = false;
+  bool _discard = false;
 
   @override
   void dispose() {
@@ -248,14 +271,212 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
     if (mounted) context.pop();
   }
 
-  @override
-  Widget build(BuildContext context) {
+  // ---- changing one part of a finished agreement ----
+
+  bool get _editing => widget.part != null;
+
+  /// Keeps "how the owner pays" valid for the fee that is picked.
+  void _fixPay() {
+    if (feeType == 'none' || feeType == 'later') {
+      payWay = '';
+    } else if (_oneTime) {
+      payWay = 'cut';
+    } else if (payWay == 'signing') {
+      payWay = '';
+    }
+  }
+
+  static String _iso(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  AgreementAnswers get _now => widget.item.answers.copyWith(
+    feeType: feeType,
+    feeValue: (feeType == 'none' || feeType == 'later') ? 0 : feeValue,
+    payWay: payWay,
+    startDate: start == null ? '' : _iso(start!),
+    months: months,
+    notes: notes.text.trim(),
+  );
+
+  bool get _changedNow => _editing && !widget.item.answers.sameGroup(widget.part!, _now);
+
+  void _resetFee() {
+    final a = widget.item.answers;
+    feeType = a.feeType;
+    payWay = a.payWay;
+    fee.text = a.feeValue == 0 ? '' : a.feeValue.toStringAsFixed(a.feeValue % 1 == 0 ? 0 : 1);
+    feeError = null;
+    payError = null;
+    understood20 = false;
+  }
+
+  /// Why the fee cannot be saved yet, or null.
+  String? _feeProblem() {
+    if (feeType.isEmpty) return 'Pick one';
+    if (feeType == 'none' || feeType == 'later') return null;
+    final v = feeValue;
+    if (v <= 0) return 'Type a number';
+    if (feeType == 'percent' && v > 100) return 'This cannot be more than 100';
+    if (feeType == 'percent' && v > 20 && !understood20) {
+      understood20 = true;
+      return '$v% is a lot. Tap Save again if it is right.';
+    }
+    if (feeType == 'days' && v > 365) return 'Please check the number of days';
+    if (feeType == 'daysMonthly' && v > 30) return 'A month has only 30 days. Please check.';
+    if (feeType != 'percent' && feeType != 'days' && feeType != 'daysMonthly' && v > widget.item.rent * 12) {
+      return 'This is more than a year of rent. Please check.';
+    }
+    return null;
+  }
+
+  /// "Leave without saving?" Returns true when it is fine to go.
+  Future<bool> _okToLeave() async {
+    if (!_changedNow) return true;
+    final keep = await onbConfirm(
+      context,
+      title: 'Leave without saving?',
+      message: 'You changed ${AgreementAnswers.groupLabel(widget.part!).toLowerCase()}. If you go back now, it will not be saved.',
+      yes: 'Keep editing',
+      no: 'Leave, don\'t save',
+    );
+    return !keep;
+  }
+
+  Future<void> _leaveEdit() async {
+    if (!await _okToLeave() || !mounted) return;
+    setState(() => _discard = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.pop();
+    });
+  }
+
+  Future<void> _saveEdit() async {
     final item = widget.item;
-    final titles = ['What is your fee?', 'How does the owner pay you?', 'When does it start?', 'Anything else?', 'Check once'];
-    Widget body;
-    switch (step) {
-      case 0:
-        body = Column(
+    final part = widget.part!;
+    if (!_changedNow) {
+      context.pop();
+      return;
+    }
+    if (part == 'fee') {
+      final problem = _feeProblem();
+      if (problem != null) {
+        setState(() => feeError = problem);
+        return;
+      }
+      if (feeType != 'none' && feeType != 'later' && payWay.isEmpty) {
+        setState(() => payError = 'Pick one');
+        return;
+      }
+      // A one time fee cannot be paid directly any more: ask before changing it too.
+      if (item.answers.payWay == 'direct' && _oneTime) {
+        final change = await onbConfirm(
+          context,
+          title: 'Change how the owner pays too?',
+          message: 'A one time fee is deducted from the first month\'s rent. The owner cannot pay it directly.',
+          yes: 'Yes, deduct it',
+          no: 'No, keep my fee as before',
+        );
+        if (!mounted) return;
+        if (!change) {
+          setState(_resetFee);
+          return;
+        }
+      }
+    }
+    if (part == 'dates' && start == null) {
+      setState(() => dateError = 'Pick a start date');
+      return;
+    }
+    if (item.phase == OnboardingPhase.review && item.draftSent) {
+      if (!await confirmNewDraft(context, item, yes: 'Yes, change and resend') || !mounted) return;
+    }
+    await _store.changeAgreementPart(item.id, part, _now);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(switch (part) {
+          'fee' => 'Fee changed',
+          'dates' => 'Start date and length changed',
+          _ => 'Notes changed',
+        }),
+        behavior: SnackBarBehavior.floating,
+      ));
+    context.pop();
+  }
+
+  Widget _editBar() => Container(
+    width: double.infinity,
+    color: const Color(0xFFFFF6D6),
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+    child: Row(
+      children: [
+        const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF8A6A00)),
+        const SizedBox(width: 10),
+        const Expanded(child: Text('Editing agreement', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF6B5200)))),
+        TextButton(
+          onPressed: _leaveEdit,
+          child: const Text('Cancel', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildEdit(BuildContext context) {
+    final item = widget.item;
+    final part = widget.part!;
+    final changed = _changedNow;
+    final hasError = feeError != null || payError != null || dateError != null;
+    final hasAmount = feeType.isNotEmpty && feeType != 'none' && feeType != 'later';
+    final body = switch (part) {
+      'fee' => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _feeBody(item),
+          if (hasAmount) ...[
+            const SizedBox(height: 12),
+            const Text('How does the owner pay you?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading)),
+            const SizedBox(height: 10),
+            _payBody(),
+          ],
+        ],
+      ),
+      'dates' => _datesBody(),
+      _ => _notesBody(),
+    };
+    return PopScope(
+      canPop: !changed || _discard,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leaveEdit();
+      },
+      child: OnbPage(
+        title: 'Agreement details',
+        subtitle: switch (part) {
+          'fee' => 'What is your fee?',
+          'dates' => 'When does it start?',
+          _ => 'Anything else?',
+        },
+        topBanner: _editBar(),
+        onBack: _leaveEdit,
+        footer: [
+          if (hasError)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: Text('Fix the red box to save', style: TextStyle(fontSize: 15, color: AppColors.error)),
+            )
+          else if (!changed)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: Text('Nothing changed yet', style: TextStyle(fontSize: 15, color: AppColors.muted)),
+            ),
+          PrimaryButton(label: changed ? 'Save and see agreement' : 'Back to agreement', onPressed: _saveEdit),
+        ],
+        children: [body],
+      ),
+    );
+  }
+
+  Widget _feeBody(PropertyOnboarding item) =>
+        Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             for (final (group, options) in _feeGroups) ...[
@@ -273,7 +494,9 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
                 onTap: () => setState(() {
                   feeType = key;
                   feeError = null;
+                  payError = null;
                   understood20 = false;
+                  _fixPay();
                 }),
               ),
               // The number box opens right under the option that was picked.
@@ -321,8 +544,9 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
               Padding(padding: const EdgeInsets.only(top: 8), child: Text(feeError!, style: const TextStyle(color: AppColors.error, fontSize: 14))),
           ],
         );
-      case 1:
-        body = Column(
+
+  Widget _payBody() =>
+        Column(
           children: [
             for (final (key, label, hint, canPick) in _payWays)
               Opacity(
@@ -341,16 +565,18 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
                       ? () => setState(() {
                           payWay = key;
                           feeError = null;
+                          payError = null;
                         })
                       : null,
                 ),
               ),
-            if (feeError != null)
-              Padding(padding: const EdgeInsets.only(top: 8), child: Text(feeError!, style: const TextStyle(color: AppColors.error, fontSize: 14))),
+            if ((widget.part != null ? payError : feeError) != null)
+              Padding(padding: const EdgeInsets.only(top: 8), child: Text((widget.part != null ? payError : feeError)!, style: const TextStyle(color: AppColors.error, fontSize: 14))),
           ],
         );
-      case 2:
-        body = Column(
+
+  Widget _datesBody() =>
+        Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             OnbRow(
@@ -409,15 +635,17 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
             ),
           ],
         );
-      case 3:
-        body = OnbTextField(
+
+  Widget _notesBody() =>
+        OnbTextField(
           label: 'Other things you agreed (optional)',
           hint: 'Example: no pets, owner pays maintenance',
           controller: notes,
           maxLines: 4,
         );
-      default:
-        body = OnbCard(
+
+  Widget _checkBody(PropertyOnboarding item) =>
+        OnbCard(
           child: Column(
             children: [
               OnbKeyValue('Fee', AgreementAnswers(feeType: feeType, feeValue: feeValue).feeSummary(item.rent)),
@@ -428,7 +656,19 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
             ],
           ),
         );
-    }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_editing) return _buildEdit(context);
+    final item = widget.item;
+    final titles = ['What is your fee?', 'How does the owner pay you?', 'When does it start?', 'Anything else?', 'Check once'];
+    final Widget body = switch (step) {
+      0 => _feeBody(item),
+      1 => _payBody(),
+      2 => _datesBody(),
+      3 => _notesBody(),
+      _ => _checkBody(item),
+    };
     return OnbPage(
       title: titles[step],
       progress: step + 1,
@@ -515,130 +755,528 @@ String _brokerName() {
   return 'You (the broker)';
 }
 
+// ---------------------------------------------------------------------------
+// Full agreement: the owner and the broker. Same look and steps as the rent
+// agreement review: read it, edit it, send it for approval.
+// ---------------------------------------------------------------------------
+
+const _hlYellow = Color(0xFFFFE27A);
+const _hlGreen = Color(0xFFBFEAD2);
+
+String _ordinal(int day) {
+  if (day >= 11 && day <= 13) return '${day}th';
+  return switch (day % 10) { 1 => '${day}st', 2 => '${day}nd', 3 => '${day}rd', _ => '${day}th' };
+}
+
+String _prettyDate(String iso) {
+  final d = DateTime.tryParse(iso);
+  if (d == null) return iso;
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  return '${_ordinal(d.day)} ${months[d.month - 1]} ${d.year}';
+}
+
+/// Which parts of the agreement changed since the first draft (green).
+Set<String> _changedGroups(PropertyOnboarding item) {
+  final groups = {for (final e in item.edits) e.group};
+  for (final c in item.changes) {
+    switch (c.clause) {
+      case 'Your fee' || 'How owner pays your fee':
+        groups.add('fee');
+      case 'Start date' || 'How long':
+        groups.add('dates');
+      case 'Other notes':
+        groups.add('notes');
+    }
+  }
+  return groups;
+}
+
+/// "Send to these people?" Returns true when the broker says send.
+Future<bool> confirmSendDraft(BuildContext context, PropertyOnboarding item) async {
+  final many = item.hasManyOwners;
+  final result = await showModalBottomSheet<bool>(
+    context: context,
+    showDragHandle: true,
+    backgroundColor: Colors.white,
+    builder: (sheet) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              many ? 'Send to these ${item.ownerCount} people?' : 'Send to ${item.ownerFirstAt(0)}?',
+              style: const TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w700, color: AppColors.heading),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Each gets a link on WhatsApp or email. They can say yes, or ask for a change.',
+              style: TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 20,
+              runSpacing: 12,
+              children: [
+                for (var o = 0; o < item.ownerCount; o++)
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: AppColors.primarySoft,
+                        child: Text(
+                          item.ownerNameAt(o).trim().isEmpty ? '?' : item.ownerNameAt(o).trim()[0].toUpperCase(),
+                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.primaryDark),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(item.ownerFirstAt(o), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.heading)),
+                      const Text('Owner', style: TextStyle(fontSize: 13, color: AppColors.muted)),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            PrimaryButton(label: 'Yes, send', onPressed: () => Navigator.pop(sheet, true)),
+            const SizedBox(height: 10),
+            OnbSecondaryButton(label: 'No, go back', onPressed: () => Navigator.pop(sheet, false)),
+          ],
+        ),
+      ),
+    ),
+  );
+  return result ?? false;
+}
+
+/// Confirms, marks the draft as sent and shows "Agreement sent!".
+Future<void> sendDraftWithConfirm(BuildContext context, PropertyOnboarding item) async {
+  if (!await confirmSendDraft(context, item) || !context.mounted) return;
+  await _store.update(item.id, (i) => i.copyWith(draftSent: true, draftSentAt: DateTime.now().millisecondsSinceEpoch));
+  if (context.mounted) context.push('/broker/onboarding/${item.id}/sent');
+}
+
+/// The owner already has the draft. A change makes a new draft that they must
+/// approve again. Returns true when the broker goes ahead.
+Future<bool> confirmNewDraft(BuildContext context, PropertyOnboarding item, {required String yes}) {
+  final who = item.hasManyOwners ? 'all ${item.ownerCount} owners' : item.ownerFirstAt(0);
+  return onbConfirm(
+    context,
+    title: 'Everyone must say yes again',
+    message: '${item.ownerAgreedFinal ? '${item.hasManyOwners ? 'The owners' : item.ownerFirstAt(0)} already said yes. ' : '$who already have the draft. '}'
+        'If you change the agreement, $who get the new draft to approve.',
+    yes: yes,
+    no: 'Don\'t change',
+  );
+}
+
 class OwnerAgreementScreen extends StatelessWidget {
   const OwnerAgreementScreen({required this.id, super.key});
   final String id;
 
-  static const _yellow = Color(0xFFFFF4CE);
-  static const _green = Color(0xFFE5F8F0);
+  @override
+  Widget build(BuildContext context) => OnbItemView(
+    id: id,
+    builder: (context, item) => _AgreementReader(item: item),
+  );
+}
+
+class _AgreementReader extends StatelessWidget {
+  const _AgreementReader({required this.item});
+  final PropertyOnboarding item;
+
+  bool get _canEdit => item.phase == OnboardingPhase.preparing || item.phase == OnboardingPhase.review;
+
+  @override
+  Widget build(BuildContext context) {
+    final changed = _changedGroups(item);
+    final sendable = item.phase == OnboardingPhase.review && !item.draftSent && item.waitingChanges == 0;
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+              child: Row(
+                children: [
+                  ApprovedBackButton(onPressed: () => context.canPop() ? context.pop() : context.go('/broker/onboarding/${item.id}')),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text('Your agreement', style: TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
+                  ),
+                  if (item.draftNo > 0)
+                    Text('Draft ${item.draftNo}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.muted)),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 6,
+                children: [
+                  _legend(_hlYellow, 'Yellow = details you added'),
+                  if (changed.isNotEmpty) _legend(_hlGreen, 'Green = just changed'),
+                ],
+              ),
+            ),
+            if (item.edits.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => _showChanges(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(color: AppColors.successSoft, borderRadius: BorderRadius.circular(14)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle_outline, size: 20, color: AppColors.success),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '${item.edits.length} ${item.edits.length == 1 ? 'change' : 'changes'}',
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.success),
+                          ),
+                        ),
+                        const Text('See all', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
+                        const Icon(Icons.chevron_right, size: 20, color: AppColors.primaryDark),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: const [BoxShadow(color: Color(0x0F172231), blurRadius: 10, offset: Offset(0, 2))],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+                    child: _paper(changed),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Row(
+                children: [
+                  if (_canEdit) ...[
+                    SizedBox(
+                      height: 52,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showWhatToChange(context),
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: const Text('Edit'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primaryDark,
+                          side: const BorderSide(color: AppColors.primary, width: 1.5),
+                          shape: const StadiumBorder(),
+                          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  Expanded(
+                    child: sendable
+                        ? PrimaryButton(label: 'Send to ${item.ownersFirst}', onPressed: () => sendDraftWithConfirm(context, item))
+                        : PrimaryButton(label: 'Back', onPressed: () => context.canPop() ? context.pop() : context.go('/broker/onboarding/${item.id}')),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _legend(Color color, String text) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(width: 14, height: 14, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4))),
+      const SizedBox(width: 8),
+      Text(text, style: const TextStyle(fontSize: 13.5, color: AppColors.muted)),
+    ],
+  );
+
+  // ---- the paper ----
+
+  Widget _paper(Set<String> changed) {
+    const base = TextStyle(fontSize: 14.5, height: 24 / 14.5, color: Color(0xFF3A4658));
+    const head = TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.heading, letterSpacing: 0.4);
+    final a = item.answers;
+    final decided = a.feeType.isNotEmpty;
+    final broker = _brokerName();
+    // A value we have (yellow), a value that changed (green), or a gap.
+    InlineSpan v(String text, {String? group, bool known = true}) {
+      if (!known) {
+        return const TextSpan(text: ' ........ ', style: TextStyle(backgroundColor: Color(0xFFEEF1F5), color: AppColors.muted));
+      }
+      final isChanged = group != null && changed.contains(group);
+      return TextSpan(
+        text: text,
+        style: TextStyle(backgroundColor: isChanged ? _hlGreen : _hlYellow, color: AppColors.heading, fontWeight: FontWeight.w600),
+      );
+    }
+
+    Widget para(List<InlineSpan> spans) => Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text.rich(TextSpan(style: base, children: spans)),
+    );
+    Widget heading(String t) => Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 6),
+      child: Text(t, style: head),
+    );
+
+    final feeClause = !decided
+        ? <InlineSpan>[const TextSpan(text: '3. The fee: '), v('', known: false), const TextSpan(text: ' It will be written here once you tell us.')]
+        : a.feeType == 'none'
+            ? <InlineSpan>[const TextSpan(text: '3. '), v('The broker does not charge the owner any fee', group: 'fee'), const TextSpan(text: ' under this agreement.')]
+            : a.feeType == 'later'
+                ? <InlineSpan>[
+                    const TextSpan(text: '3. '),
+                    v('The fee is not fixed now', group: 'fee'),
+                    const TextSpan(text: '. The broker and the owner agree it for every deal, in writing, before that deal starts.'),
+                  ]
+                : <InlineSpan>[
+                    const TextSpan(text: '3. The owner will pay the broker a fee of '),
+                    v(a.feeSummary(item.rent), group: 'fee'),
+                    const TextSpan(text: '. '),
+                    v(a.payWayText, group: 'fee'),
+                    const TextSpan(text: '. The fee includes all taxes.'),
+                  ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: Text('PROPERTY MANAGEMENT AGREEMENT', textAlign: TextAlign.center, style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: AppColors.heading, letterSpacing: 0.6)),
+          ),
+        ),
+        para([
+          const TextSpan(text: 'This agreement is made on '),
+          v(_prettyDate(DateTime.now().toIso8601String().substring(0, 10))),
+          const TextSpan(text: '.'),
+        ]),
+        heading('BETWEEN'),
+        para([
+          v(item.ownersFull),
+          const TextSpan(text: ', hereafter called the '),
+          const TextSpan(text: '“OWNER”', style: TextStyle(fontWeight: FontWeight.w700)),
+          TextSpan(text: item.hasManyOwners ? ' (all the owners together).' : '.'),
+        ]),
+        heading('AND'),
+        para([
+          v(broker),
+          const TextSpan(text: ', hereafter called the '),
+          const TextSpan(text: '“BROKER”', style: TextStyle(fontWeight: FontWeight.w700)),
+          const TextSpan(text: '.'),
+        ]),
+        heading('THE PROPERTY'),
+        para([
+          v(item.address.trim().isEmpty ? '' : item.address, known: item.address.trim().isNotEmpty),
+          if (item.address.trim().isEmpty) const TextSpan(text: ' (the address comes from the owner\'s documents)'),
+          const TextSpan(text: '.'),
+        ]),
+        heading('NOW IT IS AGREED AS FOLLOWS'),
+        para([
+          const TextSpan(text: '1. The broker ('),
+          v(broker),
+          const TextSpan(text: ') finds and checks tenants, takes tenant calls and complaints, and coordinates small repairs and the move-in and move-out checks. The owner picks the tenant and signs the tenant\'s agreement in their own name.'),
+        ]),
+        para([const TextSpan(text: '2. The owner gives true documents, answers approval requests on time, pays the broker fee and the costs that are valid, and is responsible for any dispute about who owns the house.')]),
+        para(feeClause),
+        para([
+          const TextSpan(text: '4. The tenant\'s rent of '),
+          v('${onbMoney(item.rent)} every month'),
+          const TextSpan(text: ' and deposit of '),
+          v(onbMoney(item.deposit)),
+          const TextSpan(text: ' are for the owner. The broker does not keep them unless the owner agrees in writing.'),
+        ]),
+        para([
+          const TextSpan(text: '5. This agreement is for '),
+          v('${a.months} months', group: 'dates'),
+          if (a.startDate.isEmpty) ...[const TextSpan(text: ' from '), v('', known: false)] else ...[const TextSpan(text: ', from '), v(_prettyDate(a.startDate), group: 'dates')],
+          const TextSpan(text: '. After that it ends, unless both sides renew in writing.'),
+        ]),
+        para([const TextSpan(text: '6. Both sides keep names, numbers, money and tenant details private. This continues for 3 years after the agreement ends.')]),
+        para([const TextSpan(text: '7. Each side is responsible for its own mistakes. The broker\'s total responsibility is limited to the fees paid in the last 12 months. Neither side pays for indirect loss.')]),
+        para([const TextSpan(text: '8. Either side can end the agreement by telling the other in writing. The notice time is set in the final draft.')]),
+        if (a.notes.trim().isNotEmpty)
+          para([const TextSpan(text: '9. Other things agreed: '), v(a.notes.trim(), group: 'notes')]),
+        const SizedBox(height: 6),
+        const Text(
+          'Plain words for reading. Our team keeps the legal words correct in the final draft. Signing, stamp paper and payment come in the next stages.',
+          style: TextStyle(fontSize: 13.5, height: 19 / 13.5, color: AppColors.muted),
+        ),
+      ],
+    );
+  }
+
+  // ---- Edit: what to change? ----
+
+  Future<void> _showWhatToChange(BuildContext context) async {
+    final part = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('What to change?', style: TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
+              const SizedBox(height: 12),
+              for (final (key, icon) in const [('fee', Icons.payments_outlined), ('dates', Icons.calendar_today_outlined), ('notes', Icons.edit_note_outlined)])
+                OnbRow(
+                  icon: icon,
+                  tone: 'info',
+                  title: AgreementAnswers.groupLabel(key),
+                  subtitle: item.answers.feeType.isEmpty && key == 'fee' ? 'Not decided yet' : item.answers.groupText(key, item.rent),
+                  onTap: () => Navigator.pop(sheet, key),
+                ),
+              const SizedBox(height: 4),
+              const Text(
+                'Rent, deposit and owners come from the owner\'s documents. To change them, go back to the house page.',
+                style: TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (part != null && context.mounted) context.push('/broker/onboarding/${item.id}/edit?part=$part');
+  }
+
+  // ---- all the changes, with Undo ----
+
+  Future<void> _showChanges(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      builder: (sheet) => ListenableBuilder(
+        listenable: _store,
+        builder: (sheet, _) {
+          final now = _store.byId(item.id) ?? item;
+          if (now.edits.isEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (sheet.mounted && Navigator.canPop(sheet)) Navigator.pop(sheet);
+            });
+          }
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${now.edits.length} ${now.edits.length == 1 ? 'change' : 'changes'}', style: const TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
+                  const SizedBox(height: 12),
+                  for (final e in now.edits)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: OnbCard(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(AgreementAnswers.groupLabel(e.group), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
+                                  const SizedBox(height: 4),
+                                  Text(e.before.groupText(e.group, now.rent), style: const TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted, decoration: TextDecoration.lineThrough)),
+                                  const SizedBox(height: 2),
+                                  Text(now.answers.groupText(e.group, now.rent), style: const TextStyle(fontSize: 15, height: 20 / 15, color: AppColors.body)),
+                                ],
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                if (now.phase == OnboardingPhase.review && now.draftSent && !await confirmNewDraft(sheet, now, yes: 'Yes, undo and resend')) return;
+                                await _store.undoAgreementPart(now.id, e.group);
+                              },
+                              child: const Text('Undo', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// "Agreement sent!" and what happens next.
+class AgreementSentScreen extends StatelessWidget {
+  const AgreementSentScreen({required this.id, super.key});
+  final String id;
 
   @override
   Widget build(BuildContext context) => OnbItemView(
     id: id,
     builder: (context, item) {
-      final broker = _brokerName();
-      final answers = item.answers;
-      final decided = answers.feeType.isNotEmpty;
-      final changedLabels = {for (final c in item.changes) c.clause};
-      final started = answers.startDate.isEmpty ? 'Not decided yet' : answers.startDate;
-      final terms = <(String, String, bool)>[
-        ('Property', item.address.trim().isEmpty ? 'Address comes from the owner\'s documents' : item.address, true),
-        (item.hasManyOwners ? 'Owners' : 'Owner', item.ownersFull, true),
-        ('Broker', broker, true),
-        ('Rent the owner wants', '${onbMoney(item.rent)} every month', true),
-        ('Deposit', onbMoney(item.deposit), true),
-        ('Broker fee', decided ? answers.feeSummary(item.rent) : 'Not decided yet', decided),
-        ('How the fee is paid', (decided ? answers.payWayText : 'Not decided yet'), decided),
-        ('Start date', started, answers.startDate.isNotEmpty),
-        ('How long', '${answers.months} months', true),
-        if (answers.notes.trim().isNotEmpty) ('Other notes', answers.notes, true),
-      ];
-      // Names the owner and broker use for the same thing in the key points.
-      const alias = {
-        'Broker fee': 'Your fee',
-        'How the fee is paid': 'How owner pays your fee',
-        'Rent the owner wants': 'Rent',
-      };
-      final clauses = <(String, String)>[
-        ('1. What the broker does', '$broker finds and checks tenants, takes tenant calls and complaints, and coordinates small repairs and the move-in and move-out checks. The owner picks the tenant and signs the tenant\'s agreement in their own name.'),
-        ('2. What the owner does', 'The owner gives true documents, answers approval requests on time, pays the broker fee and the costs that are valid, and is responsible for any dispute about who owns the house.'),
-        ('3. The fee', !decided
-            ? 'The fee is not decided yet. It will be written here once you tell us.'
-            : answers.feeType == 'none'
-                ? 'The broker does not charge the owner any fee under this agreement.'
-                : answers.feeType == 'later'
-                    ? 'The fee is not fixed now. The broker and the owner agree it for every deal, in writing, before that deal starts.'
-                    : '${answers.feeSummary(item.rent)}. ${answers.payWayText}. The fee includes all taxes.'),
-        ('4. Rent and deposit', 'The tenant\'s rent and deposit are for the owner. The broker does not keep them unless the owner agrees in writing.'),
-        ('5. How long', '${answers.months} months${answers.startDate.isEmpty ? '' : ' from ${answers.startDate}'}. After that it ends, unless both sides renew in writing.'),
-        ('6. Keeping things private', 'Both sides keep names, numbers, money and tenant details private. This continues for 3 years after the agreement ends.'),
-        ('7. If something goes wrong', 'Each side is responsible for its own mistakes. The broker\'s total responsibility is limited to the fees paid in the last 12 months. Neither side pays for indirect loss.'),
-        ('8. Ending the agreement', 'Either side can end it by telling the other in writing. The notice time is set in the final draft.'),
+      final first = item.ownersFirst;
+      final steps = <(String, String, String)>[
+        ('Sent', item.hasManyOwners ? 'To all ${item.ownerCount} owners' : 'To $first', 'ok'),
+        ('They read it', 'On WhatsApp or email', 'info'),
+        ('They say yes', item.hasManyOwners ? 'All ${item.ownerCount} must agree' : '$first must agree', 'mute'),
+        ('Everyone signs', 'Then the agreement is ready', 'mute'),
       ];
       return OnbPage(
-        title: 'Full agreement',
-        subtitle: 'Between the owner and the broker.',
-        footer: [PrimaryButton(label: 'Back', onPressed: () => context.pop())],
+        title: 'Agreement sent!',
+        subtitle: 'We will tell you when $first replies.',
+        showBack: false,
+        footer: [
+          PrimaryButton(label: 'Go to this house', onPressed: () => context.go('/broker/onboarding/${item.id}')),
+          const SizedBox(height: 10),
+          OnbSecondaryButton(label: 'See the agreement', onPressed: () => context.pop()),
+        ],
         children: [
-          OnbBanner(
-            item.phase == OnboardingPhase.papers || item.phase == OnboardingPhase.questions || item.phase == OnboardingPhase.preparing
-                ? 'This is how the agreement will read. The final draft is still being made. Yellow means we have it from you.'
-                : 'This is the full agreement for ${item.ownersFirst} and $broker. Yellow means captured. Green means changed since the first draft.',
-            icon: Icons.description_outlined,
-            kind: 'info',
-          ),
-          const SizedBox(height: 14),
-          const Text('Who signs', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
+          const Center(child: Icon(Icons.check_circle, size: 72, color: AppColors.success)),
+          const SizedBox(height: 24),
+          const Text('What happens next', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
           const SizedBox(height: 8),
           OnbCard(
             child: Column(
               children: [
-                for (var o = 0; o < item.ownerCount; o++)
+                for (final (title, sub, kind) in steps)
                   OnbRow(
-                    icon: Icons.person_outline,
-                    title: item.ownerNameAt(o),
-                    subtitle: item.hasManyOwners ? 'Owner ${o + 1}' : 'Owner',
+                    icon: kind == 'ok' ? Icons.check_circle : Icons.radio_button_unchecked,
+                    tone: kind,
+                    title: title,
+                    subtitle: sub,
                     chevron: false,
+                    trailing: kind == 'info' ? const OnbPill('Now', 'info') : null,
                   ),
-                OnbRow(icon: Icons.badge_outlined, title: broker, subtitle: 'Broker', chevron: false),
               ],
             ),
           ),
-          const SizedBox(height: 18),
-          const Text('The details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
-          const SizedBox(height: 8),
-          for (final (label, value, known) in terms) ...[
-            Builder(
-              builder: (context) {
-                final changed = changedLabels.contains(label) || changedLabels.contains(alias[label]);
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: changed ? _green : (known ? _yellow : AppColors.surfaceMuted),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('$label${changed ? ' · Changed' : ''}', style: const TextStyle(fontSize: 14, color: AppColors.muted)),
-                      const SizedBox(height: 4),
-                      SelectableText(value, style: const TextStyle(fontSize: 17, height: 24 / 17, color: AppColors.heading)),
-                    ],
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 10),
-          ],
-          const SizedBox(height: 8),
-          const Text('The words', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
-          const SizedBox(height: 8),
-          for (final (title, text) in clauses) ...[
-            OnbCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
-                  const SizedBox(height: 6),
-                  SelectableText(text, style: const TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.body)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
+          const SizedBox(height: 16),
           const Text(
-            'Plain words for reading. Our team keeps the legal words correct in the final draft. Signing, stamp paper and payment come in the next stages.',
+            'Sending on WhatsApp or email is not connected yet. On the house page, use the test buttons to pretend the owner replied.',
             style: TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted),
           ),
         ],

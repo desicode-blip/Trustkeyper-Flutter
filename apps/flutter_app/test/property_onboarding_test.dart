@@ -231,10 +231,11 @@ void main() {
     await tester.tap(find.text('Read the full agreement'));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(seconds: 1));
-    expect(find.text('Full agreement'), findsOneWidget);
-    expect(find.text('Who signs'), findsOneWidget);
-    expect(find.text('Ravi Kumar'), findsWidgets);
-    expect(find.text('Broker'), findsWidgets);
+    expect(find.text('Your agreement'), findsOneWidget);
+    expect(find.text('PROPERTY MANAGEMENT AGREEMENT'), findsOneWidget);
+    expect(find.textContaining('Ravi Kumar', findRichText: true), findsWidgets);
+    expect(find.textContaining('“BROKER”', findRichText: true), findsOneWidget);
+    expect(find.text('Edit'), findsOneWidget);
     await tester.binding.setSurfaceSize(null);
   });
 
@@ -313,6 +314,153 @@ void main() {
     expect(find.text('Owner pays you directly'), findsOneWidget);
     expect(find.text('Owner pays once, at signing'), findsNothing);
     expect(find.textContaining('Not available now'), findsNothing);
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  test('changing a part after the first draft is remembered, can be undone, and asks the owner again', () async {
+    final store = PropertyOnboardingStore();
+    await store.load();
+    final item = await store.create(ownerName: 'Ravi Kumar', channel: 'email', contact: 'ravi@example.com');
+    await store.update(item.id, (i) => i.copyWith(
+      phase: OnboardingPhase.review,
+      draftNo: 1,
+      answers: const AgreementAnswers(feeType: 'percent', feeValue: 5, payWay: 'cut'),
+    ));
+    // Not sent yet: remembered as a change, same draft.
+    await store.changeAgreementPart(item.id, 'fee', const AgreementAnswers(feeType: 'percent', feeValue: 4, payWay: 'cut'));
+    var now = store.byId(item.id)!;
+    expect(now.answers.feeValue, 4);
+    expect(now.edits.single.group, 'fee');
+    expect(now.draftNo, 1);
+    // Changing it back to the first draft removes the change.
+    await store.changeAgreementPart(item.id, 'fee', const AgreementAnswers(feeType: 'percent', feeValue: 5, payWay: 'cut'));
+    expect(store.byId(item.id)!.edits, isEmpty);
+    // Sent and agreed: a new draft, the owner must say yes again.
+    await store.update(item.id, (i) => i.copyWith(draftSent: true, ownerAgreedFinal: true));
+    await store.changeAgreementPart(item.id, 'dates', const AgreementAnswers(startDate: '2026-12-01', months: 6));
+    now = store.byId(item.id)!;
+    expect(now.draftNo, 2);
+    expect(now.ownerAgreedFinal, isFalse);
+    expect(now.versions.last.summary, contains('Start date and length'));
+    await store.undoAgreementPart(item.id, 'dates');
+    now = store.byId(item.id)!;
+    expect(now.edits, isEmpty);
+    expect(now.answers.months, 11);
+    expect(now.draftNo, 3);
+    // Survives a restart.
+    await store.changeAgreementPart(item.id, 'notes', const AgreementAnswers(notes: 'No pets'));
+    final again = PropertyOnboardingStore();
+    await again.load();
+    expect(again.byId(item.id)!.edits.single.group, 'notes');
+  });
+
+  testWidgets('agreement reader: edit, what to change, change the fee, green change, undo', (tester) async {
+    final store = PropertyOnboardingStore.instance;
+    await store.load();
+    final item = await store.create(ownerName: 'Ravi Kumar', channel: 'email', contact: 'ravi@example.com');
+    await store.update(item.id, (i) => i.copyWith(
+      phase: OnboardingPhase.review,
+      draftNo: 1,
+      answers: const AgreementAnswers(feeType: 'percent', feeValue: 5, payWay: 'cut', startDate: '2026-12-01'),
+    ));
+    await tester.binding.setSurfaceSize(const Size(440, 956));
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (c, s) => OwnerAgreementScreen(id: item.id)),
+      GoRoute(path: '/broker/onboarding/:id/edit', builder: (c, s) => AgreementEditScreen(id: s.pathParameters['id']!, part: s.uri.queryParameters['part'] ?? 'fee')),
+      GoRoute(path: '/broker/onboarding/:id/sent', builder: (c, s) => AgreementSentScreen(id: s.pathParameters['id']!)),
+    ]);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.text('Send to Ravi'), findsOneWidget);
+    expect(find.textContaining('5% of rent every month', findRichText: true), findsOneWidget);
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    expect(find.text('What to change?'), findsOneWidget);
+    expect(find.text('Your fee'), findsOneWidget);
+    expect(find.text('Start date and length'), findsOneWidget);
+    await tester.tap(find.text('Your fee'));
+    await tester.pumpAndSettle();
+    expect(find.text('Editing agreement'), findsOneWidget);
+    expect(find.text('Nothing changed yet'), findsOneWidget);
+    expect(find.text('Back to agreement'), findsOneWidget);
+    // Change 5 to 4 and save.
+    await tester.enterText(find.byType(TextField), '4');
+    await tester.pumpAndSettle();
+    expect(find.text('Save and see agreement'), findsOneWidget);
+    await tester.tap(find.text('Save and see agreement'));
+    await tester.pumpAndSettle();
+    expect(store.byId(item.id)!.answers.feeValue, 4);
+    expect(find.text('1 change'), findsOneWidget);
+    expect(find.text('Green = just changed'), findsOneWidget);
+    // See all, then undo.
+    await tester.tap(find.text('See all'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(store.byId(item.id)!.answers.feeValue, 5);
+    expect(store.byId(item.id)!.edits, isEmpty);
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('edit screen: leaving with unsaved changes asks first; empty fee shows a red box', (tester) async {
+    final store = PropertyOnboardingStore.instance;
+    await store.load();
+    final item = await store.create(ownerName: 'Ravi Kumar', channel: 'email', contact: 'ravi@example.com');
+    await store.update(item.id, (i) => i.copyWith(
+      phase: OnboardingPhase.review,
+      draftNo: 1,
+      answers: const AgreementAnswers(feeType: 'percent', feeValue: 5, payWay: 'cut', startDate: '2026-12-01'),
+    ));
+    await tester.binding.setSurfaceSize(const Size(440, 956));
+    final router = GoRouter(routes: [GoRoute(path: '/', builder: (c, s) => AgreementEditScreen(id: item.id, part: 'fee'))]);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save and see agreement'));
+    await tester.pumpAndSettle();
+    expect(find.text('Type a number'), findsOneWidget);
+    expect(find.text('Fix the red box to save'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Leave without saving?'), findsOneWidget);
+    expect(find.text('Keep editing'), findsOneWidget);
+    await tester.tap(find.text('Keep editing'));
+    await tester.pumpAndSettle();
+    expect(store.byId(item.id)!.answers.feeValue, 5); // nothing was saved
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('send confirm names every owner; sent screen says what happens next', (tester) async {
+    final store = PropertyOnboardingStore.instance;
+    await store.load();
+    final item = await store.create(
+      ownerName: 'Ravi Kumar',
+      channel: 'email',
+      contact: 'ravi@example.com',
+      coOwners: [CoOwner(name: 'Sita Devi', channel: 'email', contact: 'sita@example.com')],
+    );
+    await store.update(item.id, (i) => i.copyWith(phase: OnboardingPhase.review, draftNo: 1));
+    await tester.binding.setSurfaceSize(const Size(440, 956));
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (c, s) => OwnerAgreementScreen(id: item.id)),
+      GoRoute(path: '/broker/onboarding/:id/sent', builder: (c, s) => AgreementSentScreen(id: s.pathParameters['id']!)),
+    ]);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Send to Ravi'));
+    await tester.pumpAndSettle();
+    expect(find.text('Send to these 2 people?'), findsOneWidget);
+    await tester.tap(find.text('No, go back'));
+    await tester.pumpAndSettle();
+    expect(store.byId(item.id)!.draftSent, isFalse);
+    await tester.tap(find.textContaining('Send to Ravi'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Yes, send'));
+    await tester.pumpAndSettle();
+    expect(store.byId(item.id)!.draftSent, isTrue);
+    expect(find.text('Agreement sent!'), findsOneWidget);
+    expect(find.text('What happens next'), findsOneWidget);
     await tester.binding.setSurfaceSize(null);
   });
 }

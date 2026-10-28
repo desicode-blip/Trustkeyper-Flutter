@@ -273,6 +273,14 @@ final appRouter = GoRouter(
           builder: (context, state) => OwnerAgreementScreen(id: state.pathParameters['id']!),
         ),
         GoRoute(
+          path: 'edit',
+          builder: (context, state) => AgreementEditScreen(id: state.pathParameters['id']!, part: state.uri.queryParameters['part'] ?? 'fee'),
+        ),
+        GoRoute(
+          path: 'sent',
+          builder: (context, state) => AgreementSentScreen(id: state.pathParameters['id']!),
+        ),
+        GoRoute(
           path: 'questions',
           builder: (context, state) => AgreementQuestionsScreen(id: state.pathParameters['id']!),
         ),

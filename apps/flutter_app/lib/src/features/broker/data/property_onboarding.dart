@@ -181,6 +181,24 @@ class DraftVersion {
   );
 }
 
+/// One part of the agreement the broker changed after the first draft. It
+/// remembers how that part was before, so the change can be undone.
+class AgreementEdit {
+  const AgreementEdit({required this.group, required this.before});
+
+  /// fee · dates · notes
+  final String group;
+  final AgreementAnswers before;
+
+  Map<String, Object?> toJson() => {'group': group, 'before': before.toJson()};
+  factory AgreementEdit.fromJson(Map<String, dynamic> json) => AgreementEdit(
+    group: json['group'] as String? ?? 'fee',
+    before: json['before'] is Map
+        ? AgreementAnswers.fromJson(Map<String, dynamic>.from(json['before'] as Map))
+        : const AgreementAnswers(),
+  );
+}
+
 /// What the broker agreed with the owner by word of mouth.
 class AgreementAnswers {
   const AgreementAnswers({
@@ -236,6 +254,35 @@ class AgreementAnswers {
         months: (json['months'] as num?)?.toInt() ?? 11,
         notes: json['notes'] as String? ?? '',
       );
+
+  /// The parts of the agreement the broker can change.
+  static const groups = ['fee', 'dates', 'notes'];
+
+  static String groupLabel(String group) => switch (group) {
+    'fee' => 'Your fee',
+    'dates' => 'Start date and length',
+    _ => 'Other notes',
+  };
+
+  /// This part of the answers, in simple words.
+  String groupText(String group, int rent) => switch (group) {
+    'fee' => feeHasNoAmount ? feeSummary(rent) : '${feeSummary(rent)}. $payWayText',
+    'dates' => '${startDate.isEmpty ? 'No start date' : startDate} · $months months',
+    _ => notes.trim().isEmpty ? 'None' : notes.trim(),
+  };
+
+  /// Takes one part from [other] and keeps the rest.
+  AgreementAnswers withGroup(String group, AgreementAnswers other) => switch (group) {
+    'fee' => copyWith(feeType: other.feeType, feeValue: other.feeValue, payWay: other.payWay),
+    'dates' => copyWith(startDate: other.startDate, months: other.months),
+    _ => copyWith(notes: other.notes),
+  };
+
+  bool sameGroup(String group, AgreementAnswers other) => switch (group) {
+    'fee' => feeType == other.feeType && feeValue == other.feeValue && payWay == other.payWay,
+    'dates' => startDate == other.startDate && months == other.months,
+    _ => notes.trim() == other.notes.trim(),
+  };
 
   /// No amount to type: no fee at all, or decided on every deal.
   bool get feeHasNoAmount => feeType == 'none' || feeType == 'later';
@@ -406,6 +453,7 @@ class PropertyOnboarding {
     this.ownerAgreedFinal = false,
     List<DraftChange> changes = const [],
     List<DraftVersion> versions = const [],
+    List<AgreementEdit> edits = const [],
     this.printStep = 0,
     this.brokerSigned = false,
     this.ownerSigned = false,
@@ -416,7 +464,8 @@ class PropertyOnboarding {
            ..sort((a, b) => PaperKeys.all.indexOf(a.key).compareTo(PaperKeys.all.indexOf(b.key))),
        ),
        changes = List.unmodifiable(changes),
-       versions = List.unmodifiable(versions);
+       versions = List.unmodifiable(versions),
+       edits = List.unmodifiable(edits);
 
   final String id;
   final String ownerName;
@@ -439,6 +488,9 @@ class PropertyOnboarding {
   final bool ownerAgreedFinal;
   final List<DraftChange> changes;
   final List<DraftVersion> versions;
+
+  /// Parts the broker changed after the first draft (shown green, can be undone).
+  final List<AgreementEdit> edits;
 
   /// 0 stamp paper · 1 printing · 2 ready to sign
   final int printStep;
@@ -582,6 +634,7 @@ class PropertyOnboarding {
     bool? ownerAgreedFinal,
     List<DraftChange>? changes,
     List<DraftVersion>? versions,
+    List<AgreementEdit>? edits,
     int? printStep,
     bool? brokerSigned,
     bool? ownerSigned,
@@ -606,6 +659,7 @@ class PropertyOnboarding {
     ownerAgreedFinal: ownerAgreedFinal ?? this.ownerAgreedFinal,
     changes: changes ?? this.changes,
     versions: versions ?? this.versions,
+    edits: edits ?? this.edits,
     printStep: printStep ?? this.printStep,
     brokerSigned: brokerSigned ?? this.brokerSigned,
     ownerSigned: ownerSigned ?? this.ownerSigned,
@@ -640,6 +694,7 @@ class PropertyOnboarding {
     'ownerAgreedFinal': ownerAgreedFinal,
     'changes': [for (final c in changes) c.toJson()],
     'versions': [for (final v in versions) v.toJson()],
+    'edits': [for (final e in edits) e.toJson()],
     'printStep': printStep,
     'brokerSigned': brokerSigned,
     'ownerSigned': ownerSigned,
@@ -683,6 +738,10 @@ class PropertyOnboarding {
     versions: [
       for (final item in (json['versions'] as List? ?? const []))
         if (item is Map) DraftVersion.fromJson(Map<String, dynamic>.from(item)),
+    ],
+    edits: [
+      for (final item in (json['edits'] as List? ?? const []))
+        if (item is Map) AgreementEdit.fromJson(Map<String, dynamic>.from(item)),
     ],
     printStep: (json['printStep'] as num?)?.toInt() ?? 0,
     brokerSigned: json['brokerSigned'] as bool? ?? false,
@@ -906,10 +965,56 @@ class PropertyOnboardingStore extends ChangeNotifier {
     return next.copyWith(address: 'Flat 402, Madhapur');
   });
 
+  /// The broker changes one part of the agreement. After the first draft the
+  /// change is remembered (so it shows green and can be undone). If the owner
+  /// already has the draft, it becomes a new draft and they must say yes again.
+  Future<void> changeAgreementPart(String id, String group, AgreementAnswers next) => update(id, (item) {
+    final old = item.answers;
+    if (old.sameGroup(group, next)) return item;
+    final merged = old.withGroup(group, next);
+    var result = item.copyWith(answers: merged);
+    if (item.phase != OnboardingPhase.review) return result;
+    final edits = [...item.edits];
+    final at = edits.indexWhere((e) => e.group == group);
+    final before = at >= 0 ? edits[at].before : old;
+    if (before.sameGroup(group, merged)) {
+      if (at >= 0) edits.removeAt(at);
+    } else if (at >= 0) {
+      edits[at] = AgreementEdit(group: group, before: before);
+    } else {
+      edits.add(AgreementEdit(group: group, before: before));
+    }
+    result = result.copyWith(edits: edits);
+    return _newDraftIfSent(result, 'You changed: ${AgreementAnswers.groupLabel(group)}');
+  });
+
+  /// Puts one changed part back the way it was in the first draft.
+  Future<void> undoAgreementPart(String id, String group) => update(id, (item) {
+    final at = item.edits.indexWhere((e) => e.group == group);
+    if (at < 0) return item;
+    final result = item.copyWith(
+      answers: item.answers.withGroup(group, item.edits[at].before),
+      edits: [...item.edits]..removeAt(at),
+    );
+    return _newDraftIfSent(result, 'You undid: ${AgreementAnswers.groupLabel(group)}');
+  });
+
+  PropertyOnboarding _newDraftIfSent(PropertyOnboarding item, String summary) {
+    if (!item.draftSent) return item;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return item.copyWith(
+      ownerAgreedFinal: false,
+      draftNo: item.draftNo + 1,
+      draftSentAt: now,
+      versions: [...item.versions, DraftVersion(number: item.draftNo + 1, summary: summary, at: now)],
+    );
+  }
+
   Future<void> testDraftReady(String id) => update(id, (item) => item.copyWith(
     phase: OnboardingPhase.review,
     draftNo: 1,
     draftSent: false,
+    edits: const [],
     versions: [
       DraftVersion(number: 1, summary: 'First draft', at: DateTime.now().millisecondsSinceEpoch),
     ],

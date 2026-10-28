@@ -564,3 +564,24 @@ files: data/property_onboarding.dart (feeIsOneTime, payWayText by fee kind), pre
 rule: one-time fee => only deduct can be picked; monthly => deduct or direct; 'signing' kept only so old saves still read
 verification: flutter analyze No issues found; property_onboarding_test passed
 ```
+
+## Change 30 – The owner agreement now reads and edits like the rent agreement
+Date: 2026-10-28 · Status: built on iPhone for review
+What: "Read the full agreement" now uses the same flow as the rent agreement review, this time between the **owner and the broker** (the broker is you, or our company when it is us).
+- **Your agreement** (paper page): title, "Draft N", a line "Yellow = details you added" (and "Green = just changed" once something changed). Names, address, fee, how it is paid, rent, deposit, start date and months are highlighted. A gap shows grey dots. Notes appear as clause 9 when there are notes.
+- **Edit** (while the agreement is being made, or in review): opens **What to change?** with *Your fee*, *Start date and length*, *Other notes*. Each opens a pre-filled screen with a yellow **"Editing agreement · Cancel"** strip and the button **Save and see agreement**. A short toast says what changed.
+- **Edge cases from the rent flow:** leaving with unsaved changes asks "Leave without saving?"; empty or wrong fee shows a red message and "Fix the red box to save"; nothing changed shows "Nothing changed yet" and the button becomes "Back to agreement"; changing a monthly fee to a one-time fee while the owner was set to pay directly asks "Change how the owner pays too?"; after the draft is sent, any change asks "Everyone must say yes again" and makes a new draft (Draft 2, 3...) that the owner must approve again.
+- **N changes · See all:** lists what changed (old text struck through, new text below) with **Undo** for each part. Changing a part back to how it was in the first draft removes it from the list.
+- **Send:** "Send to Ravi" (or "Send to these 2 people?" with every owner shown) asks first, then shows **Agreement sent!** with what happens next. The same confirm is used by the button on the house page.
+- Not built: download icon (nothing to download yet), owners/rent/deposit editing here (they come from the owner's documents, change them on the house page), the "check everything" card list with Change links, sending per person by WhatsApp or email.
+Needs the backend later: really sending the draft, and the owner saying yes or asking a change.
+```
+AGENT RECORD – Change 30
+id: CHG-030
+date: 2026-10-28
+branch: staging (never main)
+files: data/property_onboarding.dart (AgreementEdit, edits[], AgreementAnswers groups/groupText/withGroup/sameGroup, store changeAgreementPart/undoAgreementPart/_newDraftIfSent), presentation/onboarding_agreement_screens.dart (OwnerAgreementScreen rewritten as paper reader, AgreementEditScreen via _QuestionsBody(part:), AgreementSentScreen, confirmSendDraft/sendDraftWithConfirm/confirmNewDraft), presentation/onboarding_house_screens.dart (Send uses confirm), presentation/onboarding_widgets.dart (OnbPage.topBanner), core/routing/app_router.dart (routes edit?part=, sent), test/property_onboarding_test.dart
+source design: v2 canvas page "06 Broker Review, edit and send": RV2, RV3, RV5, EA1, EA2, EA3, EA4, EA5, EA6, EA7, EA12, EA15
+rule: edits only tracked while phase=review; one change row per part (fee/dates/notes); after draftSent a change bumps draftNo and clears ownerAgreedFinal
+verification: flutter analyze No issues found; property_onboarding_test 18 passed
+```
