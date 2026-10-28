@@ -373,7 +373,7 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
     expect(find.text('Send to Ravi'), findsOneWidget);
-    expect(find.textContaining('5% of rent every month', findRichText: true), findsOneWidget);
+    expect(find.textContaining('equivalent to 5% of the total monthly consideration', findRichText: true), findsOneWidget);
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
     expect(find.text('What to change?'), findsOneWidget);

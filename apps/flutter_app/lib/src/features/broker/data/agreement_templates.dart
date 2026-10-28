@@ -8,6 +8,7 @@ class AgreementTemplate {
   const AgreementTemplate({
     required this.id,
     required this.name,
+    required this.fileName,
     required this.when,
     this.driveDocId,
     this.isWordFile = false,
@@ -16,6 +17,9 @@ class AgreementTemplate {
 
   final String id;
   final String name;
+
+  /// The bundled copy in assets/agreements/.
+  final String fileName;
 
   /// When it is used, in simple words.
   final String when;
@@ -47,6 +51,7 @@ class TemplateChoice {
 abstract final class AgreementTemplates {
   static const monthlyPercent = AgreementTemplate(
     id: 'monthly_percent',
+    fileName: 'monthly_percent.md',
     name: 'Every month: percent of rent',
     when: 'Fee is a percent of the rent, every month. The owner pays directly or we deduct it.',
     driveDocId: '1AMTnUD7EdTP_V2CDBRumZbF9b80aDZNa',
@@ -55,6 +60,7 @@ abstract final class AgreementTemplates {
 
   static const monthlyDays = AgreementTemplate(
     id: 'monthly_days',
+    fileName: 'monthly_days_3days.md',
     name: 'Every month: days of rent',
     when: 'Fee is a few days of rent, every month (3 days is 10% of the rent). The tenant pays the rent on our app and we deduct the fee.',
     rentThroughPlatform: true,
@@ -62,6 +68,7 @@ abstract final class AgreementTemplates {
 
   static const yearlyDays = AgreementTemplate(
     id: 'yearly_days',
+    fileName: 'yearly_15days.md',
     name: 'Once a year: 15 days of rent',
     when: 'Fee is days of rent, paid one time for each year. Paid directly or taken from the first month of the year.',
     driveDocId: '12Duaqq-_kU3H_915GM3mLh0mIp2dbcYgniTnHQCjNZ0',
@@ -69,6 +76,7 @@ abstract final class AgreementTemplates {
 
   static const nri = AgreementTemplate(
     id: 'nri_hybrid',
+    fileName: 'nri_hybrid.md',
     name: 'Owner lives outside India (NRI)',
     when: 'The owner is an NRI. TrustKeyper is the broker, collects the rent and pays the owner.',
     driveDocId: '13cdao3RgQ5r8VaH5Tepk6S4Ri28qr-P6fKV5XcBX0EQ',

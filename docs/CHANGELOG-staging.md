@@ -623,3 +623,23 @@ files: docs/agreement-templates/{README,monthly_percent,monthly_days_3days,yearl
 rule: copies are replaced only on Aman's request; personal details never stored in templates
 verification: grep for old names, PAN, bank, phone, email, years returned nothing
 ```
+
+## Change 34 – The agreement now uses the real template, filled with your inputs
+Date: 2026-10-28 · Status: on the phone after the next build
+What: "Your agreement" (and the page you send to the owner) no longer shows the short plain-words page for fees we have a template for. It shows the **real agreement words** from the right template, with your inputs filled in:
+- **Yellow** = told by you (owners' names, house address, fee, start date, months, owner email, today's date as the signing date, notes).
+- **Green** = just changed. **Grey** = still empty; shown with its label such as [FATHER’S / SPOUSE’S NAME]. A bar at the top says "N details are still empty" and lists them.
+- Several owners: every owner gets their own line and signature name. Notes you add appear as "ADDITIONAL TERMS" before the signing page.
+- Fee wording follows your numbers (percent, or any number of days; the 3-days template changes "ten percent (10%)" for you). Months from your answer replace "one (1) year" for the first term (12 months keeps "one (1) year"); end date is worked out.
+- Which template: percent → percent template; days every month → 3-days template; days one time → 15-days template. Assumes TrustKeyper is the broker and the owner is not an NRI (nothing asks that yet, so the NRI template is not picked). Fixed amount, no fee, decide each deal still show the plain-words page with a note.
+- Template files are now bundled in the app (assets/agreements) as copies, not fetched from Drive. Edit them only when asked.
+Not yet asked, so grey: Mr/Ms, relation and father's/spouse's name, age, owner's own address, property description and area, fixtures, owner bank, switch-deadline date (15-days).
+```
+AGENT RECORD – Change 34
+id: CHG-034
+date: 2026-10-28
+branch: staging (never main)
+files: data/agreement_filler.dart (new), presentation/agreement_paper.dart (new), data/agreement_templates.dart (fileName), presentation/onboarding_agreement_screens.dart (_body, legend), assets/agreements/*.md (moved from docs, 15-days owner lines split per owner, fixtures list blanked), pubspec.yaml (assets), test/agreement_filler_test.dart (new), test/property_onboarding_test.dart
+rule: fill only from user inputs; unknown = grey gap; template words never edited by code except term/fee-days phrases listed in docs/agreement-templates/README.md
+verification: flutter analyze No issues found; agreement_filler_test + property_onboarding_test 24 passed
+```

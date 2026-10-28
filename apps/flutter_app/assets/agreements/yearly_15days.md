@@ -17,7 +17,9 @@ Stamp Paper with certificate no: \_\_\_\_\_\_\_\_\_\_\_\_ forms an integral part
 
 This Property Management Agreement (“Agreement”) is executed on \[EXECUTION DATE\] (“Execution Date”) and is effective from \[EFFECTIVE DATE\] (“Effective Date”), by and between:
 
-**\[TITLE\] \[OWNER 1 FULL NAME\]**, S/o. \[OWNER 1 FATHER'S NAME\], aged about \[AGE\] years, and **\[TITLE\] \[OWNER 2 FULL NAME\]**, D/o. \[OWNER 2 FATHER'S NAME\], aged about \[AGE\] years, both residing at \[OWNER ADDRESS\], hereinafter jointly and severally called the OWNERS of the premise \[PROPERTY ADDRESS\];
+**\[MR./MS.\] \[OWNER 1 FULL NAME\]**, \[son/daughter/wife\] of \[OWNER 1 FATHER’S / SPOUSE’S NAME\], aged about \[OWNER 1 AGE\] years, residing at \[OWNER 1 FULL RESIDENTIAL ADDRESS WITH PIN CODE\];
+
+hereinafter jointly and severally called the OWNERS of the premise \[PROPERTY ADDRESS\];
 
 (Hereinafter collectively referred to as the **“Owner”**, which expression shall, unless repugnant to the context or meaning thereof, include their respective legal heirs, executors, administrators, successors, and permitted assigns, and who are executing this Agreement either personally or through duly authorized representatives), being the Party of the **FIRST PART**.
 
@@ -257,30 +259,9 @@ For and on behalf of: **Paravent** (Trade Name “trustkeyper”)
 
 | Sr. No. | Fixture Description | Quantity |
 | :---: | :---- | :---: |
-| 1 | Fans | 6 |
-| 2 | Light bulb / tube | 6 |
-| 3 | Bed | 3 |
-| 4 | Table | 1 |
-| 5 | Chair | 3 |
-| 6 | Sofa | 1 |
-| 7 | AC | 4 |
-| 8 | Geyser | 3 |
-| 9 | Fridge | 1 |
-| 10 | Oven | 1 |
-| 11 | Stove | 1 |
-| 12 | TV | 1 |
-| 13 | Washing Machine | 1 |
-| 14 | Dining Table | 1 |
-| 15 | Study Units | 4 |
-| 16 | Kitchen hub and chimney | 1 |
-| 17 | Wardrobes | 4 |
-| 18 | Puja unit | 1 |
-| 19 | TV Unit | 4 |
-| 20 | Dressing unit | 5 |
-| 21 | Mattresses | 3 |
-| 22 | False ceiling throughout house | 1 |
-| 23 | Modular Kitchen | 1 |
-| 24 | Dry Clothes Hanger | 1 |
+| 1 | [ITEM] | [Qty] |
+| 2 | [ITEM] | [Qty] |
+| 3 | [ITEM] | [Qty] |
 
 \*All amenities are in working condition as mentioned above.
 

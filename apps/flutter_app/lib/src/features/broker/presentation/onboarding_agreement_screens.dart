@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../auth/presentation/approved_auth_widgets.dart';
+import '../data/agreement_templates.dart';
 import '../data/property_onboarding.dart';
+import 'agreement_paper.dart';
 import 'onboarding_house_screens.dart';
 import 'onboarding_widgets.dart';
 
@@ -917,8 +919,9 @@ class _AgreementReader extends StatelessWidget {
                 spacing: 16,
                 runSpacing: 6,
                 children: [
-                  _legend(_hlYellow, 'Yellow = details you added'),
+                  _legend(_hlYellow, 'Yellow = what you told us'),
                   if (changed.isNotEmpty) _legend(_hlGreen, 'Green = just changed'),
+                  if (_choice.template != null) _legend(const Color(0xFFE3E8EF), 'Grey = still empty'),
                 ],
               ),
             ),
@@ -961,7 +964,7 @@ class _AgreementReader extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
-                    child: _paper(changed),
+                    child: _body(changed),
                   ),
                 ),
               ),
@@ -1011,6 +1014,29 @@ class _AgreementReader extends StatelessWidget {
   );
 
   // ---- the paper ----
+
+  TemplateChoice get _choice => AgreementTemplates.pick(item.answers, isNri: false, brokerIsTrustkeyper: true);
+
+  /// The real template words when we have one for this fee, else the plain-words page.
+  Widget _body(Set<String> changed) {
+    final choice = _choice;
+    final warn = choice.warning;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (warn != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: const Color(0xFFFFF4DB), borderRadius: BorderRadius.circular(12)),
+              child: Text(warn, style: const TextStyle(fontSize: 13.5, height: 19 / 13.5, color: AppColors.heading)),
+            ),
+          ),
+        if (choice.template == null) _paper(changed) else TemplatePaper(item: item, template: choice.template!, changed: changed, fallback: () => _paper(changed)),
+      ],
+    );
+  }
 
   Widget _paper(Set<String> changed) {
     const base = TextStyle(fontSize: 14.5, height: 24 / 14.5, color: Color(0xFF3A4658));
