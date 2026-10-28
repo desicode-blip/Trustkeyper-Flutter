@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:trustkeyper/src/features/broker/data/agreement_templates.dart';
 import 'package:trustkeyper/src/features/broker/data/property_onboarding.dart';
 import 'package:trustkeyper/src/features/broker/presentation/onboarding_agreement_screens.dart';
 import 'package:trustkeyper/src/features/broker/presentation/onboarding_house_screens.dart';
@@ -462,5 +463,22 @@ void main() {
     expect(find.text('Agreement sent!'), findsOneWidget);
     expect(find.text('What happens next'), findsOneWidget);
     await tester.binding.setSurfaceSize(null);
+  });
+
+  test('the right agreement template is picked from the fee and the owner', () {
+    AgreementTemplate? pick(AgreementAnswers a, {bool nri = false, bool us = true}) =>
+        AgreementTemplates.pick(a, isNri: nri, brokerIsTrustkeyper: us).template;
+    expect(pick(const AgreementAnswers(feeType: 'percent', feeValue: 5)), AgreementTemplates.monthlyPercent);
+    expect(pick(const AgreementAnswers(feeType: 'daysMonthly', feeValue: 3, payWay: 'cut')), AgreementTemplates.monthlyDays);
+    expect(pick(const AgreementAnswers(feeType: 'days', feeValue: 15, payWay: 'cut')), AgreementTemplates.yearlyDays);
+    expect(pick(const AgreementAnswers(feeType: 'percent', feeValue: 8), nri: true), AgreementTemplates.nri);
+    expect(pick(const AgreementAnswers(feeType: 'percent', feeValue: 5), us: false), isNull);
+    expect(pick(const AgreementAnswers(feeType: 'fixed', feeValue: 2000)), isNull);
+    expect(pick(const AgreementAnswers(feeType: 'none')), isNull);
+    // 3 days a month needs rent on our app.
+    final clash = AgreementTemplates.pick(const AgreementAnswers(feeType: 'daysMonthly', feeValue: 3, payWay: 'direct'), isNri: false, brokerIsTrustkeyper: true);
+    expect(clash.warning, isNotNull);
+    expect(AgreementTemplates.yearlyDays.exportUrl.toString(), contains('12Duaqq-_kU3H_915GM3mLh0mIp2dbcYgniTnHQCjNZ0'));
+    expect(AgreementTemplates.monthlyPercent.exportUrl, isNull); // link not shared yet
   });
 }

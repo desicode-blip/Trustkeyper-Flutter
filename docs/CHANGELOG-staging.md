@@ -585,3 +585,16 @@ source design: v2 canvas page "06 Broker Review, edit and send": RV2, RV3, RV5, 
 rule: edits only tracked while phase=review; one change row per part (fee/dates/notes); after draftSent a change bumps draftNo and clears ownerAgreedFinal
 verification: flutter analyze No issues found; property_onboarding_test 18 passed
 ```
+
+## Change 31 – Which agreement template to use (rules only)
+Date: 2026-10-28 · Status: not on the phone yet (no screen changed)
+What: you shared 4 template agreements (percent every month · 3 days every month · 15 days once a year · NRI) and 2 Google Drive links. The app now knows **which template fits**: percent → monthly percent; days every month → monthly days (needs rent on our app); days one time → yearly 15 days; NRI owner → NRI template; other broker, no fee, decide each deal, fixed amounts → "our team will pick". It also knows the Drive file ids of the two linked templates. Nothing is fetched yet and no screen shows it: fetching private Google Docs needs the backend (see docs/AGREEMENT-TEMPLATES.md, which also lists placeholders, gaps in the docs and open questions).
+```
+AGENT RECORD – Change 31
+id: CHG-031
+date: 2026-10-28
+branch: staging (never main)
+files: data/agreement_templates.dart (new), test/property_onboarding_test.dart, docs/AGREEMENT-TEMPLATES.md (new)
+rule: template text is always fetched from Drive at agreement time, never copied into the app
+verification: flutter analyze No issues found; property_onboarding_test 19 passed
+```
