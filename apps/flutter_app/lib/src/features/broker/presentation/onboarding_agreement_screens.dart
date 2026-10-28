@@ -69,13 +69,21 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
 
   double get feeValue => double.tryParse(fee.text.replaceAll(',', '').trim()) ?? 0;
 
-  static const _feeTypes = [
-    ('days', 'Days of rent', 'One time. Example: 15 days of rent'),
-    ('percent', 'Percent of rent', 'Every month. Example: 5%'),
-    ('fixed', 'Fixed amount', 'Same rupees every month'),
-    ('once', 'One time fee', 'Pay once, then no more'),
-    ('none', 'No fee', 'We do not charge the owner'),
-    ('later', 'Decide on every deal', 'Ask me later, deal by deal'),
+  /// Three groups: paid once, paid every month, and no fee now.
+  static const _feeGroups = [
+    ('Paid one time', [
+      ('days', 'Days of rent, one time', 'Example: 15 days of rent, once'),
+      ('once', 'Fixed amount, one time', 'Pay once, then no more'),
+    ]),
+    ('Paid every month', [
+      ('daysMonthly', 'Days of rent, every month', 'Example: 3 days of rent each month'),
+      ('percent', 'Percent of rent', 'Every month. Example: 5%'),
+      ('fixed', 'Fixed amount', 'Same rupees every month'),
+    ]),
+    ('No fee now', [
+      ('none', 'No fee', 'We do not charge the owner'),
+      ('later', 'Decide on every deal', 'Ask me later, deal by deal'),
+    ]),
   ];
   static const _payWays = [
     ('cut', 'We cut it from the rent', 'Easy. Owner does nothing.'),
@@ -181,7 +189,11 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
         setState(() => feeError = 'Please check the number of days');
         return;
       }
-      if (feeType != 'percent' && feeType != 'days' && v > widget.item.rent * 12) {
+      if (feeType == 'daysMonthly' && v > 30) {
+        setState(() => feeError = 'A month has only 30 days. Please check.');
+        return;
+      }
+      if (feeType != 'percent' && feeType != 'days' && feeType != 'daysMonthly' && v > widget.item.rent * 12) {
         setState(() => feeError = 'This is more than a year of rent. Please check.');
         return;
       }
@@ -232,7 +244,12 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
         body = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final (key, label, hint) in _feeTypes) ...[
+            for (final (group, options) in _feeGroups) ...[
+              Padding(
+                padding: const EdgeInsets.only(top: 6, bottom: 6, left: 4),
+                child: Text(group, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.3, color: AppColors.muted)),
+              ),
+            for (final (key, label, hint) in options) ...[
               OnbRow(
                 icon: feeType == key ? Icons.radio_button_checked : Icons.radio_button_unchecked,
                 tone: feeType == key ? 'info' : 'mute',
@@ -258,7 +275,7 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
                           children: [
                             OnbTextField(
                               label: switch (key) {
-                                'days' => 'How many days of rent?',
+                                'days' || 'daysMonthly' => 'How many days of rent?',
                                 'percent' => 'How many percent?',
                                 _ => 'How many rupees?',
                               },
@@ -284,6 +301,7 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
                       )
                     : const SizedBox(width: double.infinity),
               ),
+            ],
             ],
             if ((feeType.isEmpty || feeType == 'none' || feeType == 'later') && feeError != null)
               Padding(padding: const EdgeInsets.only(top: 8), child: Text(feeError!, style: const TextStyle(color: AppColors.error, fontSize: 14))),

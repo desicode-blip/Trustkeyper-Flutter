@@ -519,3 +519,19 @@ files: presentation/onboarding_agreement_screens.dart (fee step: field inside th
 rule (design system): when an option needs an entry field, the field opens directly under that option
 verification: flutter analyze No issues found; property_onboarding_test 11 passed
 ```
+
+## Change 27 – Fee options in three groups, and days of rent every month
+Date: 2026-10-28 · Status: built on iPhone for review
+What: "What is your fee?" now has three groups with small headings.
+- **Paid one time:** Days of rent, one time (example 15 days, once) · Fixed amount, one time.
+- **Paid every month:** **Days of rent, every month** (new, example 3 days each month) · Percent of rent · Fixed amount.
+- **No fee now:** No fee · Decide on every deal.
+The new option asks "How many days of rent?" (up to 30) and shows the money each month, e.g. "3 days of rent every month (₹ 3000 each month)". It works like the other options: the box opens under it, and the next question (how the owner pays) is asked as before.
+```
+AGENT RECORD – Change 27
+id: CHG-027
+date: 2026-10-28
+branch: staging (never main)
+files: data/property_onboarding.dart (feeType daysMonthly in feeSummary), presentation/onboarding_agreement_screens.dart (_feeGroups with headings, validation max 30 days), test/property_onboarding_test.dart
+verification: flutter analyze No issues found; property_onboarding_test passed
+```

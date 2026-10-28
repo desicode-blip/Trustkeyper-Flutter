@@ -192,7 +192,7 @@ class AgreementAnswers {
     this.notes = '',
   });
 
-  /// days · percent · fixed · once · none (no fee) · later (decided on every deal)
+  /// days (one time) · daysMonthly · percent · fixed · once · none (no fee) · later (decided on every deal)
   final String feeType;
   final double feeValue;
 
@@ -243,6 +243,8 @@ class AgreementAnswers {
   String feeSummary(int rent) {
     String money(num value) => '₹ ${value.toStringAsFixed(value % 1 == 0 ? 0 : 1)}';
     return switch (feeType) {
+      'daysMonthly' => '${feeValue.toStringAsFixed(feeValue % 1 == 0 ? 0 : 1)} days of rent every month '
+          '(${money(rent / 30 * feeValue)} each month)',
       'none' => 'No fee. We do not charge the owner',
       'later' => 'Decided on every deal. We will agree it each time',
       'days' => '${feeValue.toStringAsFixed(0)} days of rent, once '
