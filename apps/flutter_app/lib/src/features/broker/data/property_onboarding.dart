@@ -192,7 +192,7 @@ class AgreementAnswers {
     this.notes = '',
   });
 
-  /// days · percent · fixed · once
+  /// days · percent · fixed · once · none (no fee) · later (decided on every deal)
   final String feeType;
   final double feeValue;
 
@@ -237,9 +237,14 @@ class AgreementAnswers {
         notes: json['notes'] as String? ?? '',
       );
 
+  /// No amount to type: no fee at all, or decided on every deal.
+  bool get feeHasNoAmount => feeType == 'none' || feeType == 'later';
+
   String feeSummary(int rent) {
     String money(num value) => '₹ ${value.toStringAsFixed(value % 1 == 0 ? 0 : 1)}';
     return switch (feeType) {
+      'none' => 'No fee. We do not charge the owner',
+      'later' => 'Decided on every deal. We will agree it each time',
       'days' => '${feeValue.toStringAsFixed(0)} days of rent, once '
           '(${money(rent / 30 * feeValue)})',
       'percent' => '${feeValue.toStringAsFixed(feeValue % 1 == 0 ? 0 : 1)}% of rent every month '
@@ -250,7 +255,13 @@ class AgreementAnswers {
     };
   }
 
-  String get payWayText => switch (payWay) {
+  String get payWayText => feeType == 'none'
+      ? 'No fee to pay'
+      : feeType == 'later'
+          ? 'Decided on every deal'
+          : _payWayOnly;
+
+  String get _payWayOnly => switch (payWay) {
     'cut' => 'We cut it from the rent',
     'direct' => 'Owner pays you directly',
     'signing' => 'Owner pays once, at signing',

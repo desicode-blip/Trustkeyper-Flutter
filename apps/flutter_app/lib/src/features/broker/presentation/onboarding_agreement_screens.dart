@@ -17,7 +17,7 @@ List<(String, String)> keyPoints(PropertyOnboarding item) => [
   ('Rent', '${onbMoney(item.rent)} every month'),
   ('Deposit', onbMoney(item.deposit)),
   ('Your fee', item.answers.feeSummary(item.rent)),
-  ('How owner pays your fee', item.answers.payWayText),
+  if (!item.answers.feeHasNoAmount) ('How owner pays your fee', item.answers.payWayText),
   ('Start date', item.answers.startDate.isEmpty ? 'Not set' : item.answers.startDate),
   ('How long', '${item.answers.months} months'),
   if (item.answers.notes.trim().isNotEmpty) ('Other notes', item.answers.notes),
@@ -74,6 +74,8 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
     ('percent', 'Percent of rent', 'Every month. Example: 5%'),
     ('fixed', 'Fixed amount', 'Same rupees every month'),
     ('once', 'One time fee', 'Pay once, then no more'),
+    ('none', 'No fee', 'We do not charge the owner'),
+    ('later', 'Decide on every deal', 'Ask me later, deal by deal'),
   ];
   static const _payWays = [
     ('cut', 'We cut it from the rent', 'Easy. Owner does nothing.'),
@@ -148,6 +150,15 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
     if (step == 0) {
       if (feeType.isEmpty) {
         setState(() => feeError = 'Pick one');
+        return;
+      }
+      if (feeType == 'none' || feeType == 'later') {
+        // No amount to check, and no "how does the owner pay" question.
+        setState(() {
+          feeError = null;
+          payWay = '';
+          step = 2;
+        });
         return;
       }
       final v = feeValue;
@@ -234,8 +245,7 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
                   understood20 = false;
                 }),
               ),
-            if (feeType.isNotEmpty) ...[
-              const SizedBox(height: 12),
+            if (feeType.isNotEmpty && feeType != 'none' && feeType != 'later') ...[
               OnbTextField(
                 label: switch (feeType) {
                   'days' => 'How many days of rent?',
@@ -354,7 +364,7 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
           child: Column(
             children: [
               OnbKeyValue('Fee', AgreementAnswers(feeType: feeType, feeValue: feeValue).feeSummary(item.rent)),
-              OnbKeyValue('Owner pays', AgreementAnswers(payWay: payWay).payWayText),
+              if (feeType != 'none' && feeType != 'later') OnbKeyValue('Owner pays', AgreementAnswers(payWay: payWay).payWayText),
               OnbKeyValue('Starts', start == null ? '-' : '${start!.day}/${start!.month}/${start!.year}'),
               OnbKeyValue('For', '$months months'),
               OnbKeyValue('Notes', notes.text.trim().isEmpty ? 'None' : notes.text.trim(), last: true),
@@ -375,7 +385,8 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
           setState(() {
             feeError = null;
             dateError = null;
-            step--;
+            // No fee, or decided later: there was no "how does the owner pay" step.
+            step = (step == 2 && (feeType == 'none' || feeType == 'later')) ? 0 : step - 1;
           });
         }
       },
@@ -484,7 +495,13 @@ class OwnerAgreementScreen extends StatelessWidget {
       final clauses = <(String, String)>[
         ('1. What the broker does', '$broker finds and checks tenants, takes tenant calls and complaints, and coordinates small repairs and the move-in and move-out checks. The owner picks the tenant and signs the tenant\'s agreement in their own name.'),
         ('2. What the owner does', 'The owner gives true documents, answers approval requests on time, pays the broker fee and the costs that are valid, and is responsible for any dispute about who owns the house.'),
-        ('3. The fee', decided ? '${answers.feeSummary(item.rent)}. ${answers.payWayText}. The fee includes all taxes.' : 'The fee is not decided yet. It will be written here once you tell us.'),
+        ('3. The fee', !decided
+            ? 'The fee is not decided yet. It will be written here once you tell us.'
+            : answers.feeType == 'none'
+                ? 'The broker does not charge the owner any fee under this agreement.'
+                : answers.feeType == 'later'
+                    ? 'The fee is not fixed now. The broker and the owner agree it for every deal, in writing, before that deal starts.'
+                    : '${answers.feeSummary(item.rent)}. ${answers.payWayText}. The fee includes all taxes.'),
         ('4. Rent and deposit', 'The tenant\'s rent and deposit are for the owner. The broker does not keep them unless the owner agrees in writing.'),
         ('5. How long', '${answers.months} months${answers.startDate.isEmpty ? '' : ' from ${answers.startDate}'}. After that it ends, unless both sides renew in writing.'),
         ('6. Keeping things private', 'Both sides keep names, numbers, money and tenant details private. This continues for 3 years after the agreement ends.'),

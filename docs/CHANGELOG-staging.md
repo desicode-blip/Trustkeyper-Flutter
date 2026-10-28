@@ -494,3 +494,15 @@ file: presentation/onboarding_house_screens.dart (_ManyOwnersPapers: _tab as bro
 note: Flutter cannot paint borderRadius with a non-uniform Border, so the tab is an outer coloured box with an inner box
 verification: flutter analyze No issues found; property_onboarding_test 10 passed
 ```
+
+## Change 25 – "What is your fee?": No fee, and Decide on every deal
+Date: 2026-10-28 · Status: built on iPhone for review
+What: two more options under Days of rent / Percent / Fixed / One time: **No fee** ("We do not charge the owner") and **Decide on every deal** ("Ask me later, deal by deal"). Picking either needs no number and skips the next question (how the owner pays), going straight to "When does it start?". Back from there returns to the fee question. The check page, key points, and the full agreement show "No fee" or "Decided on every deal"; the "how owner pays" lines are hidden. Clause 3 of the full agreement says the broker charges no fee, or that the fee is agreed for every deal in writing before that deal starts.
+```
+AGENT RECORD – Change 25
+id: CHG-025
+date: 2026-10-28
+branch: staging (never main)
+files: data/property_onboarding.dart (AgreementAnswers feeType none/later, feeHasNoAmount, feeSummary, payWayText), presentation/onboarding_agreement_screens.dart (_feeTypes, _next skips pay-way step, back, check page, keyPoints, clause 3), test/property_onboarding_test.dart
+verification: flutter analyze No issues found; property_onboarding_test passed
+```

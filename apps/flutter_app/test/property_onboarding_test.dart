@@ -14,6 +14,10 @@ void main() {
     expect(const AgreementAnswers(feeType: 'percent', feeValue: 5).feeSummary(30000), contains('₹ 1500'));
     expect(const AgreementAnswers(feeType: 'fixed', feeValue: 2000).feeSummary(30000), contains('every month'));
     expect(const AgreementAnswers(feeType: 'once', feeValue: 5000).feeSummary(30000), contains('one time'));
+    expect(const AgreementAnswers(feeType: 'none').feeSummary(30000), contains('No fee'));
+    expect(const AgreementAnswers(feeType: 'later').feeSummary(30000), contains('every deal'));
+    expect(const AgreementAnswers(feeType: 'none').feeHasNoAmount, isTrue);
+    expect(const AgreementAnswers(feeType: 'later').payWayText, 'Decided on every deal');
   });
 
   test('journey: papers, agreement, signing, ready', () async {
