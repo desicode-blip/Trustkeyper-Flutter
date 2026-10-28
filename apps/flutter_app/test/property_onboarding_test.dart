@@ -19,6 +19,8 @@ void main() {
     expect(const AgreementAnswers(feeType: 'none').feeSummary(30000), contains('No fee'));
     expect(const AgreementAnswers(feeType: 'later').feeSummary(30000), contains('every deal'));
     expect(const AgreementAnswers(feeType: 'none').feeHasNoAmount, isTrue);
+    expect(const AgreementAnswers(feeType: 'days', feeValue: 15, payWay: 'cut').payWayText, "We deduct it from the first month's rent");
+    expect(const AgreementAnswers(feeType: 'percent', feeValue: 5, payWay: 'cut').payWayText, "We deduct it from every month's rent");
     expect(const AgreementAnswers(feeType: 'later').payWayText, 'Decided on every deal');
   });
 
@@ -268,6 +270,49 @@ void main() {
     expect(find.text('Next: collaboration details'), findsOneWidget);
     expect(find.text('Read the full agreement'), findsNothing);
     expect(find.text('Skip agreement'), findsNothing);
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('how the owner pays: one time fee only allows deduct; monthly allows deduct or direct', (tester) async {
+    final store = PropertyOnboardingStore.instance;
+    await store.load();
+    final item = await store.create(ownerName: 'Ravi Kumar', channel: 'email', contact: 'ravi@example.com');
+    await store.update(item.id, (i) => i.copyWith(phase: OnboardingPhase.questions));
+    await tester.binding.setSurfaceSize(const Size(440, 956));
+    final router = GoRouter(routes: [GoRoute(path: '/', builder: (c, s) => AgreementQuestionsScreen(id: item.id))]);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Days of rent, one time'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '15');
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text("We deduct it from the first month's rent"), findsOneWidget);
+    expect(find.text('Owner pays you directly'), findsOneWidget);
+    expect(find.text('Owner pays once, at signing'), findsOneWidget);
+    expect(find.textContaining('Not available now'), findsNWidgets(2));
+    await tester.tap(find.text('Owner pays you directly')); // cannot be picked
+    await tester.pumpAndSettle();
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('monthly fee: deduct from every month or direct, nothing else', (tester) async {
+    final store = PropertyOnboardingStore.instance;
+    await store.load();
+    final item = await store.create(ownerName: 'Ravi Kumar', channel: 'email', contact: 'ravi@example.com');
+    await tester.binding.setSurfaceSize(const Size(440, 956));
+    final router = GoRouter(routes: [GoRoute(path: '/', builder: (c, s) => AgreementQuestionsScreen(id: item.id))]);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Percent of rent'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '5');
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text("We deduct it from every month's rent"), findsOneWidget);
+    expect(find.text('Owner pays you directly'), findsOneWidget);
+    expect(find.text('Owner pays once, at signing'), findsNothing);
+    expect(find.textContaining('Not available now'), findsNothing);
     await tester.binding.setSurfaceSize(null);
   });
 }

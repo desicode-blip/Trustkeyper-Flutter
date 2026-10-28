@@ -547,3 +547,20 @@ branch: staging (never main)
 files: presentation/onboarding_house_screens.dart (_footerCore questions, _footer no longer adds read-full for questions), test/property_onboarding_test.dart
 verification: flutter analyze No issues found; property_onboarding_test passed
 ```
+
+## Change 29 – "How does the owner pay you?" follows the fee you chose
+Date: 2026-10-28 · Status: built on iPhone for review
+What: the words say **deduct** now, and the options depend on the fee from the screen before. All money moves on our app (safer), so:
+- **Fee paid one time** (days of rent, fixed amount): option 1 is **"We deduct it from the first month's rent"** (picked by default). "Owner pays you directly" and "Owner pays once, at signing" are shown greyed out with "Not available now. Payments stay on our app, it is safer." They cannot be tapped.
+- **Fee paid every month** (days of rent, percent, fixed): **"We deduct it from every month's rent"** and **"Owner pays you directly"**. The signing option is gone.
+- No fee / decide on every deal: this question is still skipped.
+The check page, key points and full agreement use the same words.
+```
+AGENT RECORD – Change 29
+id: CHG-029
+date: 2026-10-28
+branch: staging (never main)
+files: data/property_onboarding.dart (feeIsOneTime, payWayText by fee kind), presentation/onboarding_agreement_screens.dart (_payWays by fee kind with canPick, default cut for one time), test/property_onboarding_test.dart
+rule: one-time fee => only deduct can be picked; monthly => deduct or direct; 'signing' kept only so old saves still read
+verification: flutter analyze No issues found; property_onboarding_test passed
+```

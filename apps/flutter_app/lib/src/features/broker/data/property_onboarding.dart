@@ -263,8 +263,11 @@ class AgreementAnswers {
           ? 'Decided on every deal'
           : _payWayOnly;
 
+  /// A fee paid once (days of rent, or a fixed amount, one time).
+  bool get feeIsOneTime => feeType == 'days' || feeType == 'once';
+
   String get _payWayOnly => switch (payWay) {
-    'cut' => 'We cut it from the rent',
+    'cut' => feeIsOneTime ? 'We deduct it from the first month\'s rent' : 'We deduct it from every month\'s rent',
     'direct' => 'Owner pays you directly',
     'signing' => 'Owner pays once, at signing',
     _ => 'Not set',

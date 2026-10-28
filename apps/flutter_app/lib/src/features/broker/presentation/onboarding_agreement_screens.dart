@@ -85,11 +85,22 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
       ('later', 'Decide on every deal', 'Ask me later, deal by deal'),
     ]),
   ];
-  static const _payWays = [
-    ('cut', 'We cut it from the rent', 'Easy. Owner does nothing.'),
-    ('direct', 'Owner pays you directly', 'Owner sends you the money.'),
-    ('signing', 'Owner pays once, at signing', 'All at the start.'),
-  ];
+  /// A fee paid once.
+  bool get _oneTime => feeType == 'days' || feeType == 'once';
+
+  /// (key, label, hint, can pick). All money moves on our app, so for a one
+  /// time fee only "we deduct it" can be picked now; for a monthly fee the
+  /// owner can also pay the broker directly.
+  List<(String, String, String, bool)> get _payWays => _oneTime
+      ? const [
+          ('cut', 'We deduct it from the first month\'s rent', 'Easy. Owner does nothing.', true),
+          ('direct', 'Owner pays you directly', 'Not available now. Payments stay on our app, it is safer.', false),
+          ('signing', 'Owner pays once, at signing', 'Not available now. Payments stay on our app, it is safer.', false),
+        ]
+      : const [
+          ('cut', 'We deduct it from every month\'s rent', 'Easy. Owner does nothing.', true),
+          ('direct', 'Owner pays you directly', 'Owner sends you the money.', true),
+        ];
 
   /// Over 11 months the law needs a registered agreement. We cannot make that yet.
   Future<void> _pickMonths(int m) async {
@@ -169,6 +180,9 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
         });
         return;
       }
+      // Keep the pay choice valid for this kind of fee.
+      if (_oneTime && payWay != 'cut') payWay = 'cut';
+      if (!_oneTime && payWay == 'signing') payWay = '';
       final v = feeValue;
       if (v <= 0) {
         setState(() => feeError = 'Type a number');
@@ -310,17 +324,26 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
       case 1:
         body = Column(
           children: [
-            for (final (key, label, hint) in _payWays)
-              OnbRow(
-                icon: payWay == key ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                tone: payWay == key ? 'info' : 'mute',
-                title: label,
-                subtitle: hint,
-                chevron: false,
-                onTap: () => setState(() {
-                  payWay = key;
-                  feeError = null;
-                }),
+            for (final (key, label, hint, canPick) in _payWays)
+              Opacity(
+                opacity: canPick ? 1 : 0.5,
+                child: OnbRow(
+                  icon: !canPick
+                      ? Icons.block
+                      : payWay == key
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                  tone: payWay == key && canPick ? 'info' : 'mute',
+                  title: label,
+                  subtitle: hint,
+                  chevron: false,
+                  onTap: canPick
+                      ? () => setState(() {
+                          payWay = key;
+                          feeError = null;
+                        })
+                      : null,
+                ),
               ),
             if (feeError != null)
               Padding(padding: const EdgeInsets.only(top: 8), child: Text(feeError!, style: const TextStyle(color: AppColors.error, fontSize: 14))),
@@ -398,7 +421,7 @@ class _QuestionsBodyState extends State<_QuestionsBody> {
           child: Column(
             children: [
               OnbKeyValue('Fee', AgreementAnswers(feeType: feeType, feeValue: feeValue).feeSummary(item.rent)),
-              if (feeType != 'none' && feeType != 'later') OnbKeyValue('Owner pays', AgreementAnswers(payWay: payWay).payWayText),
+              if (feeType != 'none' && feeType != 'later') OnbKeyValue('How we get it', AgreementAnswers(feeType: feeType, payWay: payWay).payWayText),
               OnbKeyValue('Starts', start == null ? '-' : '${start!.day}/${start!.month}/${start!.year}'),
               OnbKeyValue('For', '$months months'),
               OnbKeyValue('Notes', notes.text.trim().isEmpty ? 'None' : notes.text.trim(), last: true),
