@@ -277,6 +277,14 @@ class _BrokerDraftSectionState extends State<BrokerDraftSection> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        for (final house in houses)
+          if (house.agreementJustReady || house.underOwnerReview)
+            _AgreementNotice(
+              ready: house.agreementJustReady,
+              house: house.houseName,
+              owners: house.ownersFirst,
+              onTap: () => context.push('/broker/onboarding/${house.id}'),
+            ),
         const Padding(
           padding: EdgeInsets.fromLTRB(4, 0, 4, 14),
           child: Text(
@@ -330,6 +338,65 @@ class _BrokerDraftSectionState extends State<BrokerDraftSection> {
       ],
     ),
   );
+}
+
+/// Home notice: the agreement is ready to review, or it is with the owner.
+class _AgreementNotice extends StatelessWidget {
+  const _AgreementNotice({required this.ready, required this.house, required this.owners, required this.onTap});
+  final bool ready;
+  final String house;
+  final String owners;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = ready ? AppColors.success : const Color(0xFF8A4500);
+    final soft = ready ? AppColors.successSoft : const Color(0xFFFFF3E0);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      child: Material(
+        color: soft,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  child: Icon(ready ? Icons.check : Icons.hourglass_top, size: 22, color: color),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ready ? 'Agreement is ready' : 'Under review by $owners',
+                        style: TextStyle(fontSize: 17, height: 22 / 17, fontWeight: FontWeight.w600, color: color),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        ready ? '$house · Review it' : '$house · Agreement sent for signing',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.heading),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: color),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ContinueRow extends StatelessWidget {

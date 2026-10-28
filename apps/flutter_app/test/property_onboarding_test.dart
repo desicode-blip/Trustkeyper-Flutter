@@ -229,14 +229,9 @@ void main() {
     expect(find.text('Documents'), findsOneWidget); // stage name
     expect(find.text('Call our agreement team'), findsOneWidget);
     expect(find.textContaining('papers'), findsNothing);
-    await tester.tap(find.text('Read the full agreement'));
-    await tester.pump(const Duration(milliseconds: 600));
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.text('Your agreement'), findsOneWidget);
-    expect(find.text('PROPERTY MANAGEMENT AGREEMENT'), findsOneWidget);
-    expect(find.textContaining('Ravi Kumar', findRichText: true), findsWidgets);
-    expect(find.textContaining('“BROKER”', findRichText: true), findsOneWidget);
-    expect(find.text('Edit'), findsOneWidget);
+    // The agreement is not written yet, so there is nothing to read.
+    expect(find.text('Read the full agreement'), findsNothing);
+    expect(find.text('Read full agreement'), findsNothing);
     await tester.binding.setSurfaceSize(null);
   });
 
@@ -372,7 +367,7 @@ void main() {
     ]);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
-    expect(find.text('Send to Ravi'), findsOneWidget);
+    expect(find.text('Send for signing'), findsOneWidget);
     expect(find.textContaining('equivalent to 5% of the total monthly consideration', findRichText: true), findsOneWidget);
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
@@ -449,20 +444,65 @@ void main() {
     ]);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('Send to Ravi'));
+    await tester.tap(find.text('Send for signing'));
     await tester.pumpAndSettle();
-    expect(find.text('Send to these 2 people?'), findsOneWidget);
+    expect(find.text('Send to these 2 people for signing?'), findsOneWidget);
     await tester.tap(find.text('No, go back'));
     await tester.pumpAndSettle();
     expect(store.byId(item.id)!.draftSent, isFalse);
-    await tester.tap(find.textContaining('Send to Ravi'));
+    await tester.tap(find.text('Send for signing'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Yes, send'));
+    await tester.tap(find.text('Yes, send for signing'));
     await tester.pumpAndSettle();
     expect(store.byId(item.id)!.draftSent, isTrue);
-    expect(find.text('Agreement sent!'), findsOneWidget);
+    expect(find.text('Agreement sent'), findsOneWidget);
+    expect(find.text('Go to home'), findsOneWidget);
+    expect(find.text('Go to this house'), findsNothing);
     expect(find.text('What happens next'), findsOneWidget);
     await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('agreement ready: tick page, Next, then Send for signing + two read buttons', (tester) async {
+    final store = PropertyOnboardingStore.instance;
+    await store.load();
+    final item = await store.create(ownerName: 'Ravi Kumar', channel: 'email', contact: 'ravi@example.com');
+    await store.update(item.id, (i) => i.copyWith(phase: OnboardingPhase.preparing));
+    await tester.binding.setSurfaceSize(const Size(440, 956));
+    final router = GoRouter(routes: [GoRoute(path: '/', builder: (c, s) => PropertySetupScreen(id: item.id))]);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('Making your agreement'), findsOneWidget);
+    await store.testDraftReady(item.id);
+    await tester.pumpAndSettle();
+    expect(store.byId(item.id)!.agreementJustReady, isTrue);
+    expect(find.text('Your agreement is ready'), findsOneWidget);
+    expect(find.byIcon(Icons.check), findsWidgets);
+    expect(find.text('Next'), findsOneWidget);
+    expect(find.text('Send for signing'), findsNothing);
+    expect(find.text('Read full agreement'), findsNothing);
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('Send for signing'), findsOneWidget);
+    expect(find.text('Read full agreement'), findsOneWidget);
+    expect(find.text('Read only key points'), findsOneWidget);
+    expect(find.text('More'), findsOneWidget);
+    expect(find.text('Changes'), findsOneWidget);
+    expect(find.text('Versions'), findsOneWidget);
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  test('home notices: ready to review, then under review by the owner', () async {
+    final store = PropertyOnboardingStore.instance;
+    await store.load();
+    final item = await store.create(ownerName: 'Ravi Kumar', channel: 'email', contact: 'ravi@example.com');
+    await store.testDraftReady(item.id);
+    expect(store.byId(item.id)!.agreementJustReady, isTrue);
+    expect(store.byId(item.id)!.homeTitle, 'Agreement is ready');
+    await store.update(item.id, (i) => i.copyWith(readyAck: true, draftSent: true, draftSentAt: DateTime.now().millisecondsSinceEpoch));
+    final sent = store.byId(item.id)!;
+    expect(sent.agreementJustReady, isFalse);
+    expect(sent.underOwnerReview, isTrue);
+    expect(sent.homeTitle, 'Agreement under review');
   });
 
   test('the right agreement template is picked from the fee and the owner', () {

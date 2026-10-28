@@ -451,6 +451,7 @@ class PropertyOnboarding {
     this.draftSent = false,
     this.draftSentAt = 0,
     this.ownerAgreedFinal = false,
+    this.readyAck = true,
     List<DraftChange> changes = const [],
     List<DraftVersion> versions = const [],
     List<AgreementEdit> edits = const [],
@@ -486,6 +487,9 @@ class PropertyOnboarding {
   final bool draftSent;
   final int draftSentAt;
   final bool ownerAgreedFinal;
+
+  /// False from the moment the first draft is ready until the broker taps Next on the "ready" page.
+  final bool readyAck;
   final List<DraftChange> changes;
   final List<DraftVersion> versions;
 
@@ -581,6 +585,12 @@ class PropertyOnboarding {
   bool get allOwnersSigned => ownerSigned && coOwners.every((c) => c.signed);
   int get signedOwners => (ownerSigned ? 1 : 0) + coOwners.where((c) => c.signed).length;
 
+  /// The first draft is ready and the broker has not seen the "ready" page yet.
+  bool get agreementJustReady => phase == OnboardingPhase.review && !readyAck && !draftSent;
+
+  /// The draft is with the owner(s) and they have not said yes yet.
+  bool get underOwnerReview => phase == OnboardingPhase.review && draftSent && !ownerAgreedFinal && waitingChanges == 0;
+
   int get waitingChanges => changes.where((c) => c.status == 'waitingYou').length;
 
   /// 0 papers · 1 agreement · 2 signing · 3 ready
@@ -595,7 +605,13 @@ class PropertyOnboarding {
   String get homeTitle => switch (phase) {
     OnboardingPhase.papers => needYouCount > 0 ? '$houseName needs you' : 'Finish $houseName',
     OnboardingPhase.questions => 'Tell us what you agreed',
-    OnboardingPhase.review => waitingChanges > 0 ? '$ownerName asked a change' : 'Finish $houseName',
+    OnboardingPhase.review => waitingChanges > 0
+        ? '$ownerName asked a change'
+        : agreementJustReady
+            ? 'Agreement is ready'
+            : underOwnerReview
+                ? 'Agreement under review'
+                : 'Finish $houseName',
     OnboardingPhase.signing => brokerSigned ? 'Finish $houseName' : 'Sign the agreement',
     _ => 'Finish $houseName',
   };
@@ -610,7 +626,7 @@ class PropertyOnboarding {
     OnboardingPhase.preparing => 'We are making the agreement',
     OnboardingPhase.review => waitingChanges > 0
         ? 'Tap to answer'
-        : (draftSent ? 'Waiting for $ownersFirst' : 'Draft $draftNo is ready'),
+        : (draftSent ? '$ownersFirst is reviewing it' : 'Review it, then send for signing'),
     OnboardingPhase.printing => 'Getting stamp paper ready',
     OnboardingPhase.signing => brokerSigned ? 'Waiting for $ownersFirst to sign' : 'Your turn',
     _ => 'Ready',
@@ -632,6 +648,7 @@ class PropertyOnboarding {
     bool? draftSent,
     int? draftSentAt,
     bool? ownerAgreedFinal,
+    bool? readyAck,
     List<DraftChange>? changes,
     List<DraftVersion>? versions,
     List<AgreementEdit>? edits,
@@ -657,6 +674,7 @@ class PropertyOnboarding {
     draftSent: draftSent ?? this.draftSent,
     draftSentAt: draftSentAt ?? this.draftSentAt,
     ownerAgreedFinal: ownerAgreedFinal ?? this.ownerAgreedFinal,
+    readyAck: readyAck ?? this.readyAck,
     changes: changes ?? this.changes,
     versions: versions ?? this.versions,
     edits: edits ?? this.edits,
@@ -692,6 +710,7 @@ class PropertyOnboarding {
     'draftSent': draftSent,
     'draftSentAt': draftSentAt,
     'ownerAgreedFinal': ownerAgreedFinal,
+    'readyAck': readyAck,
     'changes': [for (final c in changes) c.toJson()],
     'versions': [for (final v in versions) v.toJson()],
     'edits': [for (final e in edits) e.toJson()],
@@ -731,6 +750,7 @@ class PropertyOnboarding {
     draftSent: json['draftSent'] as bool? ?? false,
     draftSentAt: (json['draftSentAt'] as num?)?.toInt() ?? 0,
     ownerAgreedFinal: json['ownerAgreedFinal'] as bool? ?? false,
+    readyAck: json['readyAck'] as bool? ?? true,
     changes: [
       for (final item in (json['changes'] as List? ?? const []))
         if (item is Map) DraftChange.fromJson(Map<String, dynamic>.from(item)),
@@ -1014,6 +1034,7 @@ class PropertyOnboardingStore extends ChangeNotifier {
     phase: OnboardingPhase.review,
     draftNo: 1,
     draftSent: false,
+    readyAck: false,
     edits: const [],
     versions: [
       DraftVersion(number: 1, summary: 'First draft', at: DateTime.now().millisecondsSinceEpoch),

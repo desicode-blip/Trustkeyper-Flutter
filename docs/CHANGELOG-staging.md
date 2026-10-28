@@ -643,3 +643,22 @@ files: data/agreement_filler.dart (new), presentation/agreement_paper.dart (new)
 rule: fill only from user inputs; unknown = grey gap; template words never edited by code except term/fee-days phrases listed in docs/agreement-templates/README.md
 verification: flutter analyze No issues found; agreement_filler_test + property_onboarding_test 24 passed
 ```
+
+## Change 35 – Agreement ready, send for signing, sent, home notices
+Date: 2026-10-28 · Status: on the phone after the next build
+What changed, in the order the broker sees it:
+1. **Making your agreement:** no "Read the full agreement" button any more (it is not written yet).
+2. **Agreement ready:** the spinner becomes a **green tick** with "Your agreement is ready. Read it once. Then send it for signing." One button: **Next**. The home page shows a green notice **"Agreement is ready · house · Review it"**.
+3. **After Next:** one main button **Send for signing**. Under it two buttons: **Read full agreement** and **Read only key points**. Changes and Versions moved to a small **More** list (the "Draft 1" row only shows after sending).
+4. **Send for signing:** the confirm sheet says "Send to Ravi for signing?" and the button "Yes, send for signing". The reader page button is also "Send for signing".
+5. **Agreement sent:** tick screen "Agreement sent" with what happens next. Main button **Go to home** (was "Go to this house"); second button "See the agreement".
+6. **Home:** an amber notice **"Under review by {owner} · house · Agreement sent for signing"** stays on top until the owner says yes. The Continue row also says "Agreement under review".
+```
+AGENT RECORD – Change 35
+id: CHG-035
+date: 2026-10-28
+branch: staging (never main)
+files: data/property_onboarding.dart (readyAck, agreementJustReady, underOwnerReview, homeTitle/homeSubtitle), presentation/onboarding_house_screens.dart (_agreementReady, footer, More), presentation/onboarding_agreement_screens.dart (confirm texts, AgreementSentScreen), presentation/broker_draft_cards.dart (_AgreementNotice), test/property_onboarding_test.dart
+rule: readyAck defaults true for old saves; only testDraftReady sets it false
+verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 26 passed
+```

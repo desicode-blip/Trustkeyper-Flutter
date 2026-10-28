@@ -140,7 +140,7 @@ class _OnboardingBody extends StatelessWidget {
     OnboardingPhase.papers => _papers(context),
     OnboardingPhase.questions => _questions(context),
     OnboardingPhase.preparing => _preparing(),
-    OnboardingPhase.review => _review(context),
+    OnboardingPhase.review => item.agreementJustReady ? _agreementReady() : _review(context),
     OnboardingPhase.printing || OnboardingPhase.signing => _signing(context),
     _ => _ready(context),
   };
@@ -414,6 +414,18 @@ class _OnboardingBody extends StatelessWidget {
     Align(alignment: Alignment.centerLeft, child: _callTeamButton()),
   ];
 
+  /// First draft is done: a tick, then Next goes to the review page.
+  List<Widget> _agreementReady() => [
+    const OnbCentered(
+      icon: Icons.check,
+      kind: 'ok',
+      title: 'Your agreement is ready',
+      message: 'Read it once. Then send it for signing.',
+    ),
+    const SizedBox(height: 8),
+    Align(alignment: Alignment.centerLeft, child: _callTeamButton()),
+  ];
+
   List<Widget> _review(BuildContext context) {
     final changesWaiting = item.waitingChanges;
     final ownerFirst = _firstName(item);
@@ -421,21 +433,26 @@ class _OnboardingBody extends StatelessWidget {
       if (changesWaiting > 0)
         OnbBanner('$ownerFirst asked ${changesWaiting == 1 ? 'a change' : '$changesWaiting changes'}. Your turn.', kind: 'wait', icon: Icons.chat_bubble_outline)
       else if (!item.draftSent)
-        OnbBanner('Draft ${item.draftNo} is ready. Read the key points, then send to $ownerFirst.', kind: 'info', icon: Icons.visibility_outlined)
+        OnbBanner('Your agreement is ready. Read it, then send it to $ownerFirst for signing.', kind: 'info', icon: Icons.visibility_outlined)
       else if (item.ownerAgreedFinal)
         OnbBanner('$ownerFirst agrees with everything.', kind: 'ok', icon: Icons.check_circle_outline)
       else
         OnbBanner('Sent ${_ago(item.draftSentAt)}. Waiting for $ownerFirst.', kind: 'wait', icon: Icons.schedule),
       const SizedBox(height: 14),
+      const Padding(
+        padding: EdgeInsets.only(left: 4, bottom: 8),
+        child: Text('More', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.muted)),
+      ),
       OnbCard(
         child: Column(
           children: [
-            OnbRow(
-              icon: Icons.description_outlined,
-              title: 'Draft ${item.draftNo}',
-              subtitle: 'Read key points in simple words',
-              onTap: () => context.push('/broker/onboarding/${item.id}/draft'),
-            ),
+            if (item.draftSent)
+              OnbRow(
+                icon: Icons.description_outlined,
+                title: 'Draft ${item.draftNo}',
+                subtitle: 'Read key points in simple words',
+                onTap: () => context.push('/broker/onboarding/${item.id}/draft'),
+              ),
             OnbRow(
               icon: Icons.compare_arrows,
               tone: changesWaiting > 0 ? 'wait' : 'info',
@@ -575,12 +592,15 @@ class _OnboardingBody extends StatelessWidget {
   List<Widget> _footer(BuildContext context) {
     final core = _footerCore(context);
     final read = OnbReadFullButton(
-      label: 'Read the full agreement',
+      label: 'Read full agreement',
       onPressed: () => context.push('/broker/onboarding/${item.id}/agreement'),
     );
     switch (item.phase) {
       case OnboardingPhase.preparing:
+        // The agreement is not written yet, so there is nothing to read.
+        return core;
       case OnboardingPhase.review:
+        if (item.agreementJustReady) return core;
         if (core.isEmpty) return [read];
         return [core.first, const SizedBox(height: 10), read, ...core.skip(1)];
       default:
@@ -604,17 +624,20 @@ class _OnboardingBody extends StatelessWidget {
           ),
         ];
       case OnboardingPhase.review:
+        if (item.agreementJustReady) {
+          return [PrimaryButton(label: 'Next', onPressed: () => store.update(item.id, (i) => i.copyWith(readyAck: true)))];
+        }
         if (item.waitingChanges > 0) {
           return [PrimaryButton(label: 'Answer ${_firstName(item)}', onPressed: () => context.push('/broker/onboarding/${item.id}/changes'))];
         }
         if (!item.draftSent) {
           return [
             PrimaryButton(
-              label: 'Send to ${_firstName(item)}',
+              label: 'Send for signing',
               onPressed: () => sendDraftWithConfirm(context, item),
             ),
             const SizedBox(height: 10),
-            OnbSecondaryButton(label: 'Read key points', onPressed: () => context.push('/broker/onboarding/${item.id}/draft')),
+            OnbSecondaryButton(label: 'Read only key points', onPressed: () => context.push('/broker/onboarding/${item.id}/draft')),
           ];
         }
         if (item.ownerAgreedFinal) {

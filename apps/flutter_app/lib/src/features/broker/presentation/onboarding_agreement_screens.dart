@@ -808,7 +808,7 @@ Future<bool> confirmSendDraft(BuildContext context, PropertyOnboarding item) asy
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              many ? 'Send to these ${item.ownerCount} people?' : 'Send to ${item.ownerFirstAt(0)}?',
+              many ? 'Send to these ${item.ownerCount} people for signing?' : 'Send to ${item.ownerFirstAt(0)} for signing?',
               style: const TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w700, color: AppColors.heading),
             ),
             const SizedBox(height: 6),
@@ -841,7 +841,7 @@ Future<bool> confirmSendDraft(BuildContext context, PropertyOnboarding item) asy
               ],
             ),
             const SizedBox(height: 20),
-            PrimaryButton(label: 'Yes, send', onPressed: () => Navigator.pop(sheet, true)),
+            PrimaryButton(label: 'Yes, send for signing', onPressed: () => Navigator.pop(sheet, true)),
             const SizedBox(height: 10),
             OnbSecondaryButton(label: 'No, go back', onPressed: () => Navigator.pop(sheet, false)),
           ],
@@ -992,7 +992,7 @@ class _AgreementReader extends StatelessWidget {
                   ],
                   Expanded(
                     child: sendable
-                        ? PrimaryButton(label: 'Send to ${item.ownersFirst}', onPressed: () => sendDraftWithConfirm(context, item))
+                        ? PrimaryButton(label: 'Send for signing', onPressed: () => sendDraftWithConfirm(context, item))
                         : PrimaryButton(label: 'Back', onPressed: () => context.canPop() ? context.pop() : context.go('/broker/onboarding/${item.id}')),
                   ),
                 ],
@@ -1267,21 +1267,27 @@ class AgreementSentScreen extends StatelessWidget {
       final first = item.ownersFirst;
       final steps = <(String, String, String)>[
         ('Sent', item.hasManyOwners ? 'To all ${item.ownerCount} owners' : 'To $first', 'ok'),
-        ('They read it', 'On WhatsApp or email', 'info'),
+        ('Owner reviews it', item.hasManyOwners ? 'They read it on WhatsApp or email' : '$first reads it on WhatsApp or email', 'info'),
         ('They say yes', item.hasManyOwners ? 'All ${item.ownerCount} must agree' : '$first must agree', 'mute'),
         ('Everyone signs', 'Then the agreement is ready', 'mute'),
       ];
       return OnbPage(
-        title: 'Agreement sent!',
-        subtitle: 'We will tell you when $first replies.',
+        title: 'Setting up',
         showBack: false,
         footer: [
-          PrimaryButton(label: 'Go to this house', onPressed: () => context.go('/broker/onboarding/${item.id}')),
+          PrimaryButton(label: 'Go to home', onPressed: () => context.go('/broker')),
           const SizedBox(height: 10),
           OnbSecondaryButton(label: 'See the agreement', onPressed: () => context.pop()),
         ],
         children: [
-          const Center(child: Icon(Icons.check_circle, size: 72, color: AppColors.success)),
+          OnbCentered(
+            icon: Icons.check,
+            kind: 'ok',
+            title: 'Agreement sent',
+            message: item.hasManyOwners
+                ? 'All ${item.ownerCount} owners have it. We will tell you when they reply.'
+                : '$first has it. We will tell you when $first replies.',
+          ),
           const SizedBox(height: 24),
           const Text('What happens next', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
           const SizedBox(height: 8),
