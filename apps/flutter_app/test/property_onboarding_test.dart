@@ -583,7 +583,8 @@ void main() {
     await tester.scrollUntilVisible(find.text('Collaboration details'), 200, scrollable: find.byType(Scrollable).first);
     expect(find.text('Collaboration details'), findsOneWidget);
     expect(find.text('Saved'), findsOneWidget);
-    expect(find.text('Change collaboration details'), findsOneWidget);
+    expect(find.text('Go to home'), findsOneWidget);
+    expect(find.text('Change collaboration details'), findsNothing);
     // Owner sends everything: one tap makes the agreement (no questions again).
     await store.testFixAllPapers(item.id);
     await tester.pumpAndSettle();

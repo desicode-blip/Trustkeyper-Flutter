@@ -654,7 +654,8 @@ class _OnboardingBody extends StatelessWidget {
           ];
         }
         if (item.hasAgreementDetails) {
-          return [OnbSecondaryButton(label: 'Change collaboration details', onPressed: () => context.push('/broker/onboarding/${item.id}/questions'))];
+          // Details saved, owner still sending: nothing to do here now. Change details from the row above.
+          return [PrimaryButton(label: 'Go to home', onPressed: () => context.go('/broker'))];
         }
         // Don't wait for the owner: fill the rest now.
         return [

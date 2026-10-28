@@ -706,3 +706,15 @@ branch: staging (never main)
 files: data/property_onboarding.dart (hasAgreementDetails), presentation/onboarding_house_screens.dart (papers footer, _detailsSaved), presentation/onboarding_agreement_screens.dart (_send keeps papers phase, Save details label), test/property_onboarding_test.dart
 verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 29 passed
 ```
+
+## Change 39 – Details saved, still waiting for the owner: main button "Go to home"
+Date: 2026-10-28 · Status: on the phone after the next build
+- On the house page, after the collaboration details are saved and the owner is still sending documents, the bottom button is now **Go to home**. The "Change collaboration details" button is removed; change them from the green **Collaboration details · Saved** row on the page.
+```
+AGENT RECORD – Change 39
+id: CHG-039
+date: 2026-10-28
+branch: staging (never main)
+files: presentation/onboarding_house_screens.dart (papers footer when hasAgreementDetails), test/property_onboarding_test.dart
+verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 29 passed
+```
