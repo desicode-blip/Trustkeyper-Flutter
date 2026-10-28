@@ -610,3 +610,16 @@ branch: staging (never main)
 files: data/agreement_templates.dart (monthlyPercent.driveDocId, isWordFile, exportUrl for Word files), test/property_onboarding_test.dart, docs/AGREEMENT-TEMPLATES.md
 verification: flutter analyze No issues found; property_onboarding_test 19 passed
 ```
+
+## Change 33 – Blank copies of the 4 agreement templates kept in the repo
+Date: 2026-10-28 · Status: not on the phone yet (documents only)
+What: the Drive links could not be shared as links, so copies are kept instead. Each was cleaned of personal details (names, addresses, PAN, bank, phone, email, old dates and fee numbers) and the gaps are written as `[PLACEHOLDERS]`. They sit in `docs/agreement-templates/`. The "fetch from Drive each time" plan stays for later. Until then these copies are the source, and they change only when Aman asks.
+```
+AGENT RECORD – Change 33
+id: CHG-033
+date: 2026-10-28
+branch: staging (never main)
+files: docs/agreement-templates/{README,monthly_percent,monthly_days_3days,yearly_15days,nri_hybrid}.md, docs/AGREEMENT-TEMPLATES.md
+rule: copies are replaced only on Aman's request; personal details never stored in templates
+verification: grep for old names, PAN, bank, phone, email, years returned nothing
+```
