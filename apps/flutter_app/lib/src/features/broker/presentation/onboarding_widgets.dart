@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -147,8 +150,12 @@ class OnbPage extends StatelessWidget {
 
 /// Small coloured label: Approved, Waiting, Not clear...
 class OnbPill extends StatelessWidget {
-  const OnbPill(this.label, this.kind, {this.icon, super.key});
+  const OnbPill(this.label, this.kind, {this.icon, this.loading, super.key});
   final String label;
+
+  /// Spins while we wait. By default on for the waiting words below.
+  final bool? loading;
+  static const waitingLabels = {'Waiting', 'Checking', 'Not opened', 'Seen, no reply', 'Sending'};
 
   /// ok · wait · need · info · mute
   final String kind;
@@ -175,7 +182,10 @@ class OnbPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[
+          if (loading ?? (waitingLabels.contains(label) || icon == Icons.schedule)) ...[
+            OnbWaitSpinner(size: 13, color: foreground),
+            const SizedBox(width: 6),
+          ] else if (icon != null) ...[
             Icon(icon, size: 14, color: foreground),
             const SizedBox(width: 4),
           ],
@@ -192,6 +202,35 @@ class OnbPill extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Small spinning ring: the one sign for "we are waiting" everywhere
+/// (waiting for a document, an owner's reply, a signature, our team).
+/// Shows a still clock when the phone asks for less motion, and in tests.
+class OnbWaitSpinner extends StatelessWidget {
+  const OnbWaitSpinner({this.size = 16, this.color = AppColors.muted, super.key});
+  final double size;
+  final Color color;
+
+  static final bool _inTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+
+  @override
+  Widget build(BuildContext context) {
+    final still = _inTest || (MediaQuery.maybeDisableAnimationsOf(context) ?? false);
+    if (still) return Icon(Icons.schedule, size: size, color: color);
+    return SizedBox.square(
+      dimension: size,
+      child: Padding(
+        padding: EdgeInsets.all(size * 0.08),
+        child: CircularProgressIndicator(
+          strokeWidth: size <= 14 ? 1.6 : 2,
+          strokeCap: StrokeCap.round,
+          color: color,
+          backgroundColor: color.withValues(alpha: 0.18),
+        ),
       ),
     );
   }
@@ -223,7 +262,8 @@ class OnbBanner extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 20, color: foreground),
+            // A clock means "waiting": it spins.
+            icon == Icons.schedule ? OnbWaitSpinner(size: 20, color: foreground) : Icon(icon, size: 20, color: foreground),
             const SizedBox(width: 10),
           ],
           Expanded(

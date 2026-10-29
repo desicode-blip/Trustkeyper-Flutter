@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../broker/presentation/onboarding_widgets.dart' show OnbWaitSpinner;
 import '../../broker/data/agreement_draft.dart';
 import '../../broker/data/private_documents.dart';
 import '../../broker/presentation/private_documents_screen.dart';
@@ -659,21 +660,40 @@ class _BrokerDocumentLinksState extends State<BrokerDocumentLinks> {
                           : AppColors.surfaceMuted,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Text(
-                      !loaded || loadFailed
-                          ? 'Not checked'
-                          : state.done
-                          ? 'Added'
-                          : state.skipped
-                          ? 'Skipped'
-                          : state.waiting
-                          ? 'Waiting'
-                          : 'Not added',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: state.done ? AppColors.success : AppColors.muted,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Waiting for the document: the same spinner as everywhere.
+                        if (loaded &&
+                            !loadFailed &&
+                            !state.done &&
+                            !state.skipped &&
+                            state.waiting) ...[
+                          const OnbWaitSpinner(
+                            size: 12,
+                            color: AppColors.muted,
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Text(
+                          !loaded || loadFailed
+                              ? 'Not checked'
+                              : state.done
+                              ? 'Added'
+                              : state.skipped
+                              ? 'Skipped'
+                              : state.waiting
+                              ? 'Waiting'
+                              : 'Not added',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: state.done
+                                ? AppColors.success
+                                : AppColors.muted,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   IconButton(

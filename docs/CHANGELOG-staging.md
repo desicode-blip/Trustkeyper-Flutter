@@ -739,3 +739,20 @@ source design: v2 canvas page 06 RV3, RV4, RV5, RV6; A2; HM1; ES1/ES5 for "every
 rule: signsAs defaults to 'trustkeyper' (templates name Paravent); 'me' = broker signs
 verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 31 passed; full suite 39 failures, the same 39 as before this change (old golden/layout tests)
 ```
+
+## Change 41 – One "waiting" spinner everywhere
+Date: 2026-10-29 · Status: on the phone after the next build
+Wherever we wait for someone (a document, an owner's reply, a signature, our team), a small spinning ring now shows instead of a still clock:
+- **Pills** that say Waiting, Checking, Not opened, Seen, no reply (house page documents, owner tabs, signing rows, who replied).
+- **Banners** with the clock ("Asked just now. Waiting for Chevy.", "We are reading it…", "Draft 1 sent… waiting").
+- **Owner tabs** that are still waiting, the **home notice** "Under review", home **Continue** rows that say "Waiting for…", "…is reviewing it", "We are making the agreement", "Getting stamp paper ready", and the **Waiting** chip on the older document-link screen.
+Rule for new screens: use `OnbWaitSpinner` (or a pill/banner with the waiting word or clock icon) for every waiting state. It shows a still clock if the phone is set to reduce motion.
+```
+AGENT RECORD – Change 41
+id: CHG-041
+date: 2026-10-29
+branch: staging (never main)
+files: presentation/onboarding_widgets.dart (OnbWaitSpinner; OnbPill.loading + waitingLabels; OnbBanner clock → spinner), presentation/onboarding_house_screens.dart (owner tab), presentation/broker_draft_cards.dart (notice + Continue rows), document_requests/presentation/broker_document_links.dart (Waiting chip)
+rule: spinner is still (clock) under reduce-motion and in flutter tests (FLUTTER_TEST) so pumpAndSettle works
+verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 31 passed; full suite same 39 old failures as before
+```

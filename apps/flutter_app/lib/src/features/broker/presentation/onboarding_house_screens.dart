@@ -1113,6 +1113,7 @@ class _ManyOwnersPapersState extends State<_ManyOwnersPapers> {
         : need > 0
             ? (Icons.error, AppColors.warning)
             : (Icons.schedule, AppColors.muted);
+    final waiting = !done && need == 0;
     return GestureDetector(
       onTap: () => setState(() => _owner = o),
       behavior: HitTestBehavior.opaque,
@@ -1135,7 +1136,7 @@ class _ManyOwnersPapersState extends State<_ManyOwnersPapers> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: color),
+              waiting ? OnbWaitSpinner(size: 16, color: color) : Icon(icon, size: 16, color: color),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(

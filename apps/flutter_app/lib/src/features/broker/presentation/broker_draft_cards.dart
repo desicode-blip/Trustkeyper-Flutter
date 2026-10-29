@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../data/agreement_progress_repository.dart';
 import '../data/broker_repository.dart';
 import '../data/property_onboarding.dart';
+import 'onboarding_widgets.dart';
 
 String progressLabel(AgreementProgress progress) => switch (progress.stage) {
   'ownerCount' || 'owner' => 'Owner details',
@@ -371,7 +372,7 @@ class _AgreementNotice extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                  child: Icon(ready ? Icons.check : Icons.hourglass_top, size: 22, color: color),
+                  child: Center(child: ready ? Icon(Icons.check, size: 22, color: color) : OnbWaitSpinner(size: 22, color: color)),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -417,6 +418,9 @@ class _ContinueRow extends StatelessWidget {
   final VoidCallback onTap;
   final bool warm;
   final bool trailingPlus;
+
+  bool get _waiting =>
+      subtitle.startsWith('Waiting') || subtitle.contains('is reviewing') || subtitle.startsWith('We are making') || subtitle.startsWith('Getting stamp');
 
   @override
   Widget build(BuildContext context) {
@@ -470,15 +474,26 @@ class _ContinueRow extends StatelessWidget {
                           color: AppColors.heading,
                         ),
                       ),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          height: 19 / 14,
-                          color: warm ? accent : AppColors.muted,
-                        ),
+                      Row(
+                        children: [
+                          // Waiting on someone else: small spinner, same as everywhere.
+                          if (_waiting) ...[
+                            OnbWaitSpinner(size: 12, color: warm ? accent : AppColors.muted),
+                            const SizedBox(width: 6),
+                          ],
+                          Flexible(
+                            child: Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 14,
+                                height: 19 / 14,
+                                color: warm ? accent : AppColors.muted,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
