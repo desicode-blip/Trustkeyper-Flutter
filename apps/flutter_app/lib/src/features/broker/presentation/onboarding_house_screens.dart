@@ -171,9 +171,9 @@ class _OnboardingBody extends StatelessWidget {
           icon: Icons.error_outline,
         )
       else if (allWaiting && silentDays >= 3)
-        OnbBanner('${_firstName(item)} has not replied for $silentDays days.', kind: 'wait', icon: Icons.schedule)
+        OnbBanner('${_firstName(item)} has not replied for $silentDays days.', kind: 'wait', icon: Icons.schedule, loading: true)
       else
-        OnbBanner('Asked ${_ago(item.lastAskedAt)}. Waiting for ${_firstName(item)}.', kind: 'wait', icon: Icons.schedule),
+        OnbBanner('Asked ${_ago(item.lastAskedAt)}. Waiting for ${_firstName(item)}.', kind: 'wait', icon: Icons.schedule, loading: true),
       const SizedBox(height: 14),
       OnbCard(
         child: Column(
@@ -184,7 +184,7 @@ class _OnboardingBody extends StatelessWidget {
                 tone: paperStatusKind(paper.status),
                 title: PaperKeys.title(paper.key),
                 subtitle: paper.value.isNotEmpty ? paper.value : PaperKeys.hint(paper.key),
-                trailing: OnbPill(paperStatusLabel(paper.status), paperStatusKind(paper.status)),
+                trailing: OnbPill(paperStatusLabel(paper.status), paperStatusKind(paper.status), loading: paper.status == PaperStatus.waiting),
                 onTap: () => context.push('/broker/onboarding/${item.id}/paper/${paper.key}'),
               ),
           ],
@@ -1192,9 +1192,9 @@ class _ManyOwnersPapersState extends State<_ManyOwnersPapers> {
         else if (_need(o) > 0)
           OnbBanner(_need(o) == 1 ? '1 document needs you.' : '${_need(o)} documents need you.', kind: 'need', icon: Icons.error_outline)
         else if (allWaiting && silentDays >= 3)
-          OnbBanner('$first has not replied for $silentDays days.', kind: 'wait', icon: Icons.schedule)
+          OnbBanner('$first has not replied for $silentDays days.', kind: 'wait', icon: Icons.schedule, loading: true)
         else
-          OnbBanner('Asked ${_ago(item.ownerAskedAt(o))}. Waiting for $first.', kind: 'wait', icon: Icons.schedule),
+          OnbBanner('Asked ${_ago(item.ownerAskedAt(o))}. Waiting for $first.', kind: 'wait', icon: Icons.schedule, loading: true),
         const SizedBox(height: 14),
         OnbCard(
           child: Column(
@@ -1205,7 +1205,7 @@ class _ManyOwnersPapersState extends State<_ManyOwnersPapers> {
                   tone: paperStatusKind(paper.status),
                   title: PaperKeys.title(paper.key),
                   subtitle: paper.value.isNotEmpty ? paper.value : PaperKeys.hint(paper.key),
-                  trailing: OnbPill(paperStatusLabel(paper.status), paperStatusKind(paper.status)),
+                  trailing: OnbPill(paperStatusLabel(paper.status), paperStatusKind(paper.status), loading: paper.status == PaperStatus.waiting),
                   onTap: () => context.push('/broker/onboarding/${item.id}/paper/${paper.key}$query'),
                 ),
             ],

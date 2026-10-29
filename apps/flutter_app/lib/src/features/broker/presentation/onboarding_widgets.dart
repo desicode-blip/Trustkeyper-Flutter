@@ -150,12 +150,11 @@ class OnbPage extends StatelessWidget {
 
 /// Small coloured label: Approved, Waiting, Not clear...
 class OnbPill extends StatelessWidget {
-  const OnbPill(this.label, this.kind, {this.icon, this.loading, super.key});
+  const OnbPill(this.label, this.kind, {this.icon, this.loading = false, super.key});
   final String label;
 
-  /// Spins while we wait. By default on for the waiting words below.
-  final bool? loading;
-  static const waitingLabels = {'Waiting', 'Checking', 'Not opened', 'Seen, no reply', 'Sending'};
+  /// Spinner before the words (only for documents we are waiting for).
+  final bool loading;
 
   /// ok · wait · need · info · mute
   final String kind;
@@ -182,7 +181,7 @@ class OnbPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (loading ?? (waitingLabels.contains(label) || icon == Icons.schedule)) ...[
+          if (loading) ...[
             OnbWaitSpinner(size: 13, color: foreground),
             const SizedBox(width: 6),
           ] else if (icon != null) ...[
@@ -207,8 +206,8 @@ class OnbPill extends StatelessWidget {
   }
 }
 
-/// Small spinning ring: the one sign for "we are waiting" everywhere
-/// (waiting for a document, an owner's reply, a signature, our team).
+/// Small spinning ring for "waiting for the owner's documents".
+/// Used only on the house page while documents are coming (Documents stage).
 /// Shows a still clock when the phone asks for less motion, and in tests.
 class OnbWaitSpinner extends StatelessWidget {
   const OnbWaitSpinner({this.size = 16, this.color = AppColors.muted, super.key});
@@ -238,10 +237,13 @@ class OnbWaitSpinner extends StatelessWidget {
 
 /// Coloured message box.
 class OnbBanner extends StatelessWidget {
-  const OnbBanner(this.text, {this.kind = 'mute', this.icon, super.key});
+  const OnbBanner(this.text, {this.kind = 'mute', this.icon, this.loading = false, super.key});
   final String text;
   final String kind;
   final IconData? icon;
+
+  /// Spinner instead of the icon (only while waiting for documents).
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -262,8 +264,7 @@ class OnbBanner extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (icon != null) ...[
-            // A clock means "waiting": it spins.
-            icon == Icons.schedule ? OnbWaitSpinner(size: 20, color: foreground) : Icon(icon, size: 20, color: foreground),
+            loading ? OnbWaitSpinner(size: 20, color: foreground) : Icon(icon, size: 20, color: foreground),
             const SizedBox(width: 10),
           ],
           Expanded(

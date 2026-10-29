@@ -773,3 +773,16 @@ files: presentation/send_for_signing_screens.dart (pickSendWay sheet, sendWayFor
 source design: v2 canvas page 04 SL1 / SL1b / SLE1 ("Send link?" sheet), without SMS
 verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 32 passed; full suite same 39 old failures as before
 ```
+
+## Change 43 – Spinner only on the Documents screen (Change 41 narrowed)
+Date: 2026-10-29 · Status: on the phone after the next build
+As asked, the spinner is no longer used everywhere. It stays only on the house page while documents are coming (Documents stage): the "Asked … Waiting for {owner}" / "has not replied" banner, the **Waiting** pills on each document, and the owner tabs when there are several owners. Everywhere else (who replied, signing, home notice, home Continue rows, the older document-link screen, other banners) is back to the still icons from before Change 41.
+Rule now: do **not** add the spinner to new screens unless Aman asks.
+```
+AGENT RECORD – Change 43
+id: CHG-043
+date: 2026-10-29
+branch: staging (never main)
+files: presentation/onboarding_widgets.dart (OnbPill.loading and OnbBanner.loading default false, no auto-detect), presentation/onboarding_house_screens.dart (loading: true on the 4 papers-stage banners and the paper Waiting pills), presentation/broker_draft_cards.dart and document_requests/presentation/broker_document_links.dart (restored to 07a39d8)
+verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 32 passed
+```
