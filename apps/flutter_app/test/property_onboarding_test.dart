@@ -525,16 +525,22 @@ void main() {
     final router = GoRouter(routes: [GoRoute(path: '/', builder: (c, s) => PropertySetupScreen(id: item.id))]);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
-    expect(find.text('Draft 2 · who replied'), findsOneWidget);
+    expect(find.text('Who signs'), findsOneWidget);
     expect(find.text('Not opened'), findsOneWidget);
-    expect(find.text('Who said yes'), findsOneWidget);
-    expect(find.text('Make changes'), findsOneWidget);
-    expect(find.text('Read full agreement'), findsOneWidget);
+    expect(find.text('Who said yes'), findsNothing); // no progress bar
+    // Bottom: only Remind next to Go to home.
     expect(find.text('Remind Ravi'), findsOneWidget);
-    // Quiet links are below the status card.
+    expect(find.text('Go to home'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('Remind Ravi')).dy, closeTo(tester.getTopLeft(find.text('Go to home')).dy, 2));
+    expect(find.text('Remind'), findsNothing); // one owner: no second Remind in the row
+    // Read full agreement and Make changes are rows on the page.
+    expect(find.text('Your agreement'), findsOneWidget);
+    expect(find.text('Read full agreement'), findsOneWidget);
+    expect(find.text('Makes Draft 3. You send it again.'), findsOneWidget);
+    // More: clear rows at the end.
     await tester.scrollUntilVisible(find.text('Versions'), 200, scrollable: find.byType(Scrollable).first);
-    expect(tester.getTopLeft(find.text('Changes')).dy, greaterThan(tester.getTopLeft(find.text('Who said yes')).dy));
-    expect(tester.getTopLeft(find.text('Versions')).dy, greaterThan(tester.getTopLeft(find.text('Who said yes')).dy));
+    expect(find.text('Key points'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('Versions')).dy, greaterThan(tester.getTopLeft(find.text('Make changes')).dy));
     // Make changes opens the part picker (the new draft itself is covered by the store test).
     await tester.tap(find.text('Make changes'));
     await tester.pumpAndSettle();
@@ -625,18 +631,19 @@ void main() {
     final router = GoRouter(routes: [GoRoute(path: '/', builder: (c, s) => PropertySetupScreen(id: item.id))]);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
-    expect(find.text('Draft 1 · who replied'), findsOneWidget);
-    expect(find.text('1 of 2'), findsOneWidget);
+    expect(find.text('Who signs'), findsOneWidget);
     expect(find.text('Said yes'), findsOneWidget);
     expect(find.text('Seen, no reply'), findsOneWidget);
-    expect(find.text('5% a month'), findsOneWidget);
     expect(find.textContaining('TrustKeyper · Manager', findRichText: true), findsOneWidget);
     expect(find.text('Signs last'), findsOneWidget);
+    expect(find.textContaining('5% a month'), findsOneWidget); // in "Read full agreement"
+    // Two owners: Remind on Sita's row, and "Remind Sita" at the bottom.
     expect(find.text('Remind Sita'), findsOneWidget);
     await tester.tap(find.text('Remind').first);
     await tester.pumpAndSettle();
     expect(store.byId(item.id)!.replyAt(1).remindedAt, greaterThan(0));
     expect(find.text('Remind Sita'), findsNothing); // once an hour
+    expect(find.text('Reminded'), findsOneWidget); // bottom button, greyed
     expect(find.textContaining('Reminded'), findsWidgets);
     // Second yes: all agreed.
     await store.testOwnerSaysYes(item.id, 1);

@@ -518,70 +518,20 @@ class WhoReplied extends StatelessWidget {
   final PropertyOnboarding item;
 
   @override
-  Widget build(BuildContext context) {
-    final n = item.ownerCount;
-    final yes = item.yesCount;
-    final a = item.answers;
-    Widget fact(String label, String value) => Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 13.5, color: AppColors.muted)),
-          const SizedBox(height: 2),
-          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.heading)),
-        ],
-      ),
-    );
-    final start = DateTime.tryParse(a.startDate);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => OnbCard(
+    child: Column(
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(16)),
-          child: Row(
-            children: [
-              fact('Rent', onbMoney(item.rent)),
-              fact('Starts', start == null ? 'Not set' : '${start.day} ${months[start.month - 1]} ${start.year}'),
-              fact('Your fee', feeShort(a)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            const Expanded(child: Text('Who said yes', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.muted))),
-            Text('$yes of $n', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.success)),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            for (var i = 0; i < n; i++) ...[
-              if (i > 0) const SizedBox(width: 4),
-              Expanded(child: Container(height: 8, decoration: BoxDecoration(color: i < yes ? _green : AppColors.primaryBorder, borderRadius: BorderRadius.circular(4)))),
-            ],
-          ],
-        ),
-        const SizedBox(height: 14),
-        OnbCard(
-          child: Column(
-            children: [
-              for (var o = 0; o < n; o++) ...[
-                _ownerRow(context, o),
-                const Divider(height: 1, color: Color(0xFFEDF1F6)),
-              ],
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: ManagerSignRow(item: item, trailing: const OnbPill('Signs last', 'mute')),
-              ),
-            ],
-          ),
+        for (var o = 0; o < item.ownerCount; o++) ...[
+          _ownerRow(context, o),
+          const Divider(height: 1, color: Color(0xFFEDF1F6)),
+        ],
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: ManagerSignRow(item: item, trailing: const OnbPill('Signs last', 'mute')),
         ),
       ],
-    );
-  }
+    ),
+  );
 
   Widget _ownerRow(BuildContext context, int o) {
     final r = item.replyAt(o);
@@ -595,7 +545,7 @@ class WhoReplied extends StatelessWidget {
     Widget? action;
     if (r.status == 'change') {
       action = _soft('See', Icons.chevron_right, () => context.push('/broker/onboarding/${item.id}/changes'));
-    } else if (r.status != 'yes') {
+    } else if (r.status != 'yes' && item.hasManyOwners) {
       action = reminded
           ? Text('Reminded\n${_ago(r.remindedAt)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 12.5, height: 16 / 12.5, color: AppColors.muted))
           : _soft('Remind', Icons.notifications_none, () => remindOwners(context, item, [o]));

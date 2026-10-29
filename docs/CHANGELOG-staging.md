@@ -786,3 +786,21 @@ branch: staging (never main)
 files: presentation/onboarding_widgets.dart (OnbPill.loading and OnbBanner.loading default false, no auto-detect), presentation/onboarding_house_screens.dart (loading: true on the 4 papers-stage banners and the paper Waiting pills), presentation/broker_draft_cards.dart and document_requests/presentation/broker_document_links.dart (restored to 07a39d8)
 verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 32 passed
 ```
+
+## Change 44 – After sending: calmer page, two buttons at the bottom
+Date: 2026-10-29 · Status: on the phone after the next build
+House page after "Send for signing", while waiting for the owner:
+- **Bottom:** only two buttons side by side: **Remind Bini** (secondary, left; "Remind all 2" with several owners; greyed "Reminded" for an hour after reminding) and **Go to home** (primary, right). Read full agreement and Make changes are no longer bottom buttons.
+- **Removed:** the "Who said yes 0 of 1" bar and the Rent · Starts · Your fee strip.
+- **Who signs** (card): each owner with their status (Not opened / Seen, no reply / Said yes / Asked a change → tap See) and the manager row (TrustKeyper · Manager, "Signs last"). With one owner there is no second Remind in the card (it is at the bottom); with several owners each row has its own Remind.
+- **Your agreement** (card of tappable rows): **Read full agreement** ("Draft 1 · ₹32,000 rent · 89 days, once") and **Make changes** ("Makes Draft 2. You send it again.").
+- **More** (card of tappable rows with icons and arrows, was grey text links): Key points, Changes, Versions, Call our agreement team. **Cancel agreement** in red below it. The same More card is used on the other agreement states too.
+- When all owners say yes, the bottom shows only **Lock and continue** (Make changes is on the page).
+```
+AGENT RECORD – Change 44
+id: CHG-044
+date: 2026-10-29
+branch: staging (never main)
+files: presentation/onboarding_house_screens.dart (_review sent: Who signs / Your agreement / More sections, _sectionLabel, _moreLinks as card rows, footer Row Remind+Go to home, _RemindAllButton removed, no read-full button in footer once sent), presentation/send_for_signing_screens.dart (WhoReplied: no fact strip, no progress bar, per-row Remind only with several owners), test/property_onboarding_test.dart
+verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 32 passed; full suite same 39 old failures as before
+```

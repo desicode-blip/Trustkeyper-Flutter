@@ -462,62 +462,101 @@ class _OnboardingBody extends StatelessWidget {
       else
         OnbBanner('Draft ${item.draftNo} sent ${_ago(item.draftSentAt)}. ${many ? '${item.yesCount} of ${item.ownerCount} owners said yes.' : 'Waiting for $ownerFirst.'}', kind: 'wait', icon: Icons.schedule),
       if (item.draftSent) ...[
-        const SizedBox(height: 18),
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 10),
-          child: Text('Draft ${item.draftNo} · who replied', style: const TextStyle(fontSize: 18, height: 24 / 18, fontWeight: FontWeight.w600, color: AppColors.heading)),
-        ),
+        const SizedBox(height: 22),
+        _sectionLabel('Who signs'),
         WhoReplied(item: item),
+        const SizedBox(height: 22),
+        _sectionLabel('Your agreement'),
+        OnbCard(
+          child: Column(
+            children: [
+              OnbRow(
+                icon: Icons.description_outlined,
+                title: 'Read full agreement',
+                subtitle: 'Draft ${item.draftNo} · ${onbMoney(item.rent)} rent · ${feeShort(item.answers)}',
+                onTap: () => context.push('/broker/onboarding/${item.id}/agreement'),
+              ),
+              OnbRow(
+                icon: Icons.edit_outlined,
+                title: 'Make changes',
+                subtitle: 'Makes Draft ${item.draftNo + 1}. You send it again.',
+                onTap: () => showWhatToChange(context, item),
+              ),
+            ],
+          ),
+        ),
       ],
       const SizedBox(height: 22),
       _moreLinks(context),
     ];
   }
 
-  /// Small, quiet links at the very end of the page.
-  Widget _moreLinks(BuildContext context) {
-    const style = TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted);
-    Widget link(String label, VoidCallback onTap, {Color? color}) => TextButton(
-      onPressed: onTap,
-      style: TextButton.styleFrom(
-        minimumSize: const Size(0, 36),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        foregroundColor: color ?? AppColors.muted,
-        textStyle: style.copyWith(fontWeight: FontWeight.w500),
-      ),
-      child: Text(label),
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 10),
-          child: Text('More', style: TextStyle(fontSize: 13, color: AppColors.muted)),
-        ),
-        Wrap(
+  Widget _sectionLabel(String text) => Padding(
+    padding: const EdgeInsets.only(left: 4, bottom: 10),
+    child: Text(text, style: const TextStyle(fontSize: 18, height: 24 / 18, fontWeight: FontWeight.w600, color: AppColors.heading)),
+  );
+
+  /// Other things you can do, at the end of the page: clear tappable rows.
+  Widget _moreLinks(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _sectionLabel('More'),
+      OnbCard(
+        child: Column(
           children: [
-            if (item.draftSent) link('Key points', () => context.push('/broker/onboarding/${item.id}/draft')),
-            link(item.waitingChanges > 0 ? 'Changes · ${item.waitingChanges} for you' : 'Changes', () => context.push('/broker/onboarding/${item.id}/changes')),
-            link('Versions', () => context.push('/broker/onboarding/${item.id}/versions')),
-            link('Call our agreement team', () => launchUrl(Uri.parse('tel:+918088516875'))),
-            link('Cancel agreement', () async {
-              final cancel = await onbConfirm(
-                context,
-                title: 'Cancel this agreement?',
-                message: '${_firstName(item)} is told. The house stays in your app. You can make a new one.',
-                yes: 'Yes, cancel',
-                no: 'Keep it',
-                danger: true,
-              );
-              if (!cancel) return;
-              await store.update(item.id, (i) => PropertyOnboarding.fromJson({...i.toJson(), 'phase': OnboardingPhase.questions, 'draftNo': 0, 'draftSent': false, 'ownerAgreedFinal': false, 'changes': <Object>[], 'versions': <Object>[]}));
-            }, color: AppColors.error),
+            if (item.draftSent)
+              OnbRow(
+                icon: Icons.list_alt_outlined,
+                tone: 'mute',
+                title: 'Key points',
+                subtitle: 'The agreement in simple words',
+                onTap: () => context.push('/broker/onboarding/${item.id}/draft'),
+              ),
+            OnbRow(
+              icon: Icons.compare_arrows,
+              tone: item.waitingChanges > 0 ? 'wait' : 'mute',
+              title: 'Changes',
+              subtitle: item.changes.isEmpty ? 'None yet' : '${item.changes.length} asked',
+              trailing: item.waitingChanges > 0 ? OnbPill('${item.waitingChanges} for you', 'wait') : null,
+              onTap: () => context.push('/broker/onboarding/${item.id}/changes'),
+            ),
+            OnbRow(
+              icon: Icons.history,
+              tone: 'mute',
+              title: 'Versions',
+              subtitle: '${item.versions.length} saved',
+              onTap: () => context.push('/broker/onboarding/${item.id}/versions'),
+            ),
+            OnbRow(
+              icon: Icons.call_outlined,
+              tone: 'mute',
+              title: 'Call our agreement team',
+              subtitle: 'We help you with the agreement',
+              onTap: () => launchUrl(Uri.parse('tel:+918088516875')),
+            ),
           ],
         ),
-      ],
-    );
-  }
+      ),
+      const SizedBox(height: 6),
+      TextButton.icon(
+        onPressed: () async {
+          final cancel = await onbConfirm(
+            context,
+            title: 'Cancel this agreement?',
+            message: '${_firstName(item)} is told. The house stays in your app. You can make a new one.',
+            yes: 'Yes, cancel',
+            no: 'Keep it',
+            danger: true,
+          );
+          if (!cancel) return;
+          await store.update(item.id, (i) => PropertyOnboarding.fromJson({...i.toJson(), 'phase': OnboardingPhase.questions, 'draftNo': 0, 'draftSent': false, 'ownerAgreedFinal': false, 'changes': <Object>[], 'versions': <Object>[]}));
+        },
+        icon: const Icon(Icons.close, size: 18),
+        label: const Text('Cancel agreement', style: TextStyle(fontSize: 16)),
+        style: TextButton.styleFrom(foregroundColor: AppColors.error),
+      ),
+    ],
+  );
 
   /// Call the team that writes the agreements.
   Widget _callTeamButton() => TextButton.icon(
@@ -617,7 +656,7 @@ class _OnboardingBody extends StatelessWidget {
         // The agreement is not written yet, so there is nothing to read.
         return core;
       case OnboardingPhase.review:
-        if (item.agreementJustReady) return core;
+        if (item.agreementJustReady || item.draftSent) return core;
         if (core.isEmpty) return [read];
         return [core.first, const SizedBox(height: 10), read, ...core.skip(1)];
       default:
@@ -694,20 +733,27 @@ class _OnboardingBody extends StatelessWidget {
                 await store.update(item.id, (i) => i.copyWith(phase: OnboardingPhase.printing, printStep: 0));
               },
             ),
-            const SizedBox(height: 10),
-            OnbSecondaryButton(label: 'Make changes', onPressed: () => showWhatToChange(context, item)),
           ];
         }
+        // Waiting for the owners: Remind next to Go to home.
         final remindable = [for (var o = 0; o < item.ownerCount; o++) if (canRemind(item, o)) o];
         return [
-          if (remindable.isNotEmpty) ...[
-            _RemindAllButton(
-              label: remindable.length == 1 ? 'Remind ${item.ownerFirstAt(remindable.first)}' : 'Remind all ${remindable.length}',
-              onPressed: () => remindOwners(context, item, remindable),
-            ),
-            const SizedBox(height: 10),
-          ],
-          OnbSecondaryButton(label: 'Make changes', onPressed: () => showWhatToChange(context, item)),
+          Row(
+            children: [
+              Expanded(
+                child: OnbSecondaryButton(
+                  label: remindable.isEmpty
+                      ? 'Reminded'
+                      : remindable.length == 1
+                          ? 'Remind ${item.ownerFirstAt(remindable.first)}'
+                          : 'Remind all ${remindable.length}',
+                  onPressed: remindable.isEmpty ? null : () => remindOwners(context, item, remindable),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: PrimaryButton(label: 'Go to home', onPressed: () => context.go('/broker'))),
+            ],
+          ),
         ];
       case OnboardingPhase.signing:
         // TrustKeyper signs for itself; only a broker who signs sees "Sign now".
@@ -1362,30 +1408,6 @@ class _AddOwnerSheetState extends State<_AddOwnerSheet> {
         const SizedBox(height: 24),
         PrimaryButton(label: 'Add and ask for documents', onPressed: _save),
       ],
-    ),
-  );
-}
-
-/// Soft green "Remind" button (canvas RV6 footer).
-class _RemindAllButton extends StatelessWidget {
-  const _RemindAllButton({required this.label, required this.onPressed});
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: double.infinity,
-    height: 56,
-    child: TextButton.icon(
-      onPressed: onPressed,
-      icon: const Icon(Icons.notifications_none, size: 20),
-      label: Text(label),
-      style: TextButton.styleFrom(
-        backgroundColor: AppColors.successSoft,
-        foregroundColor: AppColors.success,
-        shape: const StadiumBorder(),
-        textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-      ),
     ),
   );
 }
