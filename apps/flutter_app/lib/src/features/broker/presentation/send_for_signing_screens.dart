@@ -35,12 +35,6 @@ String _ago(int at) {
   return '${d.inDays} days ago';
 }
 
-String _viaText(String via) => switch (via) {
-  'both' => 'WhatsApp and email',
-  'email' => 'email',
-  _ => 'WhatsApp',
-};
-
 /// Round avatar with initials (owners blue, manager green).
 class SignAvatar extends StatelessWidget {
   const SignAvatar(this.text, {this.manager = false, super.key});
@@ -164,292 +158,176 @@ class ManagerSignRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// RV4 · Send to each owner
+// Send for signing sheet (canvas SL1 "Send link?" style): WhatsApp or email
 // ---------------------------------------------------------------------------
 
-class SendToEachScreen extends StatefulWidget {
-  const SendToEachScreen({required this.id, super.key});
-  final String id;
-
-  @override
-  State<SendToEachScreen> createState() => _SendToEachScreenState();
+/// The way this owner gets it: the one picked, or the other one when we do
+/// not have it for them ('' when we have neither).
+String sendWayFor(PropertyOnboarding item, int o, String picked) {
+  final wa = item.ownerPhoneAt(o).isNotEmpty;
+  final em = item.ownerEmailAt(o).isNotEmpty;
+  if (picked == 'whatsapp') return wa ? 'whatsapp' : (em ? 'email' : '');
+  return em ? 'email' : (wa ? 'whatsapp' : '');
 }
 
-class _SendToEachScreenState extends State<SendToEachScreen> {
-  bool _wa = true;
-  bool _email = true;
-
-  /// How we can reach this owner with the ticks picked ('' = we cannot).
-  String _via(PropertyOnboarding item, int o) {
-    final wa = _wa && item.ownerPhoneAt(o).isNotEmpty;
-    final em = _email && item.ownerEmailAt(o).isNotEmpty;
-    if (wa && em) return 'both';
-    if (wa) return 'whatsapp';
-    if (em) return 'email';
-    return '';
-  }
-
-  String? _cannot(PropertyOnboarding item, int o) {
-    if (!_wa && !_email) return 'Pick WhatsApp or email above.';
-    if (_via(item, o).isNotEmpty) return null;
-    final first = item.ownerFirstAt(o);
-    return _wa ? 'No WhatsApp number for $first. Tick Email too.' : 'No email for $first. Tick WhatsApp too.';
-  }
-
-  Future<void> _send(PropertyOnboarding item, int o) async {
-    final via = _via(item, o);
-    if (via.isEmpty) return;
-    await _store.sendDraftTo(item.id, o, via);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('Sent to ${item.ownerFirstAt(o)} on ${_viaText(via)}'),
-      behavior: SnackBarBehavior.floating,
-      margin: _toastMargin,
-    ));
-  }
-
-  Future<void> _sendAll(PropertyOnboarding item) async {
-    var sent = 0;
-    final missed = <String>[];
-    for (var o = 0; o < item.ownerCount; o++) {
-      if (item.replyAt(o).sent) continue;
-      final via = _via(item, o);
-      if (via.isEmpty) {
-        missed.add(item.ownerFirstAt(o));
-        continue;
-      }
-      await _store.sendDraftTo(item.id, o, via);
-      sent++;
-    }
-    if (!mounted) return;
-    final text = missed.isEmpty
-        ? (sent == 1 ? 'Sent to ${item.ownerFirstAt(0)}' : 'Sent to all $sent owners')
-        : 'Sent to $sent. Not sent to ${missed.join(', ')}: see the note on the card.';
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text), behavior: SnackBarBehavior.floating, margin: _toastMargin));
-  }
-
-  Future<void> _done(PropertyOnboarding item) async {
-    await _store.finishSending(item.id);
-    if (mounted) context.pushReplacement('/broker/onboarding/${item.id}/sent');
-  }
-
-  @override
-  Widget build(BuildContext context) => OnbItemView(
-    id: widget.id,
-    builder: (context, item) {
-      final notSent = item.ownerCount - item.sentCount;
-      return PopScope(
-        canPop: item.sentCount == 0,
-        onPopInvokedWithResult: (didPop, _) async {
-          if (didPop) return;
-          final finish = await onbConfirm(
-            context,
-            title: 'Leave this page?',
-            message: '${item.sentCount == 1 ? 'One owner has' : '${item.sentCount} owners have'} the agreement already. We will mark it as sent.',
-            yes: 'Mark as sent and leave',
-            no: 'Stay here',
-          );
-          if (finish && context.mounted) await _done(item);
-        },
-        child: OnbPage(
-          title: item.hasManyOwners ? 'Send to each owner' : 'Send to ${item.ownerFirstAt(0)}',
-          subtitle: 'Each owner gets their own link. They read it, then say yes or ask a change.',
-          footer: [
-            if (item.sentCount > 0 && notSent > 0)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.schedule, size: 18, color: AppColors.warning),
-                    const SizedBox(width: 8),
-                    Text(notSent == 1 ? '1 owner not sent yet' : '$notSent owners not sent yet', style: const TextStyle(fontSize: 15, color: AppColors.warning)),
-                  ],
-                ),
-              ),
-            if (item.sentCount == 0)
-              PrimaryButton(
-                label: item.hasManyOwners ? 'Send to everyone' : 'Send to ${item.ownerFirstAt(0)}',
-                onPressed: (!_wa && !_email) ? null : () => _sendAll(item),
-              )
-            else
-              PrimaryButton(label: 'Done', onPressed: () => _done(item)),
-          ],
-          children: [
-            Row(
-              children: const [
-                Icon(Icons.send_outlined, size: 16, color: AppColors.muted),
-                SizedBox(width: 6),
-                Flexible(child: Text('Send on (you can pick both)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.muted))),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(child: _Tick(on: _wa, label: 'WhatsApp', icon: SvgPicture.asset('assets/design/whatsapp.svg', width: 20, height: 20), onTap: () => setState(() => _wa = !_wa))),
-                const SizedBox(width: 8),
-                Expanded(child: _Tick(on: _email, label: 'Email', icon: const Icon(Icons.mail_outline, size: 20, color: AppColors.primaryDark), onTap: () => setState(() => _email = !_email))),
-              ],
-            ),
-            const SizedBox(height: 16),
-            for (var o = 0; o < item.ownerCount; o++) ...[
-              _OwnerSendCard(
-                item: item,
-                owner: o,
-                cannot: _cannot(item, o),
-                onSend: () => _send(item, o),
-              ),
-              const SizedBox(height: 10),
-            ],
-            const SizedBox(height: 6),
-            const Text('Signs at the end', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.muted)),
-            const SizedBox(height: 8),
-            OnbCard(child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: ManagerSignRow(item: item, onChange: () => pickWhoSigns(context, item)))),
-            const SizedBox(height: 14),
-            const Text(
-              'Test only: WhatsApp and email are not connected yet, so nothing really reaches the owner.',
-              style: TextStyle(fontSize: 13.5, height: 19 / 13.5, color: AppColors.muted),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
-
-class _Tick extends StatelessWidget {
-  const _Tick({required this.on, required this.label, required this.icon, required this.onTap});
-  final bool on;
-  final String label;
-  final Widget icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    checked: on,
-    child: Material(
-      color: on ? AppColors.primarySoft : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: on ? AppColors.primary : AppColors.border, width: on ? 2 : 1),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: SizedBox(
-          height: 52,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(
-              children: [
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: on ? AppColors.primary : Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                    border: on ? null : Border.all(color: const Color(0xFF9AA8BA), width: 2),
+/// Returns 'whatsapp' or 'email', or null when the broker cancels.
+Future<String?> pickSendWay(BuildContext context, PropertyOnboarding item) {
+  final anyWa = [for (var o = 0; o < item.ownerCount; o++) item.ownerPhoneAt(o).isNotEmpty].contains(true);
+  final anyEm = [for (var o = 0; o < item.ownerCount; o++) item.ownerEmailAt(o).isNotEmpty].contains(true);
+  var picked = anyWa ? 'whatsapp' : 'email';
+  return showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    builder: (sheet) => StatefulBuilder(
+      builder: (sheet, setSheet) => ListenableBuilder(
+        listenable: _store,
+        builder: (sheet, _) {
+          final now = _store.byId(item.id) ?? item;
+          final many = now.hasManyOwners;
+          final first = now.ownerFirstAt(0);
+          final to = many
+              ? 'To ${now.ownersFirst}'
+              : 'To $first · ${picked == 'whatsapp' ? now.ownerPhoneAt(0) : now.ownerEmailAt(0)}';
+          // Owners who will get it the other way.
+          final other = [
+            for (var o = 0; o < now.ownerCount; o++)
+              if (sendWayFor(now, o, picked).isNotEmpty && sendWayFor(now, o, picked) != picked) now.ownerFirstAt(o),
+          ];
+          Widget tile(String value, Widget icon, String title, String sub, bool enabled) {
+            final on = picked == value && enabled;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Opacity(
+                opacity: enabled ? 1 : 0.55,
+                child: Material(
+                  color: on ? AppColors.primarySoft : Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: on ? AppColors.primary : AppColors.border, width: on ? 2 : 1),
                   ),
-                  child: on ? const Icon(Icons.check, size: 15, color: Colors.white) : null,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: enabled ? () => setSheet(() => picked = value) : null,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                      child: Row(
+                        children: [
+                          Icon(on ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: on ? AppColors.primary : AppColors.muted, size: 24),
+                          const SizedBox(width: 12),
+                          icon,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading)),
+                                const SizedBox(height: 2),
+                                Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 10),
-                icon,
-                const SizedBox(width: 6),
-                Flexible(child: Text(label, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading))),
-              ],
+              ),
+            );
+          }
+
+          final emailSub = !anyEm
+              ? 'No email added'
+              : many
+                  ? 'Each owner on their own email'
+                  : now.ownerEmailAt(0);
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: const BoxDecoration(color: AppColors.successSoft, shape: BoxShape.circle),
+                        child: const Icon(Icons.send_outlined, size: 22, color: AppColors.success),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              many ? 'Send for signing?' : 'Send to $first for signing?',
+                              style: const TextStyle(fontSize: 20, height: 26 / 20, fontWeight: FontWeight.w700, color: AppColors.heading),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(to, style: const TextStyle(fontSize: 15, height: 20 / 15, color: AppColors.muted)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  tile('whatsapp', SvgPicture.asset('assets/design/whatsapp.svg', width: 22, height: 22), 'WhatsApp',
+                      anyWa ? 'Best – most people use it' : 'No WhatsApp number', anyWa),
+                  tile('email', const Icon(Icons.mail_outline, size: 22, color: AppColors.primaryDark), 'Email', emailSub, anyEm),
+                  if (other.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        '${other.join(' and ')} ${other.length == 1 ? 'gets' : 'get'} it on ${picked == 'whatsapp' ? 'email' : 'WhatsApp'} (no ${picked == 'whatsapp' ? 'WhatsApp number' : 'email'}).',
+                        style: const TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.warning),
+                      ),
+                    ),
+                  Row(
+                    children: [
+                      const Icon(Icons.draw_outlined, size: 18, color: AppColors.muted),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${many ? 'They read it and say yes.' : '$first reads it and says yes.'} ${now.trustkeyperSigns ? 'TrustKeyper signs' : 'You sign'} last.',
+                          style: const TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted),
+                        ),
+                      ),
+                      TextButton(onPressed: () => pickWhoSigns(sheet, now), child: const Text('Change')),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: FilledButton.icon(
+                      onPressed: (anyWa || anyEm) ? () => Navigator.pop(sheet, picked) : null,
+                      icon: const Icon(Icons.send_outlined, size: 20),
+                      label: const Text('Send for signing'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        shape: const StadiumBorder(),
+                        textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Center(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(sheet),
+                      child: const Text('Cancel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     ),
   );
-}
-
-class _OwnerSendCard extends StatelessWidget {
-  const _OwnerSendCard({required this.item, required this.owner, required this.cannot, required this.onSend});
-  final PropertyOnboarding item;
-  final int owner;
-  final String? cannot;
-  final VoidCallback onSend;
-
-  @override
-  Widget build(BuildContext context) {
-    final reply = item.replyAt(owner);
-    final hasPhone = item.ownerPhoneAt(owner).isNotEmpty;
-    final hasEmail = item.ownerEmailAt(owner).isNotEmpty;
-    Widget reach(bool ok, Widget icon, String yes, String no) => Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ok ? icon : const Icon(Icons.error_outline, size: 14, color: Color(0xFFE08A00)),
-        const SizedBox(width: 4),
-        Flexible(child: Text(ok ? yes : no, style: TextStyle(fontSize: 13.5, color: ok ? AppColors.muted : const Color(0xFFB36A00)))),
-      ],
-    );
-    return OnbCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              SignAvatar(_initials(item.ownerNameAt(owner))),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text.rich(
-                      TextSpan(children: [
-                        TextSpan(text: item.ownerNameAt(owner)),
-                        TextSpan(text: item.hasManyOwners ? ' · Owner ${owner + 1}' : ' · Owner', style: const TextStyle(fontWeight: FontWeight.w400, color: AppColors.muted, fontSize: 14)),
-                      ]),
-                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
-                    ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 4,
-                      children: [
-                        reach(hasPhone, SvgPicture.asset('assets/design/whatsapp.svg', width: 14, height: 14), 'WhatsApp', 'No WhatsApp number'),
-                        reach(hasEmail, const Icon(Icons.mail_outline, size: 14, color: AppColors.primaryDark), 'Email', 'No email'),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              if (reply.sent) const OnbPill('Sent', 'ok', icon: Icons.check),
-            ],
-          ),
-          if (reply.sent)
-            Padding(
-              padding: const EdgeInsets.only(top: 8, left: 60),
-              child: Text('On ${_viaText(reply.via)} · ${_ago(reply.sentAt)}', style: const TextStyle(fontSize: 13.5, color: AppColors.muted)),
-            )
-          else ...[
-            if (cannot != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Text(cannot!, style: const TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.warning)),
-              ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: FilledButton.icon(
-                onPressed: cannot == null ? onSend : null,
-                icon: const Icon(Icons.send_outlined, size: 18),
-                label: Text('Send to ${item.ownerFirstAt(owner)}'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: const StadiumBorder(),
-                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 }
 
 // ---------------------------------------------------------------------------

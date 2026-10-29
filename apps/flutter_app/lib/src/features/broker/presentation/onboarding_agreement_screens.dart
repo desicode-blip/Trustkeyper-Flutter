@@ -11,6 +11,7 @@ import '../data/property_onboarding.dart';
 import 'agreement_paper.dart';
 import 'onboarding_house_screens.dart';
 import 'onboarding_widgets.dart';
+import 'send_for_signing_screens.dart' show pickSendWay, sendWayFor;
 
 PropertyOnboardingStore get _store => PropertyOnboardingStore.instance;
 String _first(PropertyOnboarding item) => item.ownersFirst;
@@ -806,76 +807,18 @@ Set<String> _changedGroups(PropertyOnboarding item) {
   return groups;
 }
 
-/// "Send to these people?" Returns true when the broker says send.
-Future<bool> confirmSendDraft(BuildContext context, PropertyOnboarding item) async {
-  final many = item.hasManyOwners;
-  final result = await showModalBottomSheet<bool>(
-    context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    builder: (sheet) => SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              many ? 'Send to these ${item.ownerCount} people for signing?' : 'Send to ${item.ownerFirstAt(0)} for signing?',
-              style: const TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w700, color: AppColors.heading),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Each gets a link on WhatsApp or email. They can say yes, or ask for a change.',
-              style: TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 20,
-              runSpacing: 12,
-              children: [
-                for (var o = 0; o < item.ownerCount; o++)
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircleAvatar(
-                        radius: 24,
-                        backgroundColor: AppColors.primarySoft,
-                        child: Text(
-                          item.ownerNameAt(o).trim().isEmpty ? '?' : item.ownerNameAt(o).trim()[0].toUpperCase(),
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.primaryDark),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(item.ownerFirstAt(o), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.heading)),
-                      const Text('Owner', style: TextStyle(fontSize: 13, color: AppColors.muted)),
-                    ],
-                  ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              item.trustkeyperSigns ? 'TrustKeyper signs last, after the owners.' : 'You sign last, after the owners.',
-              style: const TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted),
-            ),
-            const SizedBox(height: 20),
-            PrimaryButton(label: 'Yes, send for signing', onPressed: () => Navigator.pop(sheet, true)),
-            const SizedBox(height: 10),
-            OnbSecondaryButton(label: 'No, go back', onPressed: () => Navigator.pop(sheet, false)),
-          ],
-        ),
-      ),
-    ),
-  );
-  return result ?? false;
-}
-
-/// Confirms, then opens "Send to each owner".
+/// "Send for signing": one sheet asks WhatsApp or email (canvas SL1 style),
+/// then sends to every owner and shows "Draft N sent!". No extra steps.
 Future<void> sendDraftWithConfirm(BuildContext context, PropertyOnboarding item) async {
-  if (!await confirmSendDraft(context, item) || !context.mounted) return;
-  // Next: send to each owner (RV4). The draft counts as sent when the broker taps Done.
-  if (context.mounted) context.push('/broker/onboarding/${item.id}/send');
+  final via = await pickSendWay(context, item);
+  if (via == null || !context.mounted) return;
+  final now = _store.byId(item.id) ?? item;
+  for (var o = 0; o < now.ownerCount; o++) {
+    final way = sendWayFor(now, o, via);
+    if (way.isNotEmpty) await _store.sendDraftTo(now.id, o, way);
+  }
+  await _store.finishSending(now.id);
+  if (context.mounted) context.push('/broker/onboarding/${now.id}/sent');
 }
 
 /// The owner already has the draft. A change makes a new draft that they must

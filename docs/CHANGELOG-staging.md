@@ -756,3 +756,20 @@ files: presentation/onboarding_widgets.dart (OnbWaitSpinner; OnbPill.loading + w
 rule: spinner is still (clock) under reduce-motion and in flutter tests (FLUTTER_TEST) so pumpAndSettle works
 verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 31 passed; full suite same 39 old failures as before
 ```
+
+## Change 42 – "Send for signing" is one sheet: WhatsApp or email
+Date: 2026-10-29 · Status: on the phone after the next build
+The "Send to Bini for signing?" sheet with the avatar and "Yes, send for signing", and the extra "Send to each owner" page, are gone. Now, like the canvas "Send link?" sheet (SL1):
+- Tap **Send for signing** → one sheet: green send icon, **Send to Bini for signing?**, "To Bini · +91 …" (or "To Ravi and Sita"), and two choices: **WhatsApp** (logo, "Best – most people use it") or **Email** (the owner's email). No SMS.
+- A line says who signs: "Bini reads it and says yes. TrustKeyper signs last." with **Change**.
+- **Send for signing** sends it and goes straight to **Draft 1 sent!** (timeline, Go to home, See who replied). **Cancel** closes the sheet.
+- Edge cases: no number for anyone → WhatsApp is greyed "No WhatsApp number"; no email → Email greyed "No email added"; WhatsApp is picked first when there is a number. With several owners, one choice covers all: an owner without that contact gets it the other way, and the sheet says so ("Sita gets it on email (no WhatsApp number).").
+```
+AGENT RECORD – Change 42
+id: CHG-042
+date: 2026-10-29
+branch: staging (never main)
+files: presentation/send_for_signing_screens.dart (pickSendWay sheet, sendWayFor; SendToEachScreen removed), presentation/onboarding_agreement_screens.dart (confirmSendDraft removed; sendDraftWithConfirm = sheet → send to all → /sent), core/routing/app_router.dart (route send removed), test/property_onboarding_test.dart
+source design: v2 canvas page 04 SL1 / SL1b / SLE1 ("Send link?" sheet), without SMS
+verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 32 passed; full suite same 39 old failures as before
+```

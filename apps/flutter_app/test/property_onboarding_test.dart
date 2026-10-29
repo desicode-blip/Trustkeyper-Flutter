@@ -450,45 +450,33 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(440, 956));
     final router = GoRouter(routes: [
       GoRoute(path: '/', builder: (c, s) => OwnerAgreementScreen(id: item.id)),
-      GoRoute(path: '/broker/onboarding/:id/send', builder: (c, s) => SendToEachScreen(id: s.pathParameters['id']!)),
       GoRoute(path: '/broker/onboarding/:id/sent', builder: (c, s) => AgreementSentScreen(id: s.pathParameters['id']!)),
     ]);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Send for signing'));
     await tester.pumpAndSettle();
-    expect(find.text('Send to these 2 people for signing?'), findsOneWidget);
-    await tester.tap(find.text('No, go back'));
+    // One sheet: WhatsApp or email. Both owners gave email only.
+    expect(find.text('Send for signing?'), findsOneWidget);
+    expect(find.text('To Ravi and Sita'), findsOneWidget);
+    expect(find.text('No WhatsApp number'), findsOneWidget);
+    expect(find.text('Each owner on their own email'), findsOneWidget);
+    expect(find.textContaining('TrustKeyper signs last'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(store.byId(item.id)!.draftSent, isFalse);
     await tester.tap(find.text('Send for signing'));
     await tester.pumpAndSettle();
-    expect(find.text('TrustKeyper signs last, after the owners.'), findsOneWidget);
-    await tester.tap(find.text('Yes, send for signing'));
+    await tester.tap(find.descendant(of: find.byType(BottomSheet), matching: find.text('Send for signing')));
     await tester.pumpAndSettle();
-    // Send to each owner: nothing counts as sent yet.
-    expect(find.text('Send to each owner'), findsOneWidget);
-    expect(store.byId(item.id)!.draftSent, isFalse);
-    expect(find.text('No WhatsApp number'), findsNWidgets(2)); // both gave email only
-    // Untick Email: nobody can be reached, the card says why.
-    await tester.tap(find.text('Email').first);
-    await tester.pumpAndSettle();
-    expect(find.text('No WhatsApp number for Ravi. Tick Email too.'), findsOneWidget);
-    await tester.tap(find.text('Email').first);
-    await tester.pumpAndSettle();
-    // Send to Ravi only: 1 not sent yet, then Done.
-    await tester.tap(find.text('Send to Ravi'));
-    await tester.pumpAndSettle();
-    expect(store.byId(item.id)!.replyAt(0).via, 'email');
-    expect(find.text('1 owner not sent yet'), findsOneWidget);
-    await tester.tap(find.text('Done'));
-    await tester.pumpAndSettle();
-    expect(store.byId(item.id)!.draftSent, isTrue);
+    final sent = store.byId(item.id)!;
+    expect(sent.draftSent, isTrue);
+    expect(sent.replyAt(0).via, 'email');
+    expect(sent.replyAt(1).via, 'email');
     expect(find.text('Draft 1 sent!'), findsOneWidget);
     expect(find.text('See who replied'), findsOneWidget);
-    expect(find.textContaining('and TrustKeyper'), findsOneWidget);
     expect(find.text('Go to home'), findsOneWidget);
-    expect(find.text('Go to this house'), findsNothing);
+    expect(find.textContaining('and TrustKeyper'), findsOneWidget);
     expect(find.text('What happens next'), findsOneWidget);
     await tester.binding.setSurfaceSize(null);
   });
@@ -671,6 +659,17 @@ void main() {
     expect(store.byId(item.id)!.phase, OnboardingPhase.ready);
     await store.setSignsAs(item.id, 'me');
     expect(store.byId(item.id)!.managerName, 'You');
+  });
+
+  test('send way: the picked one, or the other when the owner has no such contact', () {
+    final item = PropertyOnboarding(
+      id: 'h', ownerName: 'Ravi Kumar', channel: 'whatsapp', contact: '9876543210', createdAt: 0,
+      coOwners: [CoOwner(name: 'Sita Devi', channel: 'email', contact: 'sita@example.com')],
+    );
+    expect(sendWayFor(item, 0, 'whatsapp'), 'whatsapp');
+    expect(sendWayFor(item, 0, 'email'), 'whatsapp'); // Ravi has no email
+    expect(sendWayFor(item, 1, 'whatsapp'), 'email'); // Sita has no number
+    expect(sendWayFor(item, 1, 'email'), 'email');
   });
 
   test('home notices: ready to review, then under review by the owner', () async {
