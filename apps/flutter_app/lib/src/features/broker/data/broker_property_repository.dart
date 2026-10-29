@@ -9,6 +9,7 @@ class BrokerProperty {
     required this.floor,
     required this.totalFloors,
     required this.furnishing,
+    this.name = '',
     this.sizeSqFt,
     this.facing,
     this.carParking = 0,
@@ -17,6 +18,9 @@ class BrokerProperty {
   }) : inventory = Map.unmodifiable(inventory);
 
   final String id;
+
+  /// What the broker calls this property (e.g. "Flat 402, Madhapur").
+  final String name;
   final String address;
   final String rooms;
   final int floor;
@@ -28,8 +32,11 @@ class BrokerProperty {
   final int bikeParking;
   final Map<String, int> inventory;
 
-  String get displayName =>
-      address.trim().isEmpty ? 'Unnamed property' : address;
+  String get displayName => name.trim().isNotEmpty
+      ? name.trim()
+      : address.trim().isEmpty
+      ? 'Unnamed property'
+      : address;
 
   String? get validationError {
     if (sizeSqFt != null && (!sizeSqFt!.isFinite || sizeSqFt! <= 0)) {
@@ -59,6 +66,7 @@ class BrokerProperty {
   }
 
   Map<String, dynamic> toMap() => {
+    'name': name.trim(),
     'address': address.trim(),
     'rooms': rooms,
     'floor': floor,
@@ -75,6 +83,7 @@ class BrokerProperty {
     final values = data['inventory'];
     return BrokerProperty(
       id: id,
+      name: data['name'] is String ? (data['name'] as String).trim() : '',
       address:
           data['address'] is String &&
               (data['address'] as String).trim().isNotEmpty

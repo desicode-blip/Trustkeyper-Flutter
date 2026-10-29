@@ -804,3 +804,21 @@ branch: staging (never main)
 files: presentation/onboarding_house_screens.dart (_review sent: Who signs / Your agreement / More sections, _sectionLabel, _moreLinks as card rows, footer Row Remind+Go to home, _RemindAllButton removed, no read-full button in footer once sent), presentation/send_for_signing_screens.dart (WhoReplied: no fact strip, no progress bar, per-row Remind only with several owners), test/property_onboarding_test.dart
 verification: flutter analyze No issues found; property_onboarding_test + agreement_filler_test 32 passed; full suite same 39 old failures as before
 ```
+
+## Change 45 – Add new property: name first, then "how do you want to add details?"
+Date: 2026-10-29 · Status: on the phone after the next build
+Rent agreement · Step 1 · **Add new property** now goes:
+1. **Name the property** (new): one box "Property name" (e.g. "Flat 402, Madhapur"), required, "Only you see this name. You can change it later." Empty → "Type a name for the property".
+2. **How do you want to add the details?** (new): three choices. **Add details myself** is first, bigger, blue icon, "Best" tag and picked by default. Under "Or let us read a paper": **Upload sale deed** and **Upload old rent agreement**.
+   - Reading those papers needs the backend, so picking one and tapping Next shows "Reading a sale deed is coming soon. For now, add the details yourself." with **Add details myself** (or Go back). Nothing is uploaded yet.
+3. Then the usual steps: address and size (the box is now "Full address (optional)"), rooms, things in the house, check.
+- The name is saved with the property and shown everywhere the property is listed (search also finds it by name). Editing a saved property starts at the name and skips the "how" question.
+```
+AGENT RECORD – Change 45
+id: CHG-045
+date: 2026-10-29
+branch: staging (never main)
+files: features/broker/data/broker_property_repository.dart (BrokerProperty.name, toMap 'name', displayName prefers name), features/broker/presentation/broker_property_screen.dart (stages renumbered: 0 picker · 1 name · 2 how · 3 address · 4 rooms · 5 things · 6 check; _nameField, _howToAdd, _uploadNotReady; back from 3 when editing → 1), test/broker_property_test.dart
+note: Firestore rules for properties have no field allowlist, so 'name' saves without a rules change
+verification: flutter analyze No issues found; broker_property_test 5 passed; full suite same 39 old failures as before
+```

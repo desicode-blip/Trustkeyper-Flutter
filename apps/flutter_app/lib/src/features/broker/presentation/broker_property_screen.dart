@@ -29,7 +29,11 @@ class BrokerPropertyScreen extends StatefulWidget {
 class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
   late final BrokerPropertyRepository repository;
   late final Stream<List<BrokerProperty>> properties;
+  final name = TextEditingController();
   final address = TextEditingController();
+
+  /// manual · saleDeed · oldAgreement (how the broker wants to add details)
+  String addWay = 'manual';
   final size = TextEditingController();
   int stage = 0;
   int floor = 0;
@@ -51,6 +55,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     repository = widget.repository ?? FirebaseBrokerPropertyRepository();
     properties = repository.watchProperties();
     address.addListener(_changed);
+    name.addListener(_changed);
     if (widget.initialProperty != null) {
       selected = widget.initialProperty;
       _editSelected();
@@ -63,6 +68,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
 
   @override
   void dispose() {
+    name.dispose();
     address.dispose();
     size.dispose();
     super.dispose();
@@ -72,7 +78,8 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     if (saving) return;
     if (stage > 0) {
       setState(() {
-        stage--;
+        // Editing skips "how to add details", so Back skips it too.
+        stage = stage == 3 && selected != null ? 1 : stage - 1;
         error = null;
       });
     } else if (context.canPop()) {
@@ -147,9 +154,11 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
                   Text(
                     switch (stage) {
                       0 => 'Pick your property, or add a new one.',
-                      1 => 'Tell us about the property.',
-                      2 => 'A few more details.',
-                      3 => 'Things in the house. Tap + or −.',
+                      1 => 'Give it a name you will remember.',
+                      2 => 'How do you want to add the details?',
+                      3 => 'Tell us about the property.',
+                      4 => 'A few more details.',
+                      5 => 'Things in the house. Tap + or −.',
                       _ => 'Check the details below.',
                     },
                     style: const TextStyle(
@@ -158,12 +167,14 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
                       color: AppColors.muted,
                     ),
                   ),
-                  SizedBox(height: stage == 3 || stage == 4 ? 24 : 28),
+                  SizedBox(height: stage == 5 || stage == 6 ? 24 : 28),
                   switch (stage) {
                     0 => _picker(),
-                    1 => _addressFields(),
-                    2 => _roomFields(),
-                    3 => _inventoryFields(),
+                    1 => _nameField(),
+                    2 => _howToAdd(),
+                    3 => _addressFields(),
+                    4 => _roomFields(),
+                    5 => _inventoryFields(),
                     _ => _summary(),
                   },
                 ],
@@ -211,12 +222,12 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
                         child: PrimaryButton(
                           label: saving
                               ? 'Saving…'
-                              : stage == 3
+                              : stage == 5
                               ? 'Save property'
-                              : stage == 4
+                              : stage == 6
                               ? 'Next: Owner'
                               : 'Next',
-                          icon: stage == 3 ? Icons.check : Icons.chevron_right,
+                          icon: stage == 5 ? Icons.check : Icons.chevron_right,
                           onPressed: saving ? null : _next,
                         ),
                       ),
@@ -312,6 +323,154 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     },
   );
 
+  /// Step: the name the broker wants for this property.
+  Widget _nameField() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      TextField(
+        key: const ValueKey('property-name'),
+        controller: name,
+        autofocus: true,
+        textCapitalization: TextCapitalization.words,
+        textInputAction: TextInputAction.next,
+        onSubmitted: (_) => _next(),
+        style: const TextStyle(fontSize: 18, height: 24 / 18, color: AppColors.heading),
+        decoration: const InputDecoration(
+          labelText: 'Property name',
+          hintText: 'For example: Flat 402, Madhapur',
+          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        ),
+      ),
+      const SizedBox(height: 10),
+      const Text(
+        'Only you see this name. You can change it later.',
+        style: TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted),
+      ),
+    ],
+  );
+
+  /// Step: add details yourself (main way), or from a sale deed / old rent agreement.
+  Widget _howToAdd() {
+    Widget option(String value, IconData icon, String title, String sub, {bool recommended = false}) {
+      final on = addWay == value;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Material(
+          color: on ? AppColors.primarySoft : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: on ? AppColors.primary : AppColors.border, width: on ? 2 : 1),
+          ),
+          child: InkWell(
+            key: ValueKey('add-way-$value'),
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => setState(() {
+              addWay = value;
+              error = null;
+            }),
+            child: Padding(
+              padding: EdgeInsets.all(recommended ? 18 : 16),
+              child: Row(
+                children: [
+                  Container(
+                    width: recommended ? 52 : 44,
+                    height: recommended ? 52 : 44,
+                    decoration: BoxDecoration(
+                      color: recommended ? AppColors.primary : AppColors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(icon, size: recommended ? 26 : 22, color: recommended ? Colors.white : AppColors.primaryDark),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                title,
+                                style: TextStyle(fontSize: recommended ? 18 : 17, fontWeight: FontWeight.w600, color: AppColors.heading),
+                              ),
+                            ),
+                            if (recommended) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(color: AppColors.successSoft, borderRadius: BorderRadius.circular(10)),
+                                child: const Text('Best', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.success)),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(sub, style: const TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(on ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: on ? AppColors.primary : AppColors.muted),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        option('manual', Icons.edit_note, 'Add details myself', 'Answer a few quick questions. Takes 2 minutes.', recommended: true),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(4, 6, 4, 12),
+          child: Text('Or let us read a paper', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.muted)),
+        ),
+        option('saleDeed', Icons.description_outlined, 'Upload sale deed', 'We fill the details from it. You check them.'),
+        option('oldAgreement', Icons.history_edu_outlined, 'Upload old rent agreement', 'We fill the details from it. You check them.'),
+      ],
+    );
+  }
+
+  /// Reading papers needs the backend. Say so plainly and offer the main way.
+  Future<void> _uploadNotReady() async {
+    final paper = addWay == 'saleDeed' ? 'sale deed' : 'old rent agreement';
+    final manual = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Reading a $paper is coming soon', style: const TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
+              const SizedBox(height: 6),
+              const Text(
+                'For now, add the details yourself. It takes 2 minutes.',
+                style: TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted),
+              ),
+              const SizedBox(height: 20),
+              PrimaryButton(label: 'Add details myself', onPressed: () => Navigator.pop(sheet, true)),
+              const SizedBox(height: 4),
+              Center(child: TextButton(onPressed: () => Navigator.pop(sheet, false), child: const Text('Go back'))),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (manual == true && mounted) {
+      setState(() {
+        addWay = 'manual';
+        stage = 3;
+        error = null;
+      });
+    }
+  }
+
   Widget _addressFields() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -327,7 +486,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
         ),
         textCapitalization: TextCapitalization.words,
         decoration: InputDecoration(
-          labelText: 'Property name or address (optional)',
+          labelText: 'Full address (optional)',
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 14,
@@ -863,6 +1022,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
 
   void _editSelected() {
     final property = selected!;
+    name.text = property.name;
     address.text = property.address;
     size.text = property.sizeSqFt?.toString() ?? '';
     setState(() {
@@ -882,6 +1042,8 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
   }
 
   void _startNewProperty() {
+    name.clear();
+    addWay = 'manual';
     address.clear();
     size.clear();
     setState(() {
@@ -907,7 +1069,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
       selected = property;
       justSaved = false;
       _editSelected();
-      setState(() => stage = 4);
+      setState(() => stage = 6);
     }
   }
 
@@ -931,7 +1093,30 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
   }
 
   Future<void> _next() async {
-    if (stage == 4) {
+    if (stage == 1) {
+      if (name.text.trim().length < 2) {
+        setState(() => error = 'Type a name for the property');
+        return;
+      }
+      // Editing a saved property: no need to ask how to add details again.
+      setState(() {
+        stage = selected != null ? 3 : 2;
+        error = null;
+      });
+      return;
+    }
+    if (stage == 2) {
+      if (addWay != 'manual') {
+        await _uploadNotReady();
+        return;
+      }
+      setState(() {
+        stage = 3;
+        error = null;
+      });
+      return;
+    }
+    if (stage == 6) {
       if (selected!.validationError != null) {
         setState(
           () => error =
@@ -946,13 +1131,13 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
       }
       return;
     }
-    if (stage == 1 &&
+    if (stage == 3 &&
         size.text.isNotEmpty &&
         (double.tryParse(size.text) == null || double.parse(size.text) <= 0)) {
       setState(() => error = 'Enter a valid size');
       return;
     }
-    if (stage == 2 &&
+    if (stage == 4 &&
         (rooms == null || furnishing == null || totalFloors < floor)) {
       setState(
         () => error = rooms == null
@@ -963,7 +1148,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
       );
       return;
     }
-    if (stage < 3) {
+    if (stage < 5) {
       setState(() {
         stage++;
         error = null;
@@ -972,6 +1157,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     }
     final property = BrokerProperty(
       id: selected?.id ?? '',
+      name: name.text.trim(),
       address: address.text,
       rooms: rooms!,
       floor: floor,
@@ -993,7 +1179,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
         setState(() {
           selected = saved;
           justSaved = true;
-          stage = 4;
+          stage = 6;
         });
       }
     } catch (_) {
@@ -1313,6 +1499,7 @@ class _PropertySearchState extends State<_PropertySearch> {
     final matches = widget.properties
         .where(
           (property) =>
+              property.displayName.toLowerCase().contains(query.toLowerCase()) ||
               property.address.toLowerCase().contains(query.toLowerCase()),
         )
         .toList();

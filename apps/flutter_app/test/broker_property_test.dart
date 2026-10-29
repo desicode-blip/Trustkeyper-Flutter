@@ -201,6 +201,25 @@ void main() {
           await captureScreen(tester, boundary, 'property-picker');
         }
         await tapVisible(tester, find.text('Add new property'));
+        // 1. Name the property (required).
+        expect(find.text('Give it a name you will remember.'), findsOneWidget);
+        await tapVisible(tester, find.text('Next'));
+        expect(find.text('Type a name for the property'), findsOneWidget);
+        await tester.enterText(find.byKey(const ValueKey('property-name')), 'Phoenix flat');
+        await tapVisible(tester, find.text('Next'));
+        // 2. How to add details: manual is first and picked.
+        expect(find.text('Add details myself'), findsOneWidget);
+        expect(find.text('Upload sale deed'), findsOneWidget);
+        expect(find.text('Upload old rent agreement'), findsOneWidget);
+        await tapVisible(tester, find.text('Upload sale deed'));
+        await tapVisible(tester, find.text('Next'));
+        expect(find.text('Reading a sale deed is coming soon'), findsOneWidget);
+        await tapVisible(
+          tester,
+          find.descendant(of: find.byType(BottomSheet), matching: find.text('Add details myself')),
+        );
+        // 3. The usual details.
+        expect(find.text('Tell us about the property.'), findsOneWidget);
         if (width == 440) {
           await captureScreen(tester, boundary, 'property-address-empty');
         }
@@ -255,6 +274,7 @@ void main() {
         await tapVisible(tester, find.text('Save property'));
         expect(find.text('Property added'), findsOneWidget);
         expect(repository.saved.single.address, 'Flat 402, Phoenix Towers');
+        expect(repository.saved.single.name, 'Phoenix flat');
         expect(repository.saved.single.floor, 4);
         expect(repository.saved.single.totalFloors, 5);
         expect(repository.saved.single.inventory['Fan'], 1);
