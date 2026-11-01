@@ -1,6 +1,6 @@
 # TrustKeyper Website – Developer Guide
 
-Last updated: 1 November 2026 · Owner: Aman Maheshwari · Readers: developers and AI agents
+Last updated: 1 November 2026 (evening, change log up to CHG-056) · Owner: Aman Maheshwari · Readers: developers and AI agents
 
 The new trustkeyper.com website and its backend are **built and tested**. This guide explains what was done, what the developer still has to do before go-live, and the decisions behind it.
 
@@ -45,20 +45,21 @@ Starting point: an exact copy of the old live trustkeyper.com, verified pixel-fo
 - Page changes: the page scrolls to the top and fades, so visitors see the change. Respects "reduce motion".
 - Floating **WhatsApp** button on every page (+91 8088516875).
 - Top menu: For Homeowners · For Property Agents · For Builders.
+- **Every screen size is supported** (see section 3.1): phones, tablets and desktops each have their own layout; nothing scrolls sideways from 360 px up.
 
 **Homeowner page (`/`)** – restructured from 10 sections to 7, removing repetition:
-1. Hero: "Your home in Hyderabad, looked after while you're away."
+1. Hero: "Your home in Hyderabad, looked after while you're away." Button **Register now →** (compact, with shadow). On phones only: shorter line ("Tenants, rent and repairs, handled by one local team."), darker shade behind the text, no manager photo, and a small 2-row Property Status card so the house photo shows.
 2. Trust strip: 2 years in Hyderabad · rent paid on our platform · tenants verified · approval over ₹1,000.
-3. All services (7 cards), including new **property tax paid on time**, **care while you're away** and **car care**.
+3. All services (7 cards), including new **property tax paid on time** (wide card with a subtle green tint and NEW tag), **care while you're away** and **car care**.
 4. "Clear rules. No surprises." – six written promises.
-5. How it works (3 steps).
+5. How it works (3 steps). Step 1 has a **Start now →** button to the form. Numbers are white badges with a soft shadow. On phones the number sits beside the text.
 6. Owner stories (3 quotes, approved by the owners).
-7. FAQ + enquiry form.
+7. FAQ (single heading "Frequently asked questions.", all questions collapsed by default) + enquiry form.
 
 **Property Agent page (`/for-property-agents`)** – redesigned for agents with limited reading:
 - One message: "Every visit should earn you money." Customers pay a **₹100** visit-booking fee through the agent's link (amount set in `site.config.json`).
 - **English / हिंदी / తెలుగు** switch at the top; the choice is remembered. Text lives in `site/src/i18n/agent-page.json`.
-- Simple sections: the problem vs the new way, 4 steps, app tools (property records, rent agreements, call for help), FAQ.
+- Simple sections: the problem vs the new way, 4 steps, app tools (property records, rent agreements, call for help), FAQ (collapsed by default, heading "Frequently asked questions" in all three languages).
 - App screens on this page are illustrations, not real screenshots.
 
 **Builders page (`/for-builders`)** – new:
@@ -90,6 +91,18 @@ Common edits:
 | Enquiry form | `src/_partials/enquiry.html` + "Enquiry form v4" in `src/website.js` |
 | WhatsApp number/text | "Floating WhatsApp button" in `src/website.js` |
 
+### 3.1 Screen sizes (standing rule)
+Aman's rule: **every change applies to all screen sizes** unless he explicitly says it is for one size only. Check each change at phone, tablet and desktop widths before calling it done.
+
+| Range | Name | Notes |
+|---|---|---|
+| under 640 px | Phone | Single column; phone-only tweaks use `@media (max-width: 639px)` |
+| 640–1199 px | Tablet | Two/three-column grids; header shows ☰ menu + Contact Us + Sign Up |
+| 1200 px and up | Desktop | Full header menu on one line |
+
+Phone-only text variants on the homepage hero use the classes `tkh-hero-m` (phone) and `tkh-hero-d` (tablet/desktop). Responsive rules live at the end of `website.css`, `agent.css` and `builder.css` under "Responsive pass".
+
+### 3.2 Styles
 Styles: `src/assets/index-*.css` is the original compiled Tailwind file (do not edit). New styles are in `src/website.css` (site-wide), `src/agent.css` (agent page) and `src/builder.css` (builders page). Because the Tailwind file is precompiled, new Tailwind class names will not work; use those three files.
 
 ---
@@ -103,7 +116,7 @@ Styles: `src/assets/index-*.css` is the original compiled Tailwind file (do not 
 4. One "need the most" question for that role, with **All of the above** highlighted, then a few role questions and an optional note.
 5. **Send** → thank-you message.
 
-On the homepage the form sits beside a photo that resizes with it; on `/contact-us` it is full width.
+On the homepage the form sits beside a photo that resizes with it (desktop, 901 px and up). Below 900 px the photo is hidden and the form is one full-width column; on `/contact-us` it is always full width. On phones the floating WhatsApp button fades away while the form is on screen so it never covers a field.
 
 ### 4.2 Preview mode
 On any host other than `trustkeyper.com`, the form does **not** call the backend for codes and accepts **123456** (a yellow note says so). On trustkeyper.com this switches off automatically (`OTP_PREVIEW` in `website.js`). For a staging domain, keep preview on or add the host to that check.
@@ -179,6 +192,7 @@ Host `site/dist/` and add the rewrite from `api/firebase.hosting.example.json` s
 - **Pricing** is intentionally not shown anywhere.
 - **₹100 visit fee wording** says agents "earn from every visit"; the agent's share is not stated. Confirm with Aman before launch.
 - **Agent page translations** (Hindi, Telugu) should be read by a native speaker before launch.
+- **Testimonial wording.** Ghanalaxmi T.'s quote was rewritten on 1 Nov (tenant found and onboarded within 24 hours; "Owner, ASBL Spectra"); confirm with her before launch like the others.
 - **Old assets.** `contact-illustration-*.webp` and a few original images remain in `src/assets/`; the form uses a cropped copy, `contact-photo.webp`.
 
 ---
@@ -188,6 +202,9 @@ Host `site/dist/` and add the rewrite from `api/firebase.hosting.example.json` s
 Run on trustkeyper.com after deploying (preview code 123456 no longer works there).
 
 - [ ] All pages load; menu links work; `/for-brokers` redirects to `/for-property-agents`.
+- [ ] Tablet (768–1199 px): the ☰ menu opens and lists For Homeowners / For Property Agents / For Builders.
+- [ ] FAQs on the homepage and agent page start collapsed; tapping a question opens it.
+- [ ] Homepage hero on a phone: text readable over the photo, button reads "Register now".
 - [ ] Agent page: English / Hindi / Telugu switch works and is remembered.
 - [ ] Phone OTP: SMS arrives within ~10 s and verifies; a wrong code is rejected; resend after 30 s.
 - [ ] Email OTP: code arrives (check spam in Gmail and Outlook) and verifies.
