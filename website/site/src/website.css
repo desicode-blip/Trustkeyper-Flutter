@@ -295,3 +295,8 @@ header nav[aria-label="Audience"] a, header nav[aria-label="Audience"] > span, h
   .tkh-hero-visual aside li:nth-child(n+3) { display: none; }
   .tkh-hero-visual aside li:nth-child(2) { border-bottom: 0; }
 }
+/* Hero button: short, compact, with a shadow (all sizes) */
+.tkh-hero-btn { width: auto !important; height: 50px !important; padding: 0 26px !important; gap: 10px; font-size: 15px !important; font-weight: 600 !important; box-shadow: 0 2px 4px rgba(0,0,0,.12), 0 10px 24px rgba(0,0,0,.22); transition: transform .2s, box-shadow .2s, background-color .2s; }
+.tkh-hero-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,.14), 0 14px 30px rgba(0,0,0,.26); }
+.tkh-hero-btn svg { transition: transform .2s; }
+.tkh-hero-btn:hover svg { transform: translateX(3px); }

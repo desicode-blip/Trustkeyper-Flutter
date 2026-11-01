@@ -955,3 +955,15 @@ branch: staging (never main)
 files: website/site/src/index.html (.tkh-hero-m/.tkh-hero-d text variants, .tkh-hero-visual, .tkh-hero-shade; FAQ aria-expanded=false + hidden panels), website/site/src/website.css (phone hero block), website/site/build.py (agent FAQ: first item no longer open)
 verification: hero checked at 360/390/768/1280 px; FAQ: 0 panels open at load on both pages, click opens one
 ```
+
+## Change 56 – Website: hero button short and compact
+Date: 2026-11-01 · Status: code complete; not deployed
+Homepage hero button now reads **Register now →** on all sizes (was "Register and we'll get back to you soon" on tablet/desktop). Compact (50 px tall, auto width), semibold label, soft drop shadow so it reads as a button, gentle lift and arrow nudge on hover.
+```
+AGENT RECORD – Change 56
+id: CHG-056
+date: 2026-11-01
+branch: staging (never main)
+files: website/site/src/index.html (hero CTA label, .tkh-hero-btn class), website/site/src/website.css (.tkh-hero-btn)
+verification: checked at 390/768/1280 px
+```
