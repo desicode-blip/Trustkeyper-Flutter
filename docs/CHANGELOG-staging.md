@@ -890,3 +890,15 @@ branch: staging (never main)
 files: website/site/src/index.html (FAQ eyebrow removed, h2 text), website/site/src/__agent_page__/index.html (faq.eyebrow removed), website/site/src/i18n/agent-page.json (faq.title EN/HI/TE, faq.eyebrow key removed)
 verification: checked at 390 and 1280 px
 ```
+
+## Change 51 – Website: Ghanalaxmi T. testimonial updated
+Date: 2026-11-01 · Status: code complete; not deployed
+Homeowner page, Owner stories, third card: location now "Owner, ASBL Spectra"; quote now about finding, verifying and onboarding a tenant within 24 hours. Wording drafted for the owner's approval.
+```
+AGENT RECORD – Change 51
+id: CHG-051
+date: 2026-11-01
+branch: staging (never main)
+files: website/site/src/index.html (third .tkh-quote: blockquote text, figcaption small)
+verification: checked at 390 and 1280 px
+```
