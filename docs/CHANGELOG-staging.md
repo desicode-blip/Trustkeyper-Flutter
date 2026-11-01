@@ -927,3 +927,15 @@ branch: staging (never main)
 files: website/site/src/website.css (.tkh-services .tkh-wide restyle)
 verification: checked at 390 and 1280 px
 ```
+
+## Change 54 – Website: removed "Register your property" button under How it works
+Date: 2026-11-01 · Status: code complete; not deployed
+The dark "Register your property" button below the three steps is removed on all screen sizes. Step 1's "Start now" button already leads to the enquiry form.
+```
+AGENT RECORD – Change 54
+id: CHG-054
+date: 2026-11-01
+branch: staging (never main)
+files: website/site/src/index.html (.tkh-cta block in #how-it-works removed)
+verification: checked at 390 and 1280 px
+```
