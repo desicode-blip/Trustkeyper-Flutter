@@ -1,0 +1,19 @@
+name: trustkeyper_web_api
+description: Backend for the trustkeyper.com website enquiry form (OTP verification + enquiries). Runs on Google Cloud Run in the TrustKeyper Firebase project.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.4.0
+
+dependencies:
+  shelf: ^1.4.1
+  shelf_router: ^1.1.4
+  http: ^1.2.1
+  crypto: ^3.0.3
+  googleapis: ^13.2.0
+  googleapis_auth: ^1.6.0
+
+dev_dependencies:
+  test: ^1.25.0
+  lints: ^4.0.0

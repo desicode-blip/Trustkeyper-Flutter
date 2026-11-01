@@ -1,0 +1,10 @@
+{
+  "hosting": {
+    "public": "dist",
+    "cleanUrls": true,
+    "trailingSlash": false,
+    "rewrites": [
+      { "source": "/api/**", "run": { "serviceId": "tk-web-api", "region": "asia-south1" } }
+    ]
+  }
+}

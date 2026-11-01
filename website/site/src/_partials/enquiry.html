@@ -1,0 +1,167 @@
+<div class="tkf-wrap">
+<form class="tkf" data-enquiry-form="" novalidate="" action="/api/contact" method="post">
+<input tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" type="text" value="" name="website">
+
+<!-- Step 1: name -->
+<div class="tkf-field">
+  <label for="tkf-name">Your name<span class="tkf-req"> *</span></label>
+  <input id="tkf-name" name="name" type="text" autocomplete="name" maxlength="120" placeholder="Full name" required>
+</div>
+
+<!-- Step 2: verify phone or email -->
+<div class="tkf-field" data-verify-block>
+  <p class="tkf-label">How should we reach you?<span class="tkf-req"> *</span></p>
+  <div class="tkf-reach" data-reach-choose>
+    <button type="button" class="tkf-reach-btn" data-open-otp="phone"><span aria-hidden="true">📱</span>Phone number</button>
+    <button type="button" class="tkf-reach-btn" data-open-otp="email"><span aria-hidden="true">✉️</span>Email address</button>
+  </div>
+  <div class="tkf-verified" data-verified hidden>
+    <span class="tkf-verified-ico" aria-hidden="true">✓</span>
+    <span><b data-verified-value></b><small>Verified</small></span>
+    <button type="button" class="tkf-link" data-change-contact>Change</button>
+  </div>
+  <p class="tkf-hint" data-verify-hint>We'll send a one-time code to confirm it's you.</p>
+</div>
+
+<!-- Step 3: everything else, opens after verification -->
+<div class="tkf-after" data-after hidden>
+  <fieldset class="tkf-field">
+    <legend>I am a<span class="tkf-req"> *</span></legend>
+    <div class="tkf-roles" role="radiogroup">
+      <label class="tkf-role"><input type="radio" name="role" value="property_owner"><span>🏠</span><b>Property owner</b></label>
+      <label class="tkf-role"><input type="radio" name="role" value="tenant"><span>🔑</span><b>Tenant</b></label>
+      <label class="tkf-role"><input type="radio" name="role" value="broker"><span>🤝</span><b>{{agent.singular}}</b></label>
+      <label class="tkf-role"><input type="radio" name="role" value="builder"><span>🏗️</span><b>Builder</b></label>
+    </div>
+  </fieldset>
+
+  <!-- Property owner -->
+  <div class="tkf-more" data-for="property_owner" hidden>
+    <fieldset class="tkf-field">
+      <legend>Which service do you need the most?</legend>
+      <div class="tkf-chips" data-most>
+        <label><input type="radio" name="ownerMost" value="Tenant finding & screening"><span>Tenant finding</span></label>
+        <label><input type="radio" name="ownerMost" value="Rent collection"><span>Rent collection</span></label>
+        <label><input type="radio" name="ownerMost" value="Home servicing"><span>Home servicing</span></label>
+        <label><input type="radio" name="ownerMost" value="Repairs & renovation"><span>Repairs &amp; renovation</span></label>
+        <label><input type="radio" name="ownerMost" value="Property tax payment"><span>Property tax</span></label>
+        <label><input type="radio" name="ownerMost" value="Care while away"><span>Care while I'm away</span></label>
+        <label><input type="radio" name="ownerMost" value="Car care"><span>Car care</span></label>
+        <label class="tkf-all"><input type="radio" name="ownerMost" value="All of the above"><span>All of the above</span></label>
+      </div>
+    </fieldset>
+    <div class="tkf-row">
+      <div class="tkf-field"><label for="tkf-o-type">Property type</label>
+        <select id="tkf-o-type" name="ownerPropertyType"><option value="">Select</option><option>Apartment</option><option>Villa</option><option>Independent house</option><option>Commercial</option></select></div>
+      <div class="tkf-field"><label for="tkf-o-area">Property location</label>
+        <input id="tkf-o-area" name="ownerArea" type="text" maxlength="120" placeholder="e.g. Gachibowli, Hyderabad"></div>
+    </div>
+    <div class="tkf-field"><label for="tkf-o-when">When do you need this?</label>
+      <select id="tkf-o-when" name="serviceTiming"><option value="immediately">Immediately</option><option value="within_1_month">Within 1 month</option><option value="within_3_months">Within 3 months</option><option value="within_6_months">Within 6 months</option><option value="exploring" selected>Just exploring</option></select></div>
+  </div>
+
+  <!-- Tenant -->
+  <div class="tkf-more" data-for="tenant" hidden>
+    <fieldset class="tkf-field">
+      <legend>What do you need the most?</legend>
+      <div class="tkf-chips" data-most>
+        <label><input type="radio" name="tenantMost" value="Find a home to rent"><span>Find a home to rent</span></label>
+        <label><input type="radio" name="tenantMost" value="Verified owner, no surprises"><span>Verified owner</span></label>
+        <label><input type="radio" name="tenantMost" value="Rent agreement"><span>Rent agreement</span></label>
+        <label><input type="radio" name="tenantMost" value="Move-in help"><span>Move-in help</span></label>
+        <label><input type="radio" name="tenantMost" value="Repairs while I live there"><span>Repairs while I stay</span></label>
+        <label class="tkf-all"><input type="radio" name="tenantMost" value="All of the above"><span>All of the above</span></label>
+      </div>
+    </fieldset>
+    <div class="tkf-row">
+      <div class="tkf-field"><label for="tkf-t-size">Looking for</label>
+        <select id="tkf-t-size" name="tenantSize"><option value="">Select</option><option>1 BHK</option><option>2 BHK</option><option>3 BHK</option><option>4 BHK or more</option><option>Villa</option></select></div>
+      <div class="tkf-field"><label for="tkf-t-budget">Monthly budget</label>
+        <select id="tkf-t-budget" name="tenantBudget"><option value="">Select</option><option>Under ₹25,000</option><option>₹25,000 – ₹50,000</option><option>₹50,000 – ₹1,00,000</option><option>Above ₹1,00,000</option></select></div>
+    </div>
+    <div class="tkf-row">
+      <div class="tkf-field"><label for="tkf-t-area">Preferred area</label>
+        <input id="tkf-t-area" name="tenantArea" type="text" maxlength="120" placeholder="e.g. Kondapur, Financial District"></div>
+      <div class="tkf-field"><label for="tkf-t-when">Move-in</label>
+        <select id="tkf-t-when" name="serviceTiming"><option value="immediately">Immediately</option><option value="within_1_month" selected>Within 1 month</option><option value="within_3_months">Within 3 months</option><option value="exploring">Just exploring</option></select></div>
+    </div>
+  </div>
+
+  <!-- Property agent -->
+  <div class="tkf-more" data-for="broker" hidden>
+    <fieldset class="tkf-field">
+      <legend>What interests you the most?</legend>
+      <div class="tkf-chips" data-most>
+        <label><input type="radio" name="agentMost" value="Earn from every visit"><span>Earn from every visit</span></label>
+        <label><input type="radio" name="agentMost" value="List my properties"><span>List my properties</span></label>
+        <label><input type="radio" name="agentMost" value="Rent agreements"><span>Rent agreements</span></label>
+        <label><input type="radio" name="agentMost" value="Partner with TrustKeyper"><span>Partner with TrustKeyper</span></label>
+        <label class="tkf-all"><input type="radio" name="agentMost" value="All of the above"><span>All of the above</span></label>
+      </div>
+    </fieldset>
+    <div class="tkf-field"><label for="tkf-a-area">Areas you work in</label>
+      <input id="tkf-a-area" name="agentArea" type="text" maxlength="160" placeholder="e.g. Madhapur, Hitec City"></div>
+  </div>
+
+  <!-- Builder -->
+  <div class="tkf-more" data-for="builder" hidden>
+    <fieldset class="tkf-field">
+      <legend>What do you need the most?</legend>
+      <div class="tkf-chips" data-most>
+        <label><input type="radio" name="builderMost" value="Post-sales care for buyers"><span>Post-sales care</span></label>
+        <label><input type="radio" name="builderMost" value="Construction updates for buyers"><span>Construction updates</span></label>
+        <label><input type="radio" name="builderMost" value="ERP & automation"><span>ERP &amp; automation</span></label>
+        <label><input type="radio" name="builderMost" value="Security automation"><span>Security automation</span></label>
+        <label><input type="radio" name="builderMost" value="White label"><span>White label</span></label>
+        <label class="tkf-all"><input type="radio" name="builderMost" value="All of the above"><span>All of the above</span></label>
+      </div>
+    </fieldset>
+    <div class="tkf-row">
+      <div class="tkf-field"><label for="tkf-b-company">Company name<span class="tkf-req"> *</span></label>
+        <input id="tkf-b-company" name="company" type="text" maxlength="160" placeholder="Your construction company"></div>
+      <div class="tkf-field"><label for="tkf-b-role">Your role</label>
+        <select id="tkf-b-role" name="builderRole"><option value="">Select</option><option>Founder / Director</option><option>Sales head</option><option>Marketing head</option><option>Other</option></select></div>
+    </div>
+    <div class="tkf-field"><label for="tkf-b-proj">Project location</label>
+      <input id="tkf-b-proj" name="builderProject" type="text" maxlength="160" placeholder="e.g. Kokapet, Hyderabad"></div>
+  </div>
+
+  <div class="tkf-more tkf-msg" data-for="any" hidden>
+    <div class="tkf-field"><label for="tkf-msg">Anything else? <span class="tkf-opt">(optional)</span></label>
+      <textarea id="tkf-msg" name="note" rows="3" maxlength="2000" placeholder="Tell us a little more"></textarea></div>
+  </div>
+
+  <div class="tkf-send"><button class="tkf-submit" type="submit" data-enquiry-submit="" disabled>Send</button></div>
+</div>
+<p class="tkf-status" data-enquiry-status="" role="status" aria-live="polite"></p>
+</form>
+<figure class="tkf-visual" aria-hidden="true"><img src="/assets/contact-photo.webp" alt="" loading="lazy" decoding="async"><figcaption><span class="tkf-dot"></span>Our team calls you back</figcaption></figure>
+</div>
+
+<!-- OTP popup -->
+<div class="tkf-modal" data-otp-modal hidden role="dialog" aria-modal="true" aria-labelledby="tkf-otp-title">
+  <div class="tkf-modal-card">
+    <button type="button" class="tkf-modal-x" data-otp-close aria-label="Close">×</button>
+    <div data-otp-step="enter">
+      <p class="tkf-modal-ico" aria-hidden="true" data-otp-ico>📱</p>
+      <h3 id="tkf-otp-title" data-otp-title>Verify your phone number</h3>
+      <p class="tkf-modal-sub" data-otp-sub>We'll send a 6-digit code by SMS.</p>
+      <div class="tkf-phone" data-otp-phone-wrap><span>+91</span><input type="tel" inputmode="numeric" maxlength="10" placeholder="10-digit mobile number" data-otp-phone autocomplete="tel-national"></div>
+      <input type="email" class="tkf-modal-input" placeholder="you@example.com" data-otp-email autocomplete="email" hidden>
+      <p class="tkf-err" data-otp-err hidden></p>
+      <button type="button" class="tkf-modal-btn" data-otp-send disabled>Send OTP</button>
+    </div>
+    <div data-otp-step="code" hidden>
+      <p class="tkf-modal-ico" aria-hidden="true">🔐</p>
+      <h3>Enter the code</h3>
+      <p class="tkf-modal-sub">Sent to <b data-otp-target></b> · <button type="button" class="tkf-link" data-otp-edit>Edit</button></p>
+      <div class="tkf-otp" data-otp-boxes>
+        <input inputmode="numeric" aria-label="Digit 1" autocomplete="one-time-code"><input inputmode="numeric" aria-label="Digit 2"><input inputmode="numeric" aria-label="Digit 3"><input inputmode="numeric" aria-label="Digit 4"><input inputmode="numeric" aria-label="Digit 5"><input inputmode="numeric" aria-label="Digit 6">
+      </div>
+      <p class="tkf-err" data-otp-code-err hidden></p>
+      <button type="button" class="tkf-modal-btn" data-otp-verify disabled>Verify</button>
+      <p class="tkf-modal-foot"><button type="button" class="tkf-link" data-otp-resend disabled>Resend code</button> <span data-otp-timer></span></p>
+      <p class="tkf-demo" data-otp-demo hidden>Preview mode: use code <b>123456</b></p>
+    </div>
+  </div>
+</div>

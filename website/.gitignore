@@ -1,0 +1,4 @@
+site/dist/
+api/.dart_tool/
+api/bin/server
+.env

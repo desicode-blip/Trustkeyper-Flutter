@@ -1,0 +1,53 @@
+{
+  "_readme": "Edit this file, then run: python3 build.py. Every page is rebuilt into dist/. Never edit dist/ by hand.",
+  "agent": {
+    "_readme": "What the website calls the person who finds tenants for us (was 'Broker'). Change singular/plural/slug (and the Hindi/Telugu names under translations) to rename everywhere.",
+    "singular": "Property Agent",
+    "plural": "Property Agents",
+    "slug": "for-property-agents",
+    "oldSlugs": [
+      "for-brokers"
+    ],
+    "translations": {
+      "hi": {
+        "singular": "प्रॉपर्टी एजेंट",
+        "plural": "प्रॉपर्टी एजेंट"
+      },
+      "te": {
+        "singular": "ప్రాపర్టీ ఏజెంట్",
+        "plural": "ప్రాపర్టీ ఏజెంట్లు"
+      }
+    }
+  },
+  "offices": [
+    {
+      "city": "Noida",
+      "label": "Head Office",
+      "lines": [
+        "Works/Office No. 08 (FF), Block: MART",
+        "Mahagun Moderne, Plot No. GH-02",
+        "Sector 78, Noida, Uttar Pradesh 201301"
+      ]
+    },
+    {
+      "city": "Bengaluru",
+      "label": "Branch Office",
+      "lines": [
+        "HD-198, Embassy TechVillage",
+        "Outer Ring Road, Bellandur",
+        "Bengaluru, Karnataka 560103"
+      ]
+    },
+    {
+      "city": "Hyderabad",
+      "label": "Branch Office",
+      "lines": [
+        "1st Floor, Rajpushpa Summit",
+        "Nanakramguda Rd, Financial District",
+        "Hyderabad, Telangana 500032"
+      ]
+    }
+  ],
+  "visitFee": "₹100",
+  "_visitFee_readme": "Amount a customer pays to book a property visit through an agent's link. Shown on the Property Agent page in every language."
+}

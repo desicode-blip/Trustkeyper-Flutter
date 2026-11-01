@@ -822,3 +822,19 @@ files: features/broker/data/broker_property_repository.dart (BrokerProperty.name
 note: Firestore rules for properties have no field allowlist, so 'name' saves without a rules change
 verification: flutter analyze No issues found; broker_property_test 5 passed; full suite same 39 old failures as before
 ```
+
+## Change 46 – New `website/` folder: trustkeyper.com website + its backend
+Date: 2026-11-01 · Status: code complete; not deployed
+Adds the rebuilt public website and its enquiry backend in a new top-level folder. Nothing in the app, `functions/` or root Firebase config changed.
+- `website/site/`: the website source and build script (homeowner, property agent with EN/HI/TE, builders, contact and legal pages; WhatsApp button; verify-first enquiry form).
+- `website/api/`: Dart backend for Cloud Run: `/api/otp/send`, `/api/otp/verify`, `/api/contact`, using Firestore collections `web_otp`, `web_rate`, `web_leads`.
+- `website/docs/DEVELOPER_GUIDE.md`: what was built, the developer's to-do list (MSG91 + DLT, Resend, secrets, deploy, hosting, Firestore TTL/rules), considerations and go-live tests.
+```
+AGENT RECORD – Change 46
+id: CHG-046
+date: 2026-11-01
+branch: staging (never main)
+files: website/** (new folder only)
+deploy: none (no CI workflow; backend and site deploys are manual, see website/docs/DEVELOPER_GUIDE.md)
+verification: site build.py OK; api dart analyze no issues; dart test 18 passed
+```
