@@ -256,3 +256,14 @@ header nav[aria-label="Audience"] a, header nav[aria-label="Audience"] > span, h
 .tkf-compact .tkf-wrap { grid-template-columns: minmax(0, 1fr); }
 .tk-wa { transition: transform .25s ease, opacity .25s ease, box-shadow .2s; }
 @media (max-width: 640px) { .tk-wa.tk-wa-away { opacity: 0; transform: translateY(20px); pointer-events: none; } }
+/* How it works: quieter number badges (all sizes) */
+.tkh-num { background: #fff; color: #0d1a48; box-shadow: 0 1px 2px rgba(13,26,72,.08), 0 4px 12px rgba(13,26,72,.10); border: 1px solid #e3e9ff; font-weight: 600; }
+/* How it works on phones only: number beside the text, compact cards */
+@media (max-width: 639px) {
+  .tkh-steps { gap: 12px; }
+  .tkh-steps li { display: grid; grid-template-columns: 36px 1fr; column-gap: 16px; align-items: start; padding: 20px 20px 22px; }
+  .tkh-steps .tkh-num { grid-row: 1 / span 3; width: 36px; height: 36px; font-size: 15px; }
+  .tkh-steps h3 { margin-top: 6px; font-size: 18px; }
+  .tkh-steps p { margin-top: 4px; }
+  .tkh-steps .tkh-start { grid-column: 2; justify-self: start; margin-top: 14px; }
+}

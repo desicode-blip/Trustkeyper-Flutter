@@ -902,3 +902,16 @@ branch: staging (never main)
 files: website/site/src/index.html (third .tkh-quote: blockquote text, figcaption small)
 verification: checked at 390 and 1280 px
 ```
+
+## Change 52 – Website: How it works – quieter numbers, compact phone layout
+Date: 2026-11-01 · Status: code complete; not deployed
+- All sizes: the 1/2/3 badges are now white with a soft shadow and navy number (the green fill looked like a button).
+- Phones only (under 640 px, as requested): number sits to the left of the step title and text, cards are tighter, and the Start now button lines up under the text. Tablet and desktop keep the 3-card row.
+```
+AGENT RECORD – Change 52
+id: CHG-052
+date: 2026-11-01
+branch: staging (never main)
+files: website/site/src/website.css (.tkh-num restyle; @media (max-width:639px) grid layout for .tkh-steps li)
+verification: checked at 360/390/768/1280 px; no sideways scroll
+```
