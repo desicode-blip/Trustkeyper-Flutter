@@ -853,3 +853,15 @@ branch: staging (never main)
 files: website/site/src/website.css, website/site/src/agent.css, website/site/src/builder.css (appended "Responsive pass" blocks)
 verification: playwright scan at 7 widths × 7 pages, scrollWidth == viewport; visual check at 390/768/1024/1280
 ```
+
+## Change 48 – Website: "Start now" button in How it works
+Date: 2026-11-01 · Status: code complete; not deployed
+Homeowner page, How it works, step 1 ("Tell us about your home") now has a small green **Start now →** button that scrolls to the enquiry form (`#get-started`). All screen sizes.
+```
+AGENT RECORD – Change 48
+id: CHG-048
+date: 2026-11-01
+branch: staging (never main)
+files: website/site/src/index.html (.tkh-start link in first .tkh-steps item), website/site/src/website.css (.tkh-start styles)
+verification: checked at 390/768/1280 px; click lands on form heading; no sideways scroll
+```
