@@ -915,3 +915,15 @@ branch: staging (never main)
 files: website/site/src/website.css (.tkh-num restyle; @media (max-width:639px) grid layout for .tkh-steps li)
 verification: checked at 360/390/768/1280 px; no sideways scroll
 ```
+
+## Change 53 – Website: property tax card toned down
+Date: 2026-11-01 · Status: code complete; not deployed
+Homeowner page, All services: the "Property tax, paid on time" card was dark navy and stood out too much. It now matches the other cards (light, dark text) with a faint green tint and thin green outline, plus the existing NEW tag. All screen sizes.
+```
+AGENT RECORD – Change 53
+id: CHG-053
+date: 2026-11-01
+branch: staging (never main)
+files: website/site/src/website.css (.tkh-services .tkh-wide restyle)
+verification: checked at 390 and 1280 px
+```

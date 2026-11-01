@@ -267,3 +267,10 @@ header nav[aria-label="Audience"] a, header nav[aria-label="Audience"] > span, h
   .tkh-steps p { margin-top: 4px; }
   .tkh-steps .tkh-start { grid-column: 2; justify-self: start; margin-top: 14px; }
 }
+/* Property tax card: subtle "new" look instead of the dark card (all sizes) */
+.tkh-services .tkh-wide { background: linear-gradient(135deg, #f2fbf6 0%, #ffffff 70%); border: 1px solid #cdeedd; }
+.tkh-wide h3 { color: #0d1a48; font-size: 19px; }
+.tkh-wide p { color: #5b6b7f; font-size: 14px; max-width: 520px; }
+.tkh-wide li { color: #243547; }
+.tkh-wide li svg { stroke: #2fb873; }
+.tkh-wide .tkh-icon { background: #fff; box-shadow: 0 1px 3px rgba(13,26,72,.06); }
