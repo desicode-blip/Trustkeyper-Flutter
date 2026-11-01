@@ -251,3 +251,8 @@ header nav[aria-label="Audience"] a, header nav[aria-label="Audience"] > span, h
 .tkh-start:hover { background: #5adb98; transform: translateY(-1px); }
 .tkh-start svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
 .tkh-start:hover svg { transform: translateX(2px); }
+/* Enquiry card: single column whenever the photo is hidden (fix: phones/tablets) */
+@media (max-width: 900px) { .tkf-wrap { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+.tkf-compact .tkf-wrap { grid-template-columns: minmax(0, 1fr); }
+.tk-wa { transition: transform .25s ease, opacity .25s ease, box-shadow .2s; }
+@media (max-width: 640px) { .tk-wa.tk-wa-away { opacity: 0; transform: translateY(20px); pointer-events: none; } }

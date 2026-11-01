@@ -865,3 +865,16 @@ branch: staging (never main)
 files: website/site/src/index.html (.tkh-start link in first .tkh-steps item), website/site/src/website.css (.tkh-start styles)
 verification: checked at 390/768/1280 px; click lands on form heading; no sideways scroll
 ```
+
+## Change 49 – Website: enquiry form fixed on phones and tablets
+Date: 2026-11-01 · Status: code complete; not deployed
+- Bug: below 900 px the form was squeezed into a narrow column (the hidden photo column still took 300 px). The card is now a single full-width column whenever the photo is hidden, on the homepage and Contact Us.
+- On phones (≤640 px) the floating WhatsApp button fades away while the form is on screen, so it never covers a field, and returns when the visitor scrolls away.
+```
+AGENT RECORD – Change 49
+id: CHG-049
+date: 2026-11-01
+branch: staging (never main)
+files: website/site/src/website.css (.tkf-wrap single column ≤900px; .tk-wa-away), website/site/src/website.js (IntersectionObserver on .tkf-wrap toggles .tk-wa-away)
+verification: form width 272/302/640/445/700 px at 360/390/768/901/1280 viewports; full OTP→submit flow test passed at 1440; OTP popup checked at 390
+```
