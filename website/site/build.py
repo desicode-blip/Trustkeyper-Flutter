@@ -94,7 +94,7 @@ def faq_html():
     items = []
     n = 1
     while f"q{n}" in en:
-        first = n == 1
+        first = False
         items.append(
             f'<div class="tka-faq-item"><button type="button" id="tka-faq-{n}-t" aria-expanded="{str(first).lower()}" '
             f'aria-controls="tka-faq-{n}" data-faq-toggle=""><span data-i18n="q{n}"></span>'

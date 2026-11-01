@@ -274,3 +274,24 @@ header nav[aria-label="Audience"] a, header nav[aria-label="Audience"] > span, h
 .tkh-wide li { color: #243547; }
 .tkh-wide li svg { stroke: #2fb873; }
 .tkh-wide .tkh-icon { background: #fff; box-shadow: 0 1px 3px rgba(13,26,72,.06); }
+
+/* ===== Homepage hero: phone-only version (under 640 px), Nov 2026 ===== */
+.tkh-hero-m { display: none; }
+@media (max-width: 639px) {
+  .tkh-hero-d { display: none !important; }
+  .tkh-hero-m { display: inline; }
+  p.tkh-hero-m { display: block; font: 500 16px/1.5 Roboto, system-ui, sans-serif; color: #e6ebf2; max-width: 300px; }
+  /* Readable text: darker shade over the top of the photo, clearer towards the bottom */
+  .tkh-hero-shade { background: linear-gradient(180deg, rgba(15,27,43,.88) 0%, rgba(15,27,43,.72) 45%, rgba(15,27,43,.15) 78%, rgba(15,27,43,0) 100%) !important; }
+  /* Let the house photo show: no manager photo, small status card tucked at the bottom */
+  .tkh-hero-visual { height: auto !important; max-width: none !important; margin: 0 !important; display: flex; justify-content: flex-end; padding-top: 110px; }
+  .tkh-hero-visual > div:first-child { display: none; }
+  .tkh-hero-visual aside { position: static !important; width: 196px !important; max-width: none !important; padding: 12px 14px !important; border-radius: 16px !important; background: rgba(255,255,255,.94); backdrop-filter: blur(6px); }
+  .tkh-hero-visual aside h2 { font-size: 12px; }
+  .tkh-hero-visual aside ul { margin-top: 6px; }
+  .tkh-hero-visual aside li { padding: 4px 0; gap: 8px; }
+  .tkh-hero-visual aside li > span:first-child { font-size: 11px; }
+  .tkh-hero-visual aside li > span:last-child { font-size: 10px; padding: 2px 6px; }
+  .tkh-hero-visual aside li:nth-child(n+3) { display: none; }
+  .tkh-hero-visual aside li:nth-child(2) { border-bottom: 0; }
+}

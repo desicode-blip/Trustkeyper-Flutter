@@ -939,3 +939,19 @@ branch: staging (never main)
 files: website/site/src/index.html (.tkh-cta block in #how-it-works removed)
 verification: checked at 390 and 1280 px
 ```
+
+## Change 55 – Website: phone-only hero cleanup; FAQs start collapsed
+Date: 2026-11-01 · Status: code complete; not deployed
+Homepage hero, phones only (under 640 px, as requested); tablet and desktop unchanged:
+- Darker shade over the top of the photo so the text is readable; the house shows clearly below.
+- Shorter text: "Tenants, rent and repairs, handled by one local team." Button reads **Register now**. The "No upfront commitment…" line is hidden.
+- Manager photo hidden; Property Status card shrunk to a small card (2 rows) at the bottom right, so the house photo is visible.
+All sizes: every FAQ (homepage, Property Agent page) now starts collapsed; tapping a question opens it.
+```
+AGENT RECORD – Change 55
+id: CHG-055
+date: 2026-11-01
+branch: staging (never main)
+files: website/site/src/index.html (.tkh-hero-m/.tkh-hero-d text variants, .tkh-hero-visual, .tkh-hero-shade; FAQ aria-expanded=false + hidden panels), website/site/src/website.css (phone hero block), website/site/build.py (agent FAQ: first item no longer open)
+verification: hero checked at 360/390/768/1280 px; FAQ: 0 panels open at load on both pages, click opens one
+```
