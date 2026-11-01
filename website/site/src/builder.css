@@ -122,3 +122,17 @@
 .tkb-office-steps li::before { content: counter(s); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--green); color: var(--deep); font-weight: 700; margin-bottom: 10px; }
 .tkb-office-steps b { display: block; font-size: 17px; } .tkb-office-steps span { display: block; margin-top: 4px; font-size: 14px; line-height: 1.5; color: #dbe4ff; font-family: Roboto, system-ui, sans-serif; }
 @media (max-width: 900px) { .tkb-office { grid-template-columns: 1fr; padding: 28px 22px; } .tkb-office-steps { grid-template-columns: 1fr; } .tkb-office h3 { font-size: 23px; } }
+
+/* ===== Responsive pass (Nov 2026) ===== */
+.tkb-hero h1 { font-size: clamp(56px, 5vw + 30px, 96px); }
+@media (min-width: 640px) and (max-width: 900px) {
+  .tkb-values-grid, .tkb-roles { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .tkb-ps { grid-template-columns: 1fr 1fr; }
+  .tkb-ps-who { grid-template-columns: repeat(3, 1fr); }
+  .tkb-ps-who > div { grid-template-columns: 1fr; text-align: left; }
+  .tkb-ps-who span { grid-row: auto; }
+  .tkb-grid, .tkb-flow { grid-template-columns: 1fr 1fr; }
+  .tkb-office-steps { grid-template-columns: repeat(3, 1fr); }
+  .tkb-dash { max-width: 560px; }
+}
+@media (min-width: 640px) and (max-width: 900px) { .tkb-split-rev .tkb-wl-visual { order: 0; } }

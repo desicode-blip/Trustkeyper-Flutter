@@ -202,3 +202,21 @@ html[lang="hi"] .tka-eyebrow, html[lang="te"] .tka-eyebrow { font-family: inheri
   .tka-toast, .tka-book, .tka-help-ico, .tka-speed i { animation: none; }
   .tka-reveal { opacity: 1; transform: none; transition: none; }
 }
+
+/* ===== Responsive pass (Nov 2026) ===== */
+.tka-hero h1 { font-size: clamp(34px, 4.2vw + 14px, 64px); }
+.tka-sec h2, .tka-pace h2, .tka-final h2 { font-size: clamp(28px, 2.4vw + 16px, 44px); }
+@media (max-width: 900px) {
+  .tka-btn { width: auto; }
+  .tka-hero-text { max-width: 640px; }
+}
+@media (max-width: 600px) { .tka-btn, .tka-tool .tka-btn { width: 100%; } }
+@media (min-width: 640px) and (max-width: 900px) {
+  .tka-compare { grid-template-columns: 1fr 1fr; gap: 16px; }
+  .tka-cmp { padding: 24px 20px; }
+  .tka-houses { gap: 5px; }
+  .tka-tools { grid-template-columns: 1fr 1fr; }
+  .tka-tool-help { grid-column: 1 / -1; }
+  .tka-split { grid-template-columns: 1fr; }
+  .tka-hero-visual .tka-phone { transform: scale(.82); margin-bottom: -140px; }
+}

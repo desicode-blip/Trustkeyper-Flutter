@@ -838,3 +838,18 @@ files: website/** (new folder only)
 deploy: none (no CI workflow; backend and site deploys are manual, see website/docs/DEVELOPER_GUIDE.md)
 verification: site build.py OK; api dart analyze no issues; dart test 18 passed
 ```
+
+## Change 47 – Website: phone and tablet layouts
+Date: 2026-11-01 · Status: code complete; not deployed
+- Header: full menu only at 1200 px and wider; below that the ☰ menu (it was missing between 768 and 1023 px, so tablet visitors could not reach the Property Agents or Builders pages). On tablets Contact Us and Sign Up stay visible.
+- Tablet layouts (640–1199 px) for all pages: two- or three-column grids, side-by-side comparison cards, normal-width buttons; headings scale smoothly with screen width.
+- Small phones (under 375 px): tighter role pills and OTP boxes.
+- Checked 360, 390, 600, 768, 820, 1024 and 1280 px on 7 pages: no sideways scrolling.
+```
+AGENT RECORD – Change 47
+id: CHG-047
+date: 2026-11-01
+branch: staging (never main)
+files: website/site/src/website.css, website/site/src/agent.css, website/site/src/builder.css (appended "Responsive pass" blocks)
+verification: playwright scan at 7 widths × 7 pages, scrollWidth == viewport; visual check at 390/768/1024/1280
+```
