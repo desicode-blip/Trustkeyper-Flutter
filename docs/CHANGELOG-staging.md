@@ -878,3 +878,15 @@ branch: staging (never main)
 files: website/site/src/website.css (.tkf-wrap single column ≤900px; .tk-wa-away), website/site/src/website.js (IntersectionObserver on .tkf-wrap toggles .tk-wa-away)
 verification: form width 272/302/640/445/700 px at 360/390/768/901/1280 viewports; full OTP→submit flow test passed at 1440; OTP popup checked at 390
 ```
+
+## Change 50 – Website: one FAQ heading instead of label + heading
+Date: 2026-11-01 · Status: code complete; not deployed
+The FAQ sections showed a small label ("Frequently Asked Questions" / "Questions") above a big heading ("Common questions answered." / "Your questions, answered"). Now there is one big heading only: **Frequently asked questions.** Homeowner page and Property Agent page (EN: Frequently asked questions · HI: अक्सर पूछे जाने वाले सवाल · TE: తరచుగా అడిగే ప్రశ్నలు). All screen sizes.
+```
+AGENT RECORD – Change 50
+id: CHG-050
+date: 2026-11-01
+branch: staging (never main)
+files: website/site/src/index.html (FAQ eyebrow removed, h2 text), website/site/src/__agent_page__/index.html (faq.eyebrow removed), website/site/src/i18n/agent-page.json (faq.title EN/HI/TE, faq.eyebrow key removed)
+verification: checked at 390 and 1280 px
+```
