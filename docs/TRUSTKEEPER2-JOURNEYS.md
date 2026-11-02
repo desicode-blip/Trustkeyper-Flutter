@@ -27,15 +27,15 @@ The web app is Flutter web and reuses the apps' own screens and design system: t
    - **Photos** (up to 10, 3 per row; ★ or drag to set the cover; can skip). Every photo carries a light TrustKeeper watermark.
    - **Only for you** (green, never shared): owner name and phone, keys, note, and **brokerage**: who pays (Owner / Tenant / Both / None) and how much each. Only the tenant's part is shown to tenants.
 5. Property page → **Share**: WhatsApp message with the property link. The link carries only public details. On home cards (Design B) a **Send** button: pick a tenant added before or type a new number (any country code) → WhatsApp / text message / both → "Sent".
-6. **Visits** tab: upcoming visits; after the visit he types the tenant's 4-digit code to get the fee.
+6. **Visits** tab: upcoming visits. **Add gate pass** on each visit (photo/screenshot) → sent to the tenant on WhatsApp. The 1-hour reminder call also reminds him, and the app pings him. After the visit he types the tenant's 4-digit code to get the fee (code works from 24 h before to 24 h after the visit time).
 
 ## 2. Tenant (web, from the property link)
 
 1. Opens the link: photos, rent card, facts, visit-fee rules, "What happens next" (book → visit → token blocks it, house hidden from others → agreement → sign → pay deposit, brokerage if any, 1 month rent → keys). No "In the house" list (brokers don't fill it at this stage). **No login.**
 2. **Book a visit**: picks a day and hour. Days/hours outside the broker's visit times are greyed. Many people can book the same hour.
 3. Signs up: name + mobile (any country code) → 6-digit OTP.
-4. Pays the visit fee → **Visit booked**: 4-digit visit code, **Add to Google Calendar**, reminder call 1 hour before (to tenant and broker).
-5. After the visit: **I want this house** → pays **token ₹15,000** → house is blocked.
+4. Pays the visit fee → **Your visit** screen, in this order: status · **When** (date, time, Add to Google Calendar) · **Where** (society, area, city – no flat number – Open in Google Maps) · **Your broker** (name, number, Call) · visit code · good to know (reminder call 1 hour before, gate pass on WhatsApp, be on time) · Cancel visit (any time; refund minus 2% only within 5 minutes, after that no refund and the broker gets half).
+5. **I visited the place** → **Did you like it?** Yes → pays **token ₹15,000** → house is blocked. No → "We told the broker": he sends more houses; tenant can call him or wait. (Later: tenant can browse the broker's other houses.)
 6. Shares details for the agreement: full name, email, current address, work, people, Aadhaar. At the same time the owner is asked for their details.
 7. When both are in, the **rent agreement** is generated and shared with broker, tenant and owner. Only the broker can change it (changes are agreed offline). Broker marks it final.
 8. Tenant and owner **e-sign**.

@@ -28,9 +28,11 @@ void main() {
       await store.load();
       final v = await store.bookVisit(listingId: 'sample', name: 'Ravi', phone: '+91 9000000000', at: DateTime.now().add(const Duration(days: 1)));
       expect(store.heldTotal, 150);
-      expect(await store.confirmVisit(v.id, '0000' == v.code ? '1111' : '0000'), isFalse);
+      expect(await store.confirmVisit(v.id, '0000' == v.code ? '1111' : '0000'), 'wrong');
       expect(store.heldTotal, 150);
-      expect(await store.confirmVisit(v.id, v.code), isTrue);
+      // Code works only from 24 h before to 24 h after the visit time.
+      expect(await store.confirmVisit(v.id, v.code, now: DateTime.now().subtract(const Duration(hours: 1))), 'window');
+      expect(await store.confirmVisit(v.id, v.code), isNull);
       expect(store.heldTotal, 0);
       expect(store.releasedTotal, 150);
 
@@ -127,8 +129,22 @@ void main() {
       expect(v.withStatus(VisitStatus.noShow).customerRefund, 0);
       expect(v.withStatus(VisitStatus.cancelled).customerRefund, 150);
       expect(v.withStatus(VisitStatus.customerCancelled).customerRefund, 147);
-      expect(v.customerCanCancel(now.add(const Duration(minutes: 4))), isTrue);
-      expect(v.customerCanCancel(now.add(const Duration(minutes: 6))), isFalse);
+      expect(v.inRefundWindow(now.add(const Duration(minutes: 4))), isTrue);
+      expect(v.inRefundWindow(now.add(const Duration(minutes: 6))), isFalse);
+      // Late cancel: no refund, broker gets half.
+      expect(v.withStatus(VisitStatus.customerCancelledLate).customerRefund, 0);
+      expect(v.withStatus(VisitStatus.customerCancelledLate).brokerShare, 75);
+    });
+
+    test('customer can cancel late (no refund); gate pass is saved', () async {
+      final store = Tk2Store.forTest();
+      await store.load();
+      final v = await store.bookVisit(listingId: 'sample', name: 'Ravi', phone: '', at: DateTime.now().add(const Duration(days: 1)));
+      await store.addGatePass(v.id, 'pass.jpg');
+      expect(store.visits.single.gatePass, 'pass.jpg');
+      expect(await store.customerCancel(v.id, now: DateTime.now().add(const Duration(minutes: 10))), isTrue);
+      expect(store.visits.single.status, VisitStatus.customerCancelledLate);
+      expect(await store.customerCancel(v.id), isFalse);
     });
 
     test('address parts: flat stays private, society and area are shown', () async {
@@ -276,7 +292,7 @@ void main() {
     await tester.tap(find.text('Visits').last);
     await tester.pumpAndSettle();
     expect(find.text('Coming up'), findsOneWidget);
-    expect(find.text('₹150 held'), findsOneWidget);
+    expect(find.text('₹150 held · add gate pass'), findsOneWidget);
 
     await tester.tap(find.text('Ravi'));
     await tester.pumpAndSettle();

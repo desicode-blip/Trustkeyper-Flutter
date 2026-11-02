@@ -8,6 +8,7 @@ import '../core/theme/app_colors.dart';
 import '../core/widgets/primary_button.dart';
 import '../features/broker/presentation/onboarding_widgets.dart';
 import '../tk2/tk2_customer.dart';
+import '../tk2/tk2_designs.dart';
 import '../tk2/tk2_store.dart';
 import '../tk2/tk2_widgets.dart';
 import 'tkweb_auth.dart';
@@ -40,7 +41,9 @@ class TkwProperty extends StatelessWidget {
         id: listingId,
         preview: false,
         bookLabel: step == null ? null : 'See your visit',
-        onBook: () => step == null ? tkwStartBooking(context, listingId) : Navigator.of(context).push(_route(TkwStep(listingId: listingId, index: step.clamp(0, tkwTenantSteps.length - 1)))),
+        onBook: () => step == null
+            ? tkwStartBooking(context, listingId)
+            : Navigator.of(context).push(_route(TkwStep(listingId: listingId, index: step.clamp(0, tkwTenantSteps.length - 1)))),
       );
     },
   );
@@ -114,7 +117,13 @@ class _TkwPayState extends State<TkwPay> {
       subtitle: l.publicTitle,
       onBack: () => Navigator.of(context).maybePop(),
       footer: [
-        PrimaryButton(label: l.visitFee == 0 ? 'Book visit' : 'Pay ${Tk2Store.money(l.visitFee)}', icon: Icons.lock_outline, iconBeforeLabel: true, loading: paying, onPressed: paying ? null : _pay),
+        PrimaryButton(
+          label: l.visitFee == 0 ? 'Book visit' : 'Pay ${Tk2Store.money(l.visitFee)}',
+          icon: Icons.lock_outline,
+          iconBeforeLabel: true,
+          loading: paying,
+          onPressed: paying ? null : _pay,
+        ),
       ],
       children: [
         OnbCard(
@@ -130,8 +139,11 @@ class _TkwPayState extends State<TkwPay> {
         const SizedBox(height: 16),
         _rule(Icons.verified_user_outlined, 'TrustKeyper keeps the fee safe and pays the broker only after your visit.'),
         _rule(Icons.replay, 'If the broker or owner is not available, you get it all back.'),
-        _rule(Icons.timer_outlined, 'You can cancel within 5 minutes of booking (2% is kept). After that it is not refunded.'),
-        _rule(Icons.directions_walk, 'We wait 15 minutes. If you are later than that, the visit is cancelled and not refunded.'),
+        _rule(
+          Icons.timer_outlined,
+          'Cancel within 5 minutes of booking and you get it back, minus a 2% platform fee. You can cancel later too, but with no refund.',
+        ),
+        _rule(Icons.directions_walk, 'Please be on time. If you are more than 15 minutes late, there is no refund.'),
         const SizedBox(height: 12),
         const OnbBanner('Demo build: test payment. No money moves.', kind: 'wait', icon: Icons.science_outlined),
       ],
@@ -203,6 +215,12 @@ class _TkwStepState extends State<TkwStep> {
 
   Future<void> _complete() async {
     if (done) return _goNext();
+    // After the visit: ask if they liked it before blocking.
+    if (key == 'visit') {
+      await Navigator.of(context).push(_route(TkwLiked(listingId: widget.listingId, index: widget.index)));
+      if (mounted) setState(() {});
+      return;
+    }
     if (key == 'details') {
       bad
         ..clear()
@@ -213,7 +231,13 @@ class _TkwStepState extends State<TkwStep> {
           if (trip['aadhaar'] != true) 'aadhaar',
         });
       if (bad.isNotEmpty) return setState(() {});
-      trip.addAll({'fullName': fullName.text.trim(), 'email': email.text.trim(), 'address': address.text.trim(), 'work': work.text.trim(), 'people': people.text.trim()});
+      trip.addAll({
+        'fullName': fullName.text.trim(),
+        'email': email.text.trim(),
+        'address': address.text.trim(),
+        'work': work.text.trim(),
+        'people': people.text.trim(),
+      });
     }
     if (key == 'sign' && sign.text.trim().length < 3) return setState(() => bad.add('sign'));
     if (key == 'home') {
@@ -233,10 +257,13 @@ class _TkwStepState extends State<TkwStep> {
   void _goNext() => Navigator.of(context).push(_route(TkwStep(listingId: widget.listingId, index: widget.index + 1)));
 
   Future<void> _cancelVisit() async {
+    final inTime = _visit?.inRefundWindow(DateTime.now()) ?? false;
     final sure = await onbConfirm(
       context,
       title: 'Cancel this visit?',
-      message: '${Tk2Store.money(Tk2Visit.refundAfterFee(l.visitFee))} comes back to you (2% is kept).',
+      message: inTime
+          ? '${Tk2Store.money(Tk2Visit.refundAfterFee(l.visitFee))} comes back to you (2% platform fee).'
+          : 'It has been more than 5 minutes since you booked, so the visit fee is not refunded.',
       yes: 'Keep visit',
       no: 'Cancel visit',
     );
@@ -244,6 +271,7 @@ class _TkwStepState extends State<TkwStep> {
     final visitId = trip['visitId'] as String?;
     if (visitId != null) await Tk2Store.instance.customerCancel(visitId);
     trip['cancelled'] = true;
+    trip['refund'] = inTime ? Tk2Visit.refundAfterFee(l.visitFee) : 0;
     await s.save();
     if (mounted) setState(() {});
   }
@@ -289,7 +317,9 @@ class _TkwStepState extends State<TkwStep> {
       title: title,
       subtitle: key == 'visit' || key == 'home' ? l.publicTitle : 'Step ${widget.index} of ${tkwTenantSteps.length - 2} · ${l.publicTitle}',
       onBack: () => Navigator.of(context).maybePop(),
-      footer: [if (action.isNotEmpty) PrimaryButton(label: done ? 'Continue' : action, icon: Icons.chevron_right, loading: busy, onPressed: busy ? null : _complete)],
+      footer: [
+        if (action.isNotEmpty) PrimaryButton(label: done ? 'Continue' : action, icon: Icons.chevron_right, loading: busy, onPressed: busy ? null : _complete),
+      ],
       children: [
         if (done && key != 'visit') ...[const OnbBanner('Done', kind: 'ok', icon: Icons.check_circle_outline), const SizedBox(height: 16)],
         ...children,
@@ -300,11 +330,18 @@ class _TkwStepState extends State<TkwStep> {
   (String, String, List<Widget>) _visitStep() {
     final v = _visit;
     if (trip['cancelled'] == true || v == null) {
+      final refund = trip['refund'] as int? ?? Tk2Visit.refundAfterFee(l.visitFee);
       return (
         'Visit cancelled',
         '',
         [
-          OnbCentered(icon: Icons.event_busy_outlined, title: 'Visit cancelled', message: '${Tk2Store.money(Tk2Visit.refundAfterFee(l.visitFee))} comes back to you in 3–5 days.'),
+          OnbCentered(
+            icon: Icons.event_busy_outlined,
+            title: 'Visit cancelled',
+            message: refund > 0
+                ? '${Tk2Store.money(refund)} comes back to you in 3–5 days.'
+                : 'The visit fee is not refunded, as it was more than 5 minutes after booking.',
+          ),
           const SizedBox(height: 24),
           OnbSecondaryButton(
             label: 'Book another time',
@@ -320,62 +357,206 @@ class _TkwStepState extends State<TkwStep> {
     }
     final at = DateTime.fromMillisecondsSinceEpoch(v.at);
     final left = Tk2Visit.cancelWindow.inSeconds - DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(trip['bookedAt'] as int? ?? 0)).inSeconds;
+    final store = Tk2Store.instance;
+    final address = tk2PublicAddress(l);
     return (
       'Your visit',
-      'I saw the house · I want it',
+      'I visited the place',
       [
-        if (!done) ...[const Center(child: Tk2SuccessTick()), const SizedBox(height: 18)],
-        Text(
-          done ? 'Visit done' : 'Visit booked!',
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: AppColors.heading),
+        // 1. Status
+        Center(child: OnbPill(done ? 'Visit done' : 'Visit booked', 'ok', icon: Icons.check_circle_outline)),
+        const SizedBox(height: 14),
+        // 2. When
+        _block(
+          'When',
+          Row(
+            children: [
+              const _Badge(Icons.event_outlined),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Full date first ("Tue 3 Nov"), then time and "Tomorrow" when it helps.
+                    Text(
+                      tk2Day(at, now: DateTime(2000)),
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading),
+                    ),
+                    Text(
+                      [tk2Time(at), if (tk2Day(at) != tk2Day(at, now: DateTime(2000))) tk2Day(at)].join(' · '),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          action: ('Add to Google Calendar', Icons.calendar_month_outlined, () => launchUrl(_calendar(at), mode: LaunchMode.externalApplication)),
         ),
-        const SizedBox(height: 6),
-        Text(
-          '${tk2Day(at)}, ${tk2Time(at)}',
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 16.5, color: AppColors.muted),
+        // 3. Where
+        _block(
+          'Where',
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _Badge(Icons.location_on_outlined),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      address,
+                      style: const TextStyle(fontSize: 17, height: 23 / 17, fontWeight: FontWeight.w600, color: AppColors.heading),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text('The broker meets you at the gate.', style: TextStyle(fontSize: 13.5, color: AppColors.muted)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          action: (
+            'Open in Google Maps',
+            Icons.map_outlined,
+            () => launchUrl(Uri.https('www.google.com', '/maps/search/', {'api': '1', 'query': address}), mode: LaunchMode.externalApplication),
+          ),
         ),
-        const SizedBox(height: 22),
+        // 4. Who
+        _block(
+          'Your broker',
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: AppColors.primarySoft,
+                child: Text(
+                  tk2Initials(store.brokerName.isEmpty ? 'Broker' : store.brokerName),
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primaryDark),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      store.brokerName.isEmpty ? 'Your broker' : store.brokerName,
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
+                    ),
+                    Text(store.brokerPhone.isEmpty ? 'Shows you the house' : store.brokerPhone, style: const TextStyle(fontSize: 15, color: AppColors.muted)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          action: store.brokerPhone.isEmpty
+              ? null
+              : (
+                  'Call ${store.brokerName.isEmpty ? 'broker' : store.brokerName.split(' ').first}',
+                  Icons.call_outlined,
+                  () => launchUrl(Uri.parse('tel:${store.brokerPhone.replaceAll(RegExp(r'[^0-9+]'), '')}')),
+                ),
+        ),
+        // 5. Code
         Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
           decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(20)),
           child: Column(
             children: [
               const Text('Your visit code', style: TextStyle(fontSize: 15, color: AppColors.primaryDark)),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 v.code.split('').join(' '),
-                style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w800, letterSpacing: 4, color: AppColors.primaryDark),
+                style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, letterSpacing: 4, color: AppColors.primaryDark),
               ),
-              const SizedBox(height: 6),
-              const Text('Tell this to the broker after you see the house.', style: TextStyle(fontSize: 14, color: AppColors.primaryDark)),
+              const SizedBox(height: 4),
+              const Text(
+                'Tell this to the broker after you see the house.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: AppColors.primaryDark),
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        OnbSecondaryButton(
-          label: 'Add to Google Calendar',
-          onPressed: () => launchUrl(_calendar(at), mode: LaunchMode.externalApplication),
+        const SizedBox(height: 18),
+        // 6. Good to know
+        const Text(
+          'Good to know',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 4),
         _rule(Icons.phone_in_talk_outlined, 'We call you and the broker 1 hour before the visit.'),
+        _rule(Icons.badge_outlined, 'Gated society? The broker sends your gate pass on WhatsApp before the visit.'),
         _rule(Icons.directions_walk, 'Please be on time. We wait 15 minutes.'),
-        if (!done && left > 0) ...[
+        if (!done) ...[
           const SizedBox(height: 6),
           Center(
             child: TextButton.icon(
               onPressed: _cancelVisit,
               style: TextButton.styleFrom(foregroundColor: AppColors.error),
               icon: const Icon(Icons.close, size: 18),
-              label: Text('Cancel visit · ${left ~/ 60}:${(left % 60).toString().padLeft(2, '0')} left'),
+              label: Text(left > 0 ? 'Cancel visit · ${left ~/ 60}:${(left % 60).toString().padLeft(2, '0')} left for a refund' : 'Cancel visit'),
             ),
           ),
+          const SizedBox(height: 10),
+          const OnbBanner('Demo build: after the visit the broker types your code. Tap below to move ahead.', kind: 'wait', icon: Icons.science_outlined),
         ],
-        if (!done) ...[const SizedBox(height: 10), const OnbBanner('Demo build: after the visit the broker types your code. Tap below to move ahead.', kind: 'wait', icon: Icons.science_outlined)],
       ],
     );
   }
+
+  /// A titled white card with an optional action row at the bottom.
+  Widget _block(String label, Widget body, {(String, IconData, VoidCallback)? action}) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label.toUpperCase(),
+                  style: const TextStyle(fontSize: 12.5, letterSpacing: 0.8, fontWeight: FontWeight.w600, color: AppColors.muted),
+                ),
+                const SizedBox(height: 10),
+                body,
+              ],
+            ),
+          ),
+          if (action != null) ...[
+            const Divider(height: 1, color: AppColors.border),
+            InkWell(
+              onTap: action.$3,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(action.$2, size: 20, color: AppColors.primaryDark),
+                    const SizedBox(width: 8),
+                    Text(
+                      action.$1,
+                      style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
 
   List<Widget> _blockStep() => [
     const Text(
@@ -462,7 +643,11 @@ class _TkwStepState extends State<TkwStep> {
   ];
 
   List<Widget> _agreementStep({required bool final_}) => [
-    OnbBanner(final_ ? 'Final agreement' : 'Ready · the broker is checking it', kind: final_ ? 'ok' : 'wait', icon: final_ ? Icons.verified_outlined : Icons.hourglass_top),
+    OnbBanner(
+      final_ ? 'Final agreement' : 'Ready · the broker is checking it',
+      kind: final_ ? 'ok' : 'wait',
+      icon: final_ ? Icons.verified_outlined : Icons.hourglass_top,
+    ),
     const SizedBox(height: 16),
     OnbCard(
       child: Column(
@@ -522,6 +707,146 @@ class _TkwStepState extends State<TkwStep> {
   ];
 
   List<Widget> _homeStep() => const [
-    OnbCentered(icon: Icons.home_outlined, kind: 'ok', title: 'Welcome home!', message: 'Your agreement and payment receipts are saved here. We will remind you before rent is due.'),
+    OnbCentered(
+      icon: Icons.home_outlined,
+      kind: 'ok',
+      title: 'Welcome home!',
+      message: 'Your agreement and payment receipts are saved here. We will remind you before rent is due.',
+    ),
   ];
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge(this.icon);
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 44,
+    height: 44,
+    decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(14)),
+    child: Icon(icon, color: AppColors.primaryDark),
+  );
+}
+
+/// After the visit: did you like it? Yes → block the house. No → we tell the broker.
+class TkwLiked extends StatefulWidget {
+  const TkwLiked({required this.listingId, required this.index, super.key});
+  final String listingId;
+
+  /// Index of the visit step.
+  final int index;
+
+  @override
+  State<TkwLiked> createState() => _TkwLikedState();
+}
+
+class _TkwLikedState extends State<TkwLiked> {
+  bool? liked;
+  bool showError = false;
+
+  Future<void> _next() async {
+    if (liked == null) return setState(() => showError = true);
+    final s = TkwSession.instance;
+    final trip = s.trip(widget.listingId);
+    trip['liked'] = liked;
+    if (liked!) trip['step'] = widget.index + 1;
+    await s.save();
+    if (!mounted) return;
+    await Navigator.of(context).push(_route(liked! ? TkwStep(listingId: widget.listingId, index: widget.index + 1) : TkwNotLiked(listingId: widget.listingId)));
+  }
+
+  Widget _option(bool value, IconData icon, String title, String sub) {
+    final on = liked == value;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: on ? AppColors.primarySoft : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: on ? AppColors.primary : (showError ? AppColors.error : AppColors.border), width: on ? 1.6 : 1),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => setState(() {
+            liked = value;
+            showError = false;
+          }),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(icon, size: 28, color: AppColors.primaryDark),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        sub,
+                        style: const TextStyle(fontSize: 14.5, height: 20 / 14.5, color: AppColors.muted),
+                      ),
+                    ],
+                  ),
+                ),
+                if (on) const Icon(Icons.check_circle, color: AppColors.primary),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = Tk2Store.instance.listing(widget.listingId)!;
+    return OnbPage(
+      title: 'Did you like it?',
+      subtitle: l.publicTitle,
+      onBack: () => Navigator.of(context).maybePop(),
+      footer: [PrimaryButton(label: 'Continue', icon: Icons.chevron_right, onPressed: _next)],
+      children: [
+        _option(true, Icons.thumb_up_alt_outlined, 'Yes, I like it', 'Block it with a token so no one else takes it.'),
+        _option(false, Icons.thumb_down_alt_outlined, 'No, not for me', 'We will ask the broker to show you other houses.'),
+        if (showError) const Text('Pick one', style: TextStyle(fontSize: 14, color: AppColors.error)),
+      ],
+    );
+  }
+}
+
+/// Did not like the house: the broker is told and sends more options.
+class TkwNotLiked extends StatelessWidget {
+  const TkwNotLiked({required this.listingId, super.key});
+  final String listingId;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = Tk2Store.instance;
+    final name = store.brokerName.isEmpty ? 'The broker' : store.brokerName;
+    return OnbPage(
+      title: 'Thanks for telling us',
+      onBack: () => Navigator.of(context).maybePop(),
+      footer: [PrimaryButton(label: 'Done', onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst))],
+      children: [
+        OnbCentered(
+          icon: Icons.mark_chat_read_outlined,
+          title: 'We told $name',
+          message: 'We have let $name know this house was not right for you. He will send you more houses. Call him now, or wait for his message.',
+        ),
+        if (store.brokerPhone.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          OnbSecondaryButton(
+            label: 'Call ${name.split(' ').first}',
+            onPressed: () => launchUrl(Uri.parse('tel:${store.brokerPhone.replaceAll(RegExp(r'[^0-9+]'), '')}')),
+          ),
+        ],
+      ],
+    );
+  }
 }

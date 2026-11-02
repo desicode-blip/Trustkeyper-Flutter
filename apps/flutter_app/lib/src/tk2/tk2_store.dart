@@ -67,7 +67,11 @@ class Tk2Listing {
   String get area => locality.trim();
 
   /// Full address for the broker: door + saved address.
-  String get fullAddress => [if (door.trim().isNotEmpty) door.trim(), if (society.trim().isNotEmpty) society.trim(), if (property.address.trim().isNotEmpty) property.address.trim()].join(', ');
+  String get fullAddress => [
+    if (door.trim().isNotEmpty) door.trim(),
+    if (society.trim().isNotEmpty) society.trim(),
+    if (property.address.trim().isNotEmpty) property.address.trim(),
+  ].join(', ');
 
   String get brokerageText => brokerage == 0
       ? 'No brokerage'
@@ -389,8 +393,11 @@ abstract final class VisitStatus {
   static const cancelled = 'cancelled';
   static const noShow = 'noShow';
 
-  /// Customer cancelled within 5 minutes of booking.
+  /// Customer cancelled within 5 minutes of booking (98% back).
   static const customerCancelled = 'customerCancelled';
+
+  /// Customer cancelled after 5 minutes: no refund, broker gets half (like a no-show).
+  static const customerCancelledLate = 'customerCancelledLate';
 }
 
 class Tk2Visit {
@@ -404,6 +411,7 @@ class Tk2Visit {
     required this.code,
     this.status = VisitStatus.booked,
     this.createdAt = 0,
+    this.gatePass = '',
   });
 
   final String id;
@@ -420,12 +428,16 @@ class Tk2Visit {
   final String status;
   final int createdAt;
 
+  /// Gate pass the broker uploaded (file path / URL). The backend sends it to
+  /// the customer on WhatsApp. Empty = not added yet.
+  final String gatePass;
+
   bool get upcoming => status == VisitStatus.booked;
 
   /// held · released · half (customer did not come) · refunded
   String get feeStatus => switch (status) {
     VisitStatus.done => 'released',
-    VisitStatus.noShow => 'half',
+    VisitStatus.noShow || VisitStatus.customerCancelledLate => 'half',
     VisitStatus.cancelled || VisitStatus.customerCancelled => 'refunded',
     _ => 'held',
   };
@@ -433,7 +445,7 @@ class Tk2Visit {
   /// What the broker gets: all after the visit, half if the customer did not come.
   int get brokerShare => switch (status) {
     VisitStatus.done => fee,
-    VisitStatus.noShow => fee ~/ 2,
+    VisitStatus.noShow || VisitStatus.customerCancelledLate => fee ~/ 2,
     _ => 0,
   };
 
@@ -451,10 +463,32 @@ class Tk2Visit {
   /// 2% is kept when the customer cancels in time.
   static int refundAfterFee(int fee) => fee - (fee * 2 / 100).round();
 
-  bool customerCanCancel(DateTime now) => upcoming && now.difference(DateTime.fromMillisecondsSinceEpoch(createdAt)) <= cancelWindow;
+  /// Within 5 minutes of booking: cancelling gives 98% back. After that the
+  /// customer can still cancel, with no refund.
+  bool inRefundWindow(DateTime now) => now.difference(DateTime.fromMillisecondsSinceEpoch(createdAt)) <= cancelWindow;
 
-  Tk2Visit withStatus(String next) =>
-      Tk2Visit(id: id, listingId: listingId, customerName: customerName, customerPhone: customerPhone, at: at, fee: fee, code: code, status: next, createdAt: createdAt);
+  /// The visit code works from 24 hours before to 24 hours after the visit time.
+  static const codeWindow = Duration(hours: 24);
+
+  bool codeWorks(DateTime now) {
+    final t = DateTime.fromMillisecondsSinceEpoch(at);
+    return !now.isBefore(t.subtract(codeWindow)) && !now.isAfter(t.add(codeWindow));
+  }
+
+  Tk2Visit withStatus(String next) => _copy(status: next);
+
+  Tk2Visit _copy({String? status, String? gatePass}) => Tk2Visit(
+    id: id,
+    listingId: listingId,
+    customerName: customerName,
+    customerPhone: customerPhone,
+    at: at,
+    fee: fee,
+    code: code,
+    status: status ?? this.status,
+    createdAt: createdAt,
+    gatePass: gatePass ?? this.gatePass,
+  );
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -466,6 +500,7 @@ class Tk2Visit {
     'code': code,
     'status': status,
     'createdAt': createdAt,
+    'gatePass': gatePass,
   };
 
   factory Tk2Visit.fromJson(Map<String, dynamic> json) => Tk2Visit(
@@ -478,6 +513,7 @@ class Tk2Visit {
     code: json['code'] as String? ?? '',
     status: json['status'] as String? ?? VisitStatus.booked,
     createdAt: (json['createdAt'] as num?)?.toInt() ?? 0,
+    gatePass: json['gatePass'] as String? ?? '',
   );
 }
 
@@ -613,7 +649,17 @@ class Tk2Store extends ChangeNotifier {
       _listings[at] = _listings[at].copyWith(property: saved, door: property.flat, society: property.society, locality: locality);
     } else {
       sampleJustRemoved = _listings.isEmpty;
-      _listings.insert(0, Tk2Listing(id: id, property: saved, door: property.flat, society: property.society, locality: locality, createdAt: DateTime.now().millisecondsSinceEpoch));
+      _listings.insert(
+        0,
+        Tk2Listing(
+          id: id,
+          property: saved,
+          door: property.flat,
+          society: property.society,
+          locality: locality,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
     }
     await _save();
     return saved;
@@ -679,22 +725,35 @@ class Tk2Store extends ChangeNotifier {
   }
 
   /// Broker confirms the visit with the customer's code → fee released.
-  /// Returns false when the code is wrong.
-  Future<bool> confirmVisit(String visitId, String code) async {
+  /// Returns null when done, or why not: 'wrong' code, or 'window' (more than
+  /// 24 hours before or after the visit time).
+  Future<String?> confirmVisit(String visitId, String code, {DateTime? now}) async {
     final at = _visits.indexWhere((v) => v.id == visitId);
-    if (at < 0 || _visits[at].code != code.trim()) return false;
+    if (at < 0 || _visits[at].code != code.trim()) return 'wrong';
+    if (!_visits[at].codeWorks(now ?? DateTime.now())) return 'window';
     _visits[at] = _visits[at].withStatus(VisitStatus.done);
+    await _save();
+    return null;
+  }
+
+  /// Customer cancels any time before the visit is done. Within 5 minutes of
+  /// booking they get 98% back; after that nothing (broker gets half).
+  Future<bool> customerCancel(String visitId, {DateTime? now}) async {
+    final at = _visits.indexWhere((v) => v.id == visitId);
+    if (at < 0 || !_visits[at].upcoming) return false;
+    final inTime = _visits[at].inRefundWindow(now ?? DateTime.now());
+    _visits[at] = _visits[at].withStatus(inTime ? VisitStatus.customerCancelled : VisitStatus.customerCancelledLate);
     await _save();
     return true;
   }
 
-  /// Customer cancels: only within 5 minutes of booking (98% back).
-  Future<bool> customerCancel(String visitId, {DateTime? now}) async {
+  /// Broker adds the gate pass (demo: kept here; the backend sends it to the
+  /// customer on WhatsApp right away).
+  Future<void> addGatePass(String visitId, String file) async {
     final at = _visits.indexWhere((v) => v.id == visitId);
-    if (at < 0 || !_visits[at].customerCanCancel(now ?? DateTime.now())) return false;
-    _visits[at] = _visits[at].withStatus(VisitStatus.customerCancelled);
+    if (at < 0) return;
+    _visits[at] = _visits[at]._copy(gatePass: file);
     await _save();
-    return true;
   }
 
   /// Broker cancels (full refund) or the customer did not come (broker gets half).
@@ -719,7 +778,7 @@ class Tk2Store extends ChangeNotifier {
       'Available ${l.availableFrom.isEmpty ? 'now' : 'from ${l.availableFrom}'}',
       '',
       l.visitFee == 0 ? 'See photos and book a visit (free):' : 'See the house and book a visit (${money(l.visitFee)}):',
-      tk2PropertyLink(l, brokerName),
+      tk2PropertyLink(l, brokerName, brokerPhone),
       if (brokerName.isNotEmpty) '',
       if (brokerName.isNotEmpty) '– $brokerName${brokerPhone.isNotEmpty ? ', $brokerPhone' : ''}',
     ].join('\n');

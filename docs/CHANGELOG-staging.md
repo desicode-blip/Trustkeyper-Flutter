@@ -1266,3 +1266,22 @@ files: apps/flutter_app/lib/src/tk2/{tk2_store,tk2_listing,tk2_customer}.dart, a
 verification: flutter analyze clean; test/tk2 23/23; web app clicked through in headless Chromium (visit-day chips, Keys + Me sheet + Security fields, customer page notice and steps)
 open: broker's "Send link to owner" still uses the main-app flow; WhatsApp/SMS/OTP/payments demo
 ```
+
+## Change 77 – Your visit screen; liked / not liked; gate pass; code valid ±24 h
+Date: 2026-11-02 · Status: web app live (same link); broker app code synced to the Mac, not yet built
+- Tenant "Your visit" rebuilt with a clear order: Visit booked pill → When (full date + time + "Tomorrow", Add to Google Calendar) → Where (public address, Open in Google Maps; flat number stays hidden) → Your broker (name, number, Call) → visit code → Good to know (reminder call, gate pass on WhatsApp, 15-minute wait) → Cancel visit.
+- Cancel visit is always there until the visit is done. Within 5 min: refund minus 2%. After: no refund; broker gets half (new status `customerCancelledLate`, same money as a no-show). The pay screen rules say the same.
+- Primary button "I visited the place" → "Did you like it?" Yes → Block this house (existing journey). No → "We told <broker>… he will send you more houses. Call him now or wait" with Call button.
+- Visit code works from 24 h before to 24 h after the visit time (`Tk2Visit.codeWorks`); `confirmVisit` returns null / 'wrong' / 'window' and the broker sees the right message.
+- Gate pass: broker's visit sheet has "Add gate pass" (upload) → "Gate pass sent on WhatsApp" (demo; backend sends it). Visit rows show "add gate pass" until added. Saved on the visit as `gatePass`.
+- Property link now carries the broker's number (`bp`) so the tenant can call. Example property uses a demo broker (Suresh Kumar).
+```
+AGENT RECORD – Change 77
+id: CHG-077
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/{tk2_store,tk2_link,tk2_visits,tk2_listing}.dart, apps/flutter_app/lib/src/tkweb/{tkweb_tenant,tkweb_app}.dart, apps/flutter_app/test/tk2/tk2_test.dart, docs/TRUSTKEEPER2-JOURNEYS.md, docs/CHANGELOG-staging.md
+backend: reminder call 1 h before also reminds the broker about the gate pass + app push; on gatePass upload send it to the tenant on WhatsApp; on "not liked" notify the broker
+verification: flutter analyze clean; test/tk2 24/24; web app clicked through in headless Chromium (book → Your visit → liked → Block; not liked → We told broker). Broker gate-pass sheet not yet seen on a device.
+open: tenant browsing the broker's other houses (later); money rule for late cancel (broker half) needs Aman's sign-off
+```

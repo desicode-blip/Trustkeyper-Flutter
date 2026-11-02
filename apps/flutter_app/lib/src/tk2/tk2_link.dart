@@ -9,7 +9,7 @@ import 'tk2_store.dart';
 const tk2WebApp = 'https://claude.ai/artifact/Szj2fK38ocoCABGHbTtxUt';
 
 /// Only what customers may see. Never door number, full address, owner or keys.
-Map<String, Object?> tk2PublicPayload(Tk2Listing l, String brokerName) {
+Map<String, Object?> tk2PublicPayload(Tk2Listing l, String brokerName, [String brokerPhone = '']) {
   final p = l.property;
   return {
     'id': l.id,
@@ -35,11 +35,13 @@ Map<String, Object?> tk2PublicPayload(Tk2Listing l, String brokerName) {
     'vt': l.visitTo,
     'fee': l.visitFee,
     'bn': brokerName,
+    if (brokerPhone.isNotEmpty) 'bp': brokerPhone,
   };
 }
 
 /// Property link for WhatsApp: the public details ride in the link (#p-…).
-String tk2PropertyLink(Tk2Listing l, String brokerName) => '$tk2WebApp#p-${tk2Base32(jsonEncode(tk2PublicPayload(l, brokerName)))}';
+String tk2PropertyLink(Tk2Listing l, String brokerName, [String brokerPhone = '']) =>
+    '$tk2WebApp#p-${tk2Base32(jsonEncode(tk2PublicPayload(l, brokerName, brokerPhone)))}';
 
 /// Owner invite link: the owner signs up and adds the house (#owner-…).
 String tk2OwnerLink(String brokerName, String houseName) => '$tk2WebApp#owner-${tk2Base32(jsonEncode({'bn': brokerName, 'h': houseName}))}';

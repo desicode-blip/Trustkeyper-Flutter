@@ -24,15 +24,20 @@ sealed class TkwStart {
       if (fragment.startsWith('p-')) {
         final listing = tk2ListingFromPublic(jsonDecode(tk2Base32Decode(fragment.substring(2))) as Map<String, dynamic>);
         await Tk2Store.instance.putListing(listing);
-        final broker = jsonDecode(tk2Base32Decode(fragment.substring(2)))['bn'] as String? ?? '';
+        final j = jsonDecode(tk2Base32Decode(fragment.substring(2))) as Map<String, dynamic>;
+        final broker = j['bn'] as String? ?? '';
         if (broker.isNotEmpty) Tk2Store.instance.brokerName = broker;
+        Tk2Store.instance.brokerPhone = j['bp'] as String? ?? '';
         return TkwOpenProperty(listing.id);
       }
       if (fragment.startsWith('owner')) {
         final j = fragment.length > 6 ? jsonDecode(tk2Base32Decode(fragment.substring(6))) as Map<String, dynamic> : const <String, dynamic>{};
         return TkwOpenOwner(j['bn'] as String? ?? '', j['h'] as String? ?? '');
       }
-      if (fragment == 'sample') return const TkwOpenProperty('sample');
+      if (fragment == 'sample') {
+        _sampleBroker();
+        return const TkwOpenProperty('sample');
+      }
     } catch (_) {
       // A broken link falls back to the start page.
     }
@@ -143,7 +148,10 @@ class TkwHome extends StatelessWidget {
           icon: Icons.home_outlined,
           title: 'See a property',
           subtitle: 'What a tenant sees from the broker\'s link',
-          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const TkwProperty(listingId: 'sample'))),
+          onTap: () {
+            _sampleBroker();
+            Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const TkwProperty(listingId: 'sample')));
+          },
         ),
         const SizedBox(height: 12),
         OnbRow(
@@ -173,4 +181,11 @@ class TkwHome extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// Demo broker for the example property (real links carry the broker's name and number).
+void _sampleBroker() {
+  final store = Tk2Store.instance;
+  if (store.brokerName.isEmpty) store.brokerName = 'Suresh Kumar';
+  if (store.brokerPhone.isEmpty) store.brokerPhone = '+91 98480 12345';
 }

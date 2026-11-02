@@ -85,7 +85,9 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
       setState(() => photos = [...photos, ...picked.map((p) => p.path)].take(10).toList());
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, content: Text('Could not open your photos. Allow photo access in Settings.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, content: Text('Could not open your photos. Allow photo access in Settings.')));
     }
   }
 
@@ -213,7 +215,11 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
           bottom: false,
           child: Column(
             children: [
-              OnbHeader(title: _titles[step], subtitle: widget.ownerMode ? 'Step ${step + 1} of ${_titles.length}' : 'Step ${step + 1} of ${_titles.length} · ${l.name}', onBack: _back),
+              OnbHeader(
+                title: _titles[step],
+                subtitle: widget.ownerMode ? 'Step ${step + 1} of ${_titles.length}' : 'Step ${step + 1} of ${_titles.length} · ${l.name}',
+                onBack: _back,
+              ),
               Expanded(
                 child: OnbShadowBody(
                   // Each step slides in from the right, like a new screen.
@@ -448,7 +454,10 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [for (final k in Tk2Listing.keyChoices) ChoiceChip(label: Text(k), selected: keys == k, onSelected: (_) => setState(() => keys = keys == k ? '' : k))],
+            children: [
+              for (final k in Tk2Listing.keyChoices)
+                ChoiceChip(label: Text(k), selected: keys == k, onSelected: (_) => setState(() => keys = keys == k ? '' : k)),
+            ],
           ),
           const SizedBox(height: 16),
           _text(note, 'Note for yourself', Icons.sticky_note_2_outlined, filled: true),
@@ -560,7 +569,14 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
     keyboardType: phone ? TextInputType.phone : TextInputType.text,
     textCapitalization: phone ? TextCapitalization.none : TextCapitalization.words,
     onChanged: (_) => setState(() => missing.clear()),
-    decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon), filled: filled, fillColor: Colors.white, enabledBorder: bad ? _redBorder : null, focusedBorder: bad ? _redBorder : null),
+    decoration: InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon),
+      filled: filled,
+      fillColor: Colors.white,
+      enabledBorder: bad ? _redBorder : null,
+      focusedBorder: bad ? _redBorder : null,
+    ),
   );
 
   static final _redBorder = OutlineInputBorder(
@@ -587,7 +603,14 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
     keyboardType: TextInputType.number,
     inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(8)],
     onChanged: (_) => setState(() => missing.clear()),
-    decoration: InputDecoration(labelText: label, prefixText: '₹ ', filled: filled, fillColor: Colors.white, enabledBorder: bad ? _redBorder : null, focusedBorder: bad ? _redBorder : null),
+    decoration: InputDecoration(
+      labelText: label,
+      prefixText: '₹ ',
+      filled: filled,
+      fillColor: Colors.white,
+      enabledBorder: bad ? _redBorder : null,
+      focusedBorder: bad ? _redBorder : null,
+    ),
   );
 
   Widget _row({required IconData icon, required String title, required String value, required VoidCallback onTap}) => Material(
@@ -649,7 +672,9 @@ class Tk2VisitRow extends StatelessWidget {
       VisitStatus.done => ('${Tk2Store.money(v.fee)} yours', 'ok'),
       VisitStatus.cancelled => ('Cancelled · refunded', 'mute'),
       VisitStatus.customerCancelled => ('Customer cancelled', 'mute'),
+      VisitStatus.customerCancelledLate => ('Customer cancelled · ${Tk2Store.money(v.brokerShare)} yours', 'ok'),
       VisitStatus.noShow => ('Did not come · ${Tk2Store.money(v.brokerShare)} yours', 'ok'),
+      _ when v.gatePass.isEmpty => ('${Tk2Store.money(v.fee)} held · add gate pass', 'wait'),
       _ => ('${Tk2Store.money(v.fee)} held', 'wait'),
     };
     final property = showProperty ? store.listing(v.listingId)?.name : null;
@@ -676,7 +701,10 @@ class Tk2VisitRow extends StatelessWidget {
                       '${at.day}',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: v.upcoming ? AppColors.primaryDark : AppColors.muted),
                     ),
-                    Text(const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][at.month - 1], style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                    Text(
+                      const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][at.month - 1],
+                      style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                    ),
                   ],
                 ),
               ),
@@ -741,7 +769,10 @@ Future<void> showTk2Share(BuildContext context, Tk2Store store, Tk2Listing l) =>
                 style: const TextStyle(fontSize: 14.5, height: 21 / 14.5, color: AppColors.body),
               ),
             ),
-            if (l.sample) ...[const SizedBox(height: 10), const Text('This is the example. Add your own property to share real details.', style: TextStyle(fontSize: 14, color: AppColors.warning))],
+            if (l.sample) ...[
+              const SizedBox(height: 10),
+              const Text('This is the example. Add your own property to share real details.', style: TextStyle(fontSize: 14, color: AppColors.warning)),
+            ],
             const SizedBox(height: 18),
             SizedBox(
               height: 56,
@@ -754,7 +785,9 @@ Future<void> showTk2Share(BuildContext context, Tk2Store store, Tk2Listing l) =>
                   if (!opened && context.mounted) {
                     await Clipboard.setData(ClipboardData(text: text));
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, content: Text('WhatsApp did not open. Message copied, paste it anywhere.')));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(behavior: SnackBarBehavior.floating, content: Text('WhatsApp did not open. Message copied, paste it anywhere.')),
+                      );
                     }
                   }
                 },

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_colors.dart';
@@ -29,9 +30,23 @@ class Tk2Visits extends StatelessWidget {
             index: 1,
             child: Row(
               children: [
-                _money(Tk2Store.money(store.heldTotal), 'Held for you', 'Yours after the visit', AppColors.warningSoft, AppColors.warning, Icons.lock_clock_outlined),
+                _money(
+                  Tk2Store.money(store.heldTotal),
+                  'Held for you',
+                  'Yours after the visit',
+                  AppColors.warningSoft,
+                  AppColors.warning,
+                  Icons.lock_clock_outlined,
+                ),
                 const SizedBox(width: 10),
-                _money(Tk2Store.money(store.releasedTotal), 'Yours', 'From visits done', AppColors.successSoft, AppColors.success, Icons.account_balance_wallet_outlined),
+                _money(
+                  Tk2Store.money(store.releasedTotal),
+                  'Yours',
+                  'From visits done',
+                  AppColors.successSoft,
+                  AppColors.success,
+                  Icons.account_balance_wallet_outlined,
+                ),
               ],
             ),
           ),
@@ -170,14 +185,30 @@ class _VisitSheetState extends State<_VisitSheet> {
   }
 
   Future<void> _confirm() async {
-    final ok = await widget.store.confirmVisit(widget.visit.id, code.text);
+    final why = await widget.store.confirmVisit(widget.visit.id, code.text);
     if (!mounted) return;
-    if (!ok) {
-      setState(() => error = 'That code is not right. Ask the customer again.');
+    if (why != null) {
+      setState(
+        () => error = why == 'window'
+            ? 'The code works from 24 hours before to 24 hours after the visit time.'
+            : 'That code is not right. Ask the customer again.',
+      );
       return;
     }
     Navigator.pop(context);
     _toast('${Tk2Store.money(widget.visit.fee)} is yours. Nice work!');
+  }
+
+  /// Gate pass: photo or screenshot from the society app. Sent to the customer on WhatsApp.
+  Future<void> _gatePass() async {
+    try {
+      final file = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
+      if (file == null) return;
+      await widget.store.addGatePass(widget.visit.id, file.path);
+      if (!mounted) return;
+      setState(() {});
+      _toast('Gate pass sent to ${widget.visit.customerName} on WhatsApp');
+    } catch (_) {}
   }
 
   Future<void> _close(String status) async {
@@ -186,7 +217,11 @@ class _VisitSheetState extends State<_VisitSheet> {
       context: context,
       builder: (d) => AlertDialog(
         title: Text(cancel ? 'Cancel this visit?' : 'Customer did not come?'),
-        content: Text(cancel ? '${widget.visit.customerName} gets ${Tk2Store.money(widget.visit.fee)} back.' : 'You get ${Tk2Store.money(widget.visit.fee ~/ 2)} for your time.'),
+        content: Text(
+          cancel
+              ? '${widget.visit.customerName} gets ${Tk2Store.money(widget.visit.fee)} back.'
+              : 'You get ${Tk2Store.money(widget.visit.fee ~/ 2)} for your time.',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Go back')),
           TextButton(
@@ -201,7 +236,11 @@ class _VisitSheetState extends State<_VisitSheet> {
     await widget.store.closeVisit(widget.visit.id, status);
     if (!mounted) return;
     Navigator.pop(context);
-    _toast(cancel ? 'Visit cancelled. ${Tk2Store.money(widget.visit.fee)} goes back to the customer.' : '${Tk2Store.money(widget.visit.fee ~/ 2)} is yours for your time.');
+    _toast(
+      cancel
+          ? 'Visit cancelled. ${Tk2Store.money(widget.visit.fee)} goes back to the customer.'
+          : '${Tk2Store.money(widget.visit.fee ~/ 2)} is yours for your time.',
+    );
   }
 
   @override
@@ -228,7 +267,11 @@ class _VisitSheetState extends State<_VisitSheet> {
               child: switch (v.feeStatus) {
                 'released' => Tk2Pill('${Tk2Store.money(v.fee)} is yours', kind: 'ok', icon: Icons.check),
                 'refunded' => Tk2Pill('${Tk2Store.money(v.customerRefund)} refunded to customer'),
-                'half' => Tk2Pill('${Tk2Store.money(v.brokerShare)} is yours · did not come', kind: 'ok', icon: Icons.check),
+                'half' => Tk2Pill(
+                  '${Tk2Store.money(v.brokerShare)} is yours · ${v.status == VisitStatus.noShow ? 'did not come' : 'customer cancelled'}',
+                  kind: 'ok',
+                  icon: Icons.check,
+                ),
                 _ => Tk2Pill('${Tk2Store.money(v.fee)} held · yours after the visit', kind: 'wait', icon: Icons.lock_clock_outlined),
               },
             ),
@@ -249,6 +292,8 @@ class _VisitSheetState extends State<_VisitSheet> {
                 ),
               ),
             if (v.upcoming) ...[
+              const SizedBox(height: 10),
+              _GatePassRow(sent: (widget.store.visits.where((x) => x.id == v.id).firstOrNull ?? v).gatePass.isNotEmpty, onTap: _gatePass),
               const SizedBox(height: 14),
               AnimatedSize(
                 duration: const Duration(milliseconds: 240),
@@ -311,4 +356,46 @@ class _VisitSheetState extends State<_VisitSheet> {
       ),
     );
   }
+}
+
+/// Gate pass for gated societies: add once, we send it to the customer.
+class _GatePassRow extends StatelessWidget {
+  const _GatePassRow({required this.sent, required this.onTap});
+  final bool sent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: sent ? AppColors.successSoft : AppColors.warningSoft,
+    borderRadius: BorderRadius.circular(16),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Icon(sent ? Icons.check_circle_outline : Icons.badge_outlined, color: sent ? AppColors.success : AppColors.warning),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    sent ? 'Gate pass sent on WhatsApp' : 'Add gate pass',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading),
+                  ),
+                  Text(
+                    sent ? 'Tap to change it' : 'Upload it here. We send it to the customer on WhatsApp.',
+                    style: const TextStyle(fontSize: 13.5, color: AppColors.muted),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.muted),
+          ],
+        ),
+      ),
+    ),
+  );
 }
