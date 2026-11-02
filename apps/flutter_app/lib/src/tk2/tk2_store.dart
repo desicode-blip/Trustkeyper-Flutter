@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/broker/data/broker_property_repository.dart';
+import 'tk2_link.dart';
 
 // TrustKeeper 2 – broker MVP. Everything is stored on the phone for now
 // (SharedPreferences). The backend plan is in docs/TRUSTKEEPER2.md.
@@ -336,6 +337,9 @@ abstract final class VisitStatus {
   static const done = 'done';
   static const cancelled = 'cancelled';
   static const noShow = 'noShow';
+
+  /// Customer cancelled within 5 minutes of booking.
+  static const customerCancelled = 'customerCancelled';
 }
 
 class Tk2Visit {
@@ -367,12 +371,36 @@ class Tk2Visit {
 
   bool get upcoming => status == VisitStatus.booked;
 
-  /// held · released · refunded
+  /// held · released · half (customer did not come) · refunded
   String get feeStatus => switch (status) {
     VisitStatus.done => 'released',
-    VisitStatus.cancelled || VisitStatus.noShow => 'refunded',
+    VisitStatus.noShow => 'half',
+    VisitStatus.cancelled || VisitStatus.customerCancelled => 'refunded',
     _ => 'held',
   };
+
+  /// What the broker gets: all after the visit, half if the customer did not come.
+  int get brokerShare => switch (status) {
+    VisitStatus.done => fee,
+    VisitStatus.noShow => fee ~/ 2,
+    _ => 0,
+  };
+
+  /// What goes back to the customer: all if the broker cancels; 98% if the
+  /// customer cancels within 5 minutes; nothing if they did not come.
+  int get customerRefund => switch (status) {
+    VisitStatus.cancelled => fee,
+    VisitStatus.customerCancelled => Tk2Visit.refundAfterFee(fee),
+    _ => 0,
+  };
+
+  /// Cancel window for the customer: 5 minutes after booking.
+  static const cancelWindow = Duration(minutes: 5);
+
+  /// 2% is kept when the customer cancels in time.
+  static int refundAfterFee(int fee) => fee - (fee * 2 / 100).round();
+
+  bool customerCanCancel(DateTime now) => upcoming && now.difference(DateTime.fromMillisecondsSinceEpoch(createdAt)) <= cancelWindow;
 
   Tk2Visit withStatus(String next) =>
       Tk2Visit(id: id, listingId: listingId, customerName: customerName, customerPhone: customerPhone, at: at, fee: fee, code: code, status: next, createdAt: createdAt);
@@ -432,7 +460,7 @@ class Tk2Store extends ChangeNotifier {
   List<Tk2Visit> get upcoming => _visits.where((v) => v.upcoming).toList()..sort((a, b) => a.at.compareTo(b.at));
   List<Tk2Visit> get past => _visits.where((v) => !v.upcoming).toList()..sort((a, b) => b.at.compareTo(a.at));
   int get heldTotal => _visits.where((v) => v.feeStatus == 'held').fold(0, (sum, v) => sum + v.fee);
-  int get releasedTotal => _visits.where((v) => v.feeStatus == 'released').fold(0, (sum, v) => sum + v.fee);
+  int get releasedTotal => _visits.fold(0, (sum, v) => sum + v.brokerShare);
 
   Tk2Listing? listing(String id) {
     if (id == Tk2Listing.example.id) return Tk2Listing.example;
@@ -565,7 +593,16 @@ class Tk2Store extends ChangeNotifier {
     return true;
   }
 
-  /// Broker cancels, or the customer did not come → fee refunded.
+  /// Customer cancels: only within 5 minutes of booking (98% back).
+  Future<bool> customerCancel(String visitId, {DateTime? now}) async {
+    final at = _visits.indexWhere((v) => v.id == visitId);
+    if (at < 0 || !_visits[at].customerCanCancel(now ?? DateTime.now())) return false;
+    _visits[at] = _visits[at].withStatus(VisitStatus.customerCancelled);
+    await _save();
+    return true;
+  }
+
+  /// Broker cancels (full refund) or the customer did not come (broker gets half).
   Future<void> closeVisit(String visitId, String status) async {
     final at = _visits.indexWhere((v) => v.id == visitId);
     if (at < 0) return;
@@ -586,14 +623,13 @@ class Tk2Store extends ChangeNotifier {
       l.rules,
       'Available ${l.availableFrom.isEmpty ? 'now' : 'from ${l.availableFrom}'}',
       '',
-      l.visitFee == 0 ? 'See photos and book a visit (free):' : 'See photos and book a visit (${money(l.visitFee)}, refunded if the visit does not happen):',
-      shareLink(l),
+      l.visitFee == 0 ? 'See photos and book a visit (free):' : 'See the house and book a visit (${money(l.visitFee)}):',
+      tk2PropertyLink(l, brokerName),
       if (brokerName.isNotEmpty) '',
       if (brokerName.isNotEmpty) '– $brokerName${brokerPhone.isNotEmpty ? ', $brokerPhone' : ''}',
     ].join('\n');
   }
 
-  static String shareLink(Tk2Listing l) => 'https://trustkeyper.com/v/${l.id}';
 
   static String money(int v) {
     final s = v.toString();

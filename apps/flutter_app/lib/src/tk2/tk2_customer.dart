@@ -35,7 +35,7 @@ class _PreviewBanner extends StatelessWidget {
 String tk2VisitNotice(int fee) =>
     'Book a visit for ${Tk2Store.money(fee)}. TrustKeeper keeps it safe and pays the broker only after your visit. '
     'If the broker or owner is not available, you get it all back. '
-    'We wait 15 minutes: if you are more than 15 minutes late, or the visit is cancelled from your side, the amount is not refunded.';
+    'You can cancel within 5 minutes of booking (2% is kept). After that, and if you are more than 15 minutes late, it is not refunded.';
 
 /// What happens after the visit, in order. Customers see it before booking.
 class Tk2NextSteps extends StatelessWidget {

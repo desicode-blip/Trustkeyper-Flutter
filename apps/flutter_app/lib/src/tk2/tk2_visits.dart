@@ -156,7 +156,7 @@ class _VisitSheetState extends State<_VisitSheet> {
       context: context,
       builder: (d) => AlertDialog(
         title: Text(cancel ? 'Cancel this visit?' : 'Customer did not come?'),
-        content: Text('${widget.visit.customerName} gets ${Tk2Store.money(widget.visit.fee)} back.'),
+        content: Text(cancel ? '${widget.visit.customerName} gets ${Tk2Store.money(widget.visit.fee)} back.' : 'You get ${Tk2Store.money(widget.visit.fee ~/ 2)} for your time.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Go back')),
           TextButton(onPressed: () => Navigator.pop(d, true), style: TextButton.styleFrom(foregroundColor: AppColors.error), child: Text(cancel ? 'Cancel visit' : 'Yes, did not come')),
@@ -167,7 +167,7 @@ class _VisitSheetState extends State<_VisitSheet> {
     await widget.store.closeVisit(widget.visit.id, status);
     if (!mounted) return;
     Navigator.pop(context);
-    _toast('Visit closed. ${Tk2Store.money(widget.visit.fee)} goes back to the customer.');
+    _toast(cancel ? 'Visit cancelled. ${Tk2Store.money(widget.visit.fee)} goes back to the customer.' : '${Tk2Store.money(widget.visit.fee ~/ 2)} is yours for your time.');
   }
 
   @override
@@ -190,7 +190,8 @@ class _VisitSheetState extends State<_VisitSheet> {
               alignment: Alignment.centerLeft,
               child: switch (v.feeStatus) {
                 'released' => Tk2Pill('${Tk2Store.money(v.fee)} is yours', kind: 'ok', icon: Icons.check),
-                'refunded' => Tk2Pill('${Tk2Store.money(v.fee)} refunded to customer'),
+                'refunded' => Tk2Pill('${Tk2Store.money(v.customerRefund)} refunded to customer'),
+                'half' => Tk2Pill('${Tk2Store.money(v.brokerShare)} is yours · did not come', kind: 'ok', icon: Icons.check),
                 _ => Tk2Pill('${Tk2Store.money(v.fee)} held · yours after the visit', kind: 'wait', icon: Icons.lock_clock_outlined),
               },
             ),

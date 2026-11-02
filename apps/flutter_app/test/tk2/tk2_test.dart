@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:trustkeyper/src/tk2/tk2_link.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trustkeyper/src/features/broker/data/broker_property_repository.dart';
 import 'package:trustkeyper/src/tk2/tk2_app.dart';
@@ -46,7 +48,7 @@ void main() {
       await b.load();
       expect(b.brokerName, 'Suresh');
       expect(b.listings.single.name, 'Flat 1');
-      expect(b.shareText(b.listings.single), contains('https://trustkeyper.com/v/'));
+      expect(b.shareText(b.listings.single), contains('$tk2WebApp#p-'));
     });
 
     test('share text hides door and owner; fee 0 means free', () async {
@@ -103,6 +105,29 @@ void main() {
       expect(l.dayOpen(DateTime(2026, 11, 7)), isTrue); // Saturday
       expect(l.dayOpen(DateTime(2026, 11, 9)), isFalse); // Monday
       expect(Tk2Listing.fromJson(l.toJson()).visitDays, 'weekends');
+    });
+
+    test('property link carries only public details', () {
+      final l = Tk2Listing.example;
+      final link = tk2PropertyLink(l, 'Suresh');
+      final b32 = link.split('#p-').last;
+      expect(RegExp(r'^[a-z2-7]+$').hasMatch(b32), isTrue);
+      final json = jsonEncode(tk2PublicPayload(l, 'Suresh'));
+      expect(tk2Base32(json), b32);
+      expect(json, isNot(contains('402')));
+      expect(json, isNot(contains(l.ownerName.isEmpty ? '~none~' : l.ownerName)));
+      expect(tk2Base32('hi'), 'nbuq');
+    });
+
+    test('visit money: no-show half to broker, customer cancel 98% within 5 min', () {
+      final now = DateTime(2026, 11, 2, 10);
+      final v = Tk2Visit(id: 'v', listingId: 'x', customerName: 'R', customerPhone: '', at: 0, fee: 150, code: '1234', createdAt: now.millisecondsSinceEpoch);
+      expect(v.withStatus(VisitStatus.noShow).brokerShare, 75);
+      expect(v.withStatus(VisitStatus.noShow).customerRefund, 0);
+      expect(v.withStatus(VisitStatus.cancelled).customerRefund, 150);
+      expect(v.withStatus(VisitStatus.customerCancelled).customerRefund, 147);
+      expect(v.customerCanCancel(now.add(const Duration(minutes: 4))), isTrue);
+      expect(v.customerCanCancel(now.add(const Duration(minutes: 6))), isFalse);
     });
 
     test('card heading is never empty (old properties without society)', () {

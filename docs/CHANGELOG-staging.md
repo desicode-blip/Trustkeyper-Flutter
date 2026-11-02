@@ -1182,3 +1182,19 @@ rules: brokerage for days = rent × days ÷ 30, rounded; "Anyone" = all 4 types
 open: Send-link-to-owner path – owner answers papers in the main-app flow; rent/visits/photos for such houses still need a TK2 step for the broker (cards for link-added houses not shown yet)
 verification: flutter analyze clean; test/tk2 15/15 (new: who-can-rent ticks, brokerage from rent, visit days)
 ```
+
+## Change 72 – Tenant + owner web app (prototype, live link), new visit-fee rules, journeys document
+Date: 2026-11-02 · Status: prototype live; app code synced to the Mac, not yet built
+- New tenant/owner web app (HTML prototype to agree the flow; to be rebuilt in Flutter web). Live: https://claude.ai/artifact/Szj2fK38ocoCABGHbTtxUt. Tenant: property page (no login) → book day/hour → sign up (name, phone, OTP) → pay → booked (code, Google Calendar link, reminder-call note, 5-minute cancel) → I want it → token ₹15,000 → details → owner details → agreement (broker-only edits, approve) → e-sign → deposit + first rent + brokerage → keys. Owner: invite → sign up (phone or email + OTP) → 15 questions one per screen (no brokerage) → done. OTP, payments, e-sign, calls are demo.
+- Broker app share link now opens this web app; the public details travel inside the link (#p-…, base32). Private details never included.
+- Visit-fee rules: tenant can cancel only within 5 minutes (2% kept); no-show → broker gets half; broker cancels → full refund. Visits tab, pills and notice texts updated.
+- New human-readable doc: docs/TRUSTKEEPER2-JOURNEYS.md (all three journeys, money and privacy rules, developer to-do).
+```
+AGENT RECORD – Change 72
+id: CHG-072
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/tk2_link.dart (new: tk2WebApp, tk2PublicPayload, tk2PropertyLink, tk2OwnerLink, tk2Base32), apps/flutter_app/lib/src/tk2/tk2_store.dart (Tk2Visit.brokerShare/customerRefund/customerCanCancel/refundAfterFee, VisitStatus.customerCancelled, Tk2Store.customerCancel, releasedTotal = sum brokerShare, share text uses tk2PropertyLink), apps/flutter_app/lib/src/tk2/tk2_visits.dart, apps/flutter_app/lib/src/tk2/tk2_listing.dart (visit row pills), apps/flutter_app/lib/src/tk2/tk2_customer.dart (notice), apps/flutter_app/test/tk2/tk2_test.dart, docs/prototypes/tk2-web/index.html (web prototype source), docs/TRUSTKEEPER2-JOURNEYS.md, docs/CHANGELOG-staging.md
+rules: link payload = public fields only (tested); visit money table in TRUSTKEEPER2-JOURNEYS.md
+verification: flutter analyze clean; test/tk2 17/17; web prototype: tenant and owner journeys run end to end in headless Chromium with no page errors
+```

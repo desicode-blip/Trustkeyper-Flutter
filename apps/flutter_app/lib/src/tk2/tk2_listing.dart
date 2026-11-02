@@ -644,7 +644,8 @@ class Tk2VisitRow extends StatelessWidget {
     final (pill, kind) = switch (v.status) {
       VisitStatus.done => ('${Tk2Store.money(v.fee)} yours', 'ok'),
       VisitStatus.cancelled => ('Cancelled · refunded', 'mute'),
-      VisitStatus.noShow => ('Did not come · refunded', 'mute'),
+      VisitStatus.customerCancelled => ('Customer cancelled', 'mute'),
+      VisitStatus.noShow => ('Did not come · ${Tk2Store.money(v.brokerShare)} yours', 'ok'),
       _ => ('${Tk2Store.money(v.fee)} held', 'wait'),
     };
     final property = showProperty ? store.listing(v.listingId)?.name : null;
