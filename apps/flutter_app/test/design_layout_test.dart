@@ -221,7 +221,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        for (final label in ApprovedBrokerNavigation.labels) {
+        for (final label in ApprovedBrokerNavigation.defaultLabels) {
           final finder = find.text(label);
           expect(finder, findsOneWidget);
           final paragraph = tester.renderObject<RenderParagraph>(
@@ -230,7 +230,7 @@ void main() {
           expect(paragraph.didExceedMaxLines, isFalse);
           expect(paragraph.size.height, lessThanOrEqualTo(20));
           await tester.tap(finder);
-          expect(selected, ApprovedBrokerNavigation.labels.indexOf(label));
+          expect(selected, ApprovedBrokerNavigation.defaultLabels.indexOf(label));
         }
         expect(
           tester.getSize(find.byType(ApprovedBrokerNavigation)).height,

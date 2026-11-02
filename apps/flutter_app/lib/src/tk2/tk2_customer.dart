@@ -40,8 +40,8 @@ class Tk2CustomerPage extends StatelessWidget {
     final p = l.property;
     final facts = [
       p.rooms,
-      if (p.furnishing.isNotEmpty) p.furnishing == 'Empty' ? 'Unfurnished' : '${p.furnishing}-furnished',
-      if (p.sizeSqFt != null) '${p.sizeSqFt!.toStringAsFixed(0)} sq ft',
+      l.furnishingText,
+      if (p.sizeSqFt != null) '${p.sizeSqFt!.toStringAsFixed(0)} sft',
       if (p.floor > 0) 'Floor ${p.floor}',
       if ((p.facing ?? '').isNotEmpty) '${p.facing} facing',
     ];
@@ -71,15 +71,22 @@ class Tk2CustomerPage extends StatelessWidget {
                 if (l.hasRent) const Padding(padding: EdgeInsets.only(left: 4, bottom: 3), child: Text('/ month', style: TextStyle(fontSize: 15, color: AppColors.muted))),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: l.deposit > 0
-                      ? Text('Deposit ${Tk2Store.money(l.deposit)}', textAlign: TextAlign.right, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.5, color: AppColors.muted))
-                      : const SizedBox(),
+                  child: Text(
+                    [
+                      if (l.maintenanceIncluded || l.maintenance == 0) 'Incl. maintenance' else '+ ${Tk2Store.money(l.maintenance)} maint.',
+                      if (l.deposit > 0) 'Deposit ${Tk2Store.money(l.deposit)}',
+                    ].join('\n'),
+                    textAlign: TextAlign.right,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13.5, color: AppColors.muted),
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 14),
-          Tk2Appear(index: 3, child: Wrap(spacing: 6, runSpacing: 6, children: [for (final f in facts) Tk2Pill(f), Tk2Pill(l.availableFrom.isEmpty ? 'Available now' : 'From ${tk2Date(l.availableFrom)}', kind: 'ok')])),
+          Tk2Appear(index: 3, child: Wrap(spacing: 6, runSpacing: 6, children: [for (final f in facts) Tk2Pill(f), Tk2Pill(l.availableFrom.isEmpty ? 'Available now' : 'From ${tk2Date(l.availableFrom)}', kind: 'ok'), Tk2Pill(l.tenants == 'Anyone' ? 'Family or bachelors' : '${l.tenants} only'), Tk2Pill(l.pets ? 'Pets OK' : 'No pets')])),
           if (things.isNotEmpty) ...[
             const SizedBox(height: 22),
             const Text('In the house', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading)),
@@ -442,7 +449,7 @@ class Tk2Booked extends StatelessWidget {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
-          child: PrimaryButton(label: 'Done', onPressed: () => context.go('/')),
+          child: PrimaryButton(label: 'Done', onPressed: () => context.go('/home')),
         ),
       ),
     );

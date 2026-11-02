@@ -7,11 +7,17 @@ class ApprovedBrokerNavigation extends StatelessWidget {
   const ApprovedBrokerNavigation({
     required this.selectedIndex,
     required this.onSelected,
+    this.labels = defaultLabels,
+    this.icons,
     super.key,
   });
   final int selectedIndex;
   final ValueChanged<int> onSelected;
-  static const labels = [
+  final List<String> labels;
+
+  /// Icon file names (assets/design/nav-NAME.svg); defaults to the labels.
+  final List<String>? icons;
+  static const defaultLabels = [
     'Home',
     'Agreements',
     'Records',
@@ -65,7 +71,7 @@ class ApprovedBrokerNavigation extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         SvgPicture.asset(
-                          'assets/design/nav-${labels[index].toLowerCase()}.svg',
+                          'assets/design/nav-${(icons ?? labels)[index].toLowerCase()}.svg',
                           width: 24,
                           height: 24,
                           colorFilter: ColorFilter.mode(color, BlendMode.srcIn),

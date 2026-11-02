@@ -26,6 +26,10 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   late final deposit = TextEditingController(text: (start?.deposit ?? 0) > 0 ? '${start!.deposit}' : '');
   late String availableFrom = start?.availableFrom ?? '';
   late int fee = start?.visitFee ?? 150;
+  late final maintenance = TextEditingController(text: (start?.maintenance ?? 0) > 0 ? '${start!.maintenance}' : '');
+  late bool included = start?.maintenanceIncluded ?? true;
+  late String tenants = start?.tenants ?? 'Anyone';
+  late bool pets = start?.pets ?? true;
   late List<String> photos = [...?start?.photos];
   String? error;
   bool saving = false;
@@ -34,6 +38,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   void dispose() {
     rent.dispose();
     deposit.dispose();
+    maintenance.dispose();
     super.dispose();
   }
 
@@ -73,10 +78,10 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
       return;
     }
     setState(() => saving = true);
-    await widget.store.saveListing(l.copyWith(rent: _num(rent), deposit: _num(deposit), availableFrom: availableFrom, photos: photos, visitFee: fee));
+    await widget.store.saveListing(l.copyWith(rent: _num(rent), deposit: _num(deposit), availableFrom: availableFrom, photos: photos, visitFee: fee, maintenance: included ? 0 : _num(maintenance), maintenanceIncluded: included, tenants: tenants, pets: pets));
     if (!mounted) return;
     if (widget.isNew) {
-      context.go('/');
+      context.go('/home');
       context.push('/p/${l.id}?added=1');
     } else {
       context.pop();
@@ -93,7 +98,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
         children: [
-          Tk2Appear(child: Tk2Title(widget.isNew ? 'Rent and photos' : 'Edit rent and photos', subtitle: l.name)),
+          Tk2Appear(child: Tk2Title(widget.isNew ? 'Rent and details' : 'Edit rent and details', subtitle: l.name)),
           const SizedBox(height: 28),
           Tk2Appear(
             index: 1,
@@ -109,6 +114,37 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
             const SizedBox(height: 8),
             Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 15)),
           ],
+          const SizedBox(height: 18),
+          _label('Maintenance'),
+          Wrap(
+            spacing: 8,
+            children: [
+              ChoiceChip(label: const Text('Included in rent'), selected: included, onSelected: (_) => setState(() => included = true)),
+              ChoiceChip(label: const Text('Extra'), selected: !included, onSelected: (_) => setState(() => included = false)),
+            ],
+          ),
+          if (!included) ...[
+            const SizedBox(height: 12),
+            _moneyField(maintenance, 'Maintenance / month'),
+          ],
+          const SizedBox(height: 18),
+          _label('Who can rent'),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final t in const ['Family', 'Bachelors', 'Anyone'])
+                ChoiceChip(label: Text(t), selected: tenants == t, onSelected: (_) => setState(() => tenants = t)),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _label('Pets'),
+          Wrap(
+            spacing: 8,
+            children: [
+              ChoiceChip(label: const Text('Pets OK'), selected: pets, onSelected: (_) => setState(() => pets = true)),
+              ChoiceChip(label: const Text('No pets'), selected: !pets, onSelected: (_) => setState(() => pets = false)),
+            ],
+          ),
           const SizedBox(height: 18),
           Tk2Appear(
             index: 2,
@@ -215,6 +251,11 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
     );
   }
 
+  Widget _label(String t) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(t, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
+  );
+
   Widget _moneyField(TextEditingController c, String label, {bool autofocus = false}) => TextField(
     controller: c,
     autofocus: autofocus,
@@ -320,12 +361,14 @@ class _Tk2PropertyDetailState extends State<Tk2PropertyDetail> {
       final things = [for (final e in p.inventory.entries) if (e.value > 0) '${e.value} ${e.key}${e.value == 1 ? '' : 's'}'];
       final facts = <(IconData, String, String)>[
         (Icons.bed_outlined, 'Rooms', p.rooms),
-        if (p.furnishing.isNotEmpty) (Icons.chair_outlined, 'Furnishing', p.furnishing == 'Empty' ? 'Unfurnished' : '${p.furnishing}-furnished'),
-        if (p.sizeSqFt != null) (Icons.square_foot, 'Size', '${p.sizeSqFt!.toStringAsFixed(0)} sq ft'),
+        (Icons.chair_outlined, 'Furnishing', l.furnishingText),
+        if (p.sizeSqFt != null) (Icons.square_foot, 'Size', '${p.sizeSqFt!.toStringAsFixed(0)} sft'),
         if (p.floor > 0) (Icons.layers_outlined, 'Floor', p.totalFloors > 0 ? '${p.floor} of ${p.totalFloors}' : '${p.floor}'),
         if ((p.facing ?? '').isNotEmpty) (Icons.explore_outlined, 'Facing', p.facing!),
         if (p.carParking + p.bikeParking > 0) (Icons.local_parking, 'Parking', [if (p.carParking > 0) '${p.carParking} car', if (p.bikeParking > 0) '${p.bikeParking} bike'].join(' · ')),
         (Icons.event_outlined, 'Available', l.availableFrom.isEmpty ? 'Now' : tk2Date(l.availableFrom)),
+        (Icons.people_outline, 'For', l.tenants == 'Anyone' ? 'Family or bachelors' : l.tenants),
+        (Icons.pets_outlined, 'Pets', l.pets ? 'Allowed' : 'Not allowed'),
       ];
       return Scaffold(
         backgroundColor: Colors.white,
@@ -338,7 +381,7 @@ class _Tk2PropertyDetailState extends State<Tk2PropertyDetail> {
               surfaceTintColor: Colors.white,
               leading: Padding(
                 padding: const EdgeInsets.all(6),
-                child: CircleAvatar(backgroundColor: Colors.white, child: BackButton(color: AppColors.heading, onPressed: () => context.canPop() ? context.pop() : context.go('/'))),
+                child: CircleAvatar(backgroundColor: Colors.white, child: BackButton(color: AppColors.heading, onPressed: () => context.canPop() ? context.pop() : context.go('/home'))),
               ),
               actions: [
                 if (!l.sample)
@@ -409,7 +452,7 @@ class _Tk2PropertyDetailState extends State<Tk2PropertyDetail> {
                     index: 1,
                     child: Row(
                       children: [
-                        _money(l.hasRent ? Tk2Store.money(l.rent) : '—', 'Rent / month'),
+                        _money(l.hasRent ? Tk2Store.money(l.rent) : '—', l.maintenanceIncluded || l.maintenance == 0 ? 'Rent incl. maint.' : '+ ${Tk2Store.money(l.maintenance)} maint.'),
                         const SizedBox(width: 10),
                         _money(l.deposit > 0 ? Tk2Store.money(l.deposit) : '—', 'Deposit'),
                         const SizedBox(width: 10),

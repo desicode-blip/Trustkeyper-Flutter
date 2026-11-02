@@ -16,6 +16,10 @@ class ApprovedBrokerHome extends StatelessWidget {
     required this.onOpenProfile,
     this.updates,
     this.savedDrafts,
+    this.actions,
+    this.trailing,
+    this.below,
+    this.showBankPrompt = true,
     super.key,
   });
 
@@ -24,6 +28,16 @@ class ApprovedBrokerHome extends StatelessWidget {
   final VoidCallback onOpenProfile;
   final BrokerUpdatesRepository? updates;
   final Widget? savedDrafts;
+
+  /// Replaces the three action tiles (TrustKeeper 2 uses its own).
+  final Widget? actions;
+
+  /// Replaces the updates bell at the top right.
+  final Widget? trailing;
+
+  /// Extra sections between the tiles and the call card.
+  final List<Widget>? below;
+  final bool showBankPrompt;
 
   void _create(BuildContext context, String route) {
     if (!approvalPending) {
@@ -53,13 +67,13 @@ class ApprovedBrokerHome extends StatelessWidget {
                 shape: const CircleBorder(),
               ),
               onPressed: onOpenProfile,
-              icon: const _HomeIcon('profile', size: 22),
+              icon: const HomeIcon('profile', size: 22),
             ),
           ),
           const Expanded(child: Center(child: AppBrand(height: 40))),
           SizedBox.square(
             dimension: 48,
-            child: BrokerUpdatesBell(repository: updates),
+            child: trailing ?? BrokerUpdatesBell(repository: updates),
           ),
         ],
       ),
@@ -83,7 +97,8 @@ class ApprovedBrokerHome extends StatelessWidget {
       ),
       const SizedBox(height: 28),
       // Three actions share one slim style; the first is filled blue.
-      _HomeTile(
+      if (actions != null) actions! else ...[
+      HomeTile(
         icon: 'agreement',
         label: approvalPending ? 'Waiting for approval' : 'Make rent agreement',
         primary: true,
@@ -97,7 +112,7 @@ class ApprovedBrokerHome extends StatelessWidget {
         children: [
           Expanded(
             flex: 6,
-            child: _HomeTile(
+            child: HomeTile(
               icon: 'house',
               label: 'Onboard property',
               onPressed: () => _create(context, '/broker/property'),
@@ -106,7 +121,7 @@ class ApprovedBrokerHome extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             flex: 5,
-            child: _HomeTile(
+            child: HomeTile(
               icon: 'tenants',
               label: 'Add tenant',
               onPressed: () => _create(context, '/broker/start'),
@@ -114,9 +129,11 @@ class ApprovedBrokerHome extends StatelessWidget {
           ),
         ],
       ),
+      ],
       ?savedDrafts,
+      ...?below,
       // With saved drafts the bank prompt lives inside the Continue panel.
-      if (!profile.hasBankAccount && savedDrafts == null) ...[
+      if (showBankPrompt && !profile.hasBankAccount && savedDrafts == null) ...[
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(16),
@@ -219,7 +236,7 @@ class ApprovedBrokerHome extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: 8),
-                _HomeIcon('next', color: AppColors.muted, size: 20),
+                HomeIcon('next', color: AppColors.muted, size: 20),
               ],
             ),
           ),
@@ -229,9 +246,10 @@ class ApprovedBrokerHome extends StatelessWidget {
   );
 }
 
-class _HomeIcon extends StatelessWidget {
-  const _HomeIcon(
+class HomeIcon extends StatelessWidget {
+  const HomeIcon(
     this.name, {
+    super.key,
     this.color = AppColors.primaryDark,
     this.size = 24,
   });
@@ -268,19 +286,21 @@ class _HomeCircle extends StatelessWidget {
     height: size,
     decoration: BoxDecoration(color: background, shape: BoxShape.circle),
     child: Center(
-      child: _HomeIcon(icon, size: iconSize, color: color),
+      child: HomeIcon(icon, size: iconSize, color: color),
     ),
   );
 }
 
-class _HomeTile extends StatelessWidget {
-  const _HomeTile({
+/// One slim home action (filled blue when [primary]).
+class HomeTile extends StatelessWidget {
+  const HomeTile({
     required this.icon,
     required this.label,
     required this.onPressed,
     this.primary = false,
     this.showArrow = false,
     this.disabled = false,
+    super.key,
   });
   final String icon;
   final String label;
@@ -312,7 +332,7 @@ class _HomeTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              _HomeIcon(
+              HomeIcon(
                 icon,
                 size: 22,
                 color: primary ? Colors.white : AppColors.primaryDark,
@@ -344,7 +364,7 @@ class _HomeTile extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: const Center(
-                    child: _HomeIcon(
+                    child: HomeIcon(
                       'next',
                       size: 18,
                       color: AppColors.primary,

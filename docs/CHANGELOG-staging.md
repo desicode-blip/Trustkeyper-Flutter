@@ -993,3 +993,17 @@ files: apps/flutter_app/lib/main_tk2.dart (new), apps/flutter_app/lib/src/tk2/{t
 verification: flutter analyze clean; test/tk2 5/5 pass (store rules + full welcome→book→paid flow); full suite 39 old failures, same as before this change
 install: Mac-only local switch to bundle id com.trustkeyper.tk2 + FLUTTER_TARGET=lib/main_tk2.dart (repo iOS project unchanged)
 ```
+
+## Change 59 – TrustKeeper 2 reuses the main app's screens; sleek property rows
+Date: 2026-11-02 · Status: code complete; installed on Aman's iPhone
+Feedback: the first TK2 build redesigned things that didn't need it. Now TK2 uses the main app's splash, welcome carousel, logo, login look, broker home (header, Namaste, slim tiles, call card) and floating bottom bar as they are. Own animations removed. Home property cards are now compact rows: small photo, "3 BHK · name", rent incl./+ maintenance, sft · furnishing, who can rent · pets · available from, WhatsApp share icon. Rent screen asks maintenance, who can rent and pets.
+Shared screen hooks (main app unchanged by default): `SplashScreen.nextRoute`, `ApprovedBrokerNavigation.labels/icons` (`defaultLabels`), `ApprovedBrokerHome.actions/trailing/below/showBankPrompt`, public `HomeTile`/`HomeIcon`.
+```
+AGENT RECORD – Change 59
+id: CHG-059
+date: 2026-11-02
+branch: staging (never main)
+files: lib/src/tk2/{tk2_app,tk2_store,tk2_widgets,tk2_listing,tk2_customer}.dart, lib/src/features/auth/presentation/auth_screens.dart, lib/src/core/widgets/approved_navigation.dart, lib/src/features/broker/presentation/approved_broker_home.dart, test/tk2/tk2_test.dart, test/design_layout_test.dart (defaultLabels), docs/TRUSTKEEPER2.md
+verification: flutter analyze clean; test/tk2 6/6; full suite 39 old failures (unchanged)
+install (Mac only): bundle id com.trustkeyper.tk2, FLUTTER_TARGET=lib/main_tk2.dart, entitlements off (no push/App Attest) so the team wildcard profile signs it
+```

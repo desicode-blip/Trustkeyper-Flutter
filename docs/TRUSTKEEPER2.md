@@ -9,15 +9,19 @@ Flutter project and reuses the house screens, colours and buttons.
 
 ## What the broker can do
 
-1. **First open** – types their name (and phone, optional). Phone appears in shared messages.
-2. **Home** – "Namaste, name", three small numbers (properties, visits booked, visit fees),
-   then the property cards. Until the broker adds a property, one **example property**
+1. **First open** – the main app's splash and welcome carousel as they are, then the main
+   app's "Log in or sign up" look with name + mobile (kept on the phone; no OTP yet).
+2. **Home** – the main app's broker home as it is (profile, logo, bell, "Namaste", slim tiles,
+   "Stuck? Call us", floating bottom bar Home · Visits · Profile). Main tile: **Add property**.
+   Below: compact property rows – small photo left; right: "3 BHK · name", rent with
+   "incl. maintenance" or "+ ₹X maintenance", sft · furnishing, Family/Bachelors · pets ·
+   available from. Until the broker adds a property, one **example property**
    (Flat 402, Madhapur) is shown with an "Example" tag and a hint. Adding the first own
    property removes it and shows "We removed the example".
 3. **Add property** – the same screens as the main app (`BrokerPropertyScreen` with
    `startNew`, `showStepLabel: false`): name → add manually / sale deed / old agreement →
-   address → rooms → things → check. Then a new screen: **rent, deposit, available from,
-   visit fee (₹100 / ₹150 / ₹200) and up to 10 photos**.
+   address → rooms → things → check. Then a new screen: **rent, deposit, maintenance (included or extra),
+   who can rent (Family / Bachelors / Anyone), pets, available from, visit fee (₹100 / ₹150 / ₹200) and up to 10 photos**.
 4. **Property page** – photo slider, rent / deposit / visit fee, facts, things in the house,
    visits for this property. Menu: edit rent and photos, edit house details, remove.
 5. **Share** – one tap: message preview → **Share on WhatsApp** (opens WhatsApp with the

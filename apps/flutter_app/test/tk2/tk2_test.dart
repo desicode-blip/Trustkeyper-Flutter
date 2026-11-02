@@ -61,17 +61,22 @@ void main() {
     addTearDown(tester.view.reset);
     final store = Tk2Store.forTest();
     await tester.pumpWidget(TrustKeeper2App(store: store));
+
+    // Signed in already: the main app's splash goes straight to home.
+    await store.load();
+    await store.setBroker('Suresh Kumar', '+91 9876543210');
+    await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
 
-    expect(find.text('Welcome to TrustKeeper'), findsOneWidget);
-    await tester.enterText(find.widgetWithText(TextField, 'Your name'), 'Suresh Kumar');
-    await tester.tap(find.text('Start'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Suresh Kumar'), findsOneWidget);
+    expect(find.text('Namaste, Suresh'), findsOneWidget);
+    expect(find.text('Add property'), findsOneWidget);
     expect(find.text('Example'), findsOneWidget);
-    expect(find.text('Flat 402, Madhapur'), findsOneWidget);
+    expect(find.text('2 BHK · Flat 402, Madhapur'), findsOneWidget);
+    expect(find.text('₹32,000 + ₹3,000 maintenance'), findsOneWidget);
+    expect(find.textContaining('Family only · No pets'), findsOneWidget);
 
+    await tester.tap(find.text('2 BHK · Flat 402, Madhapur'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Customer view'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Customer view ·'), findsOneWidget);
@@ -110,5 +115,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('₹150 yours'), findsOneWidget);
     expect(store.releasedTotal, 150);
+  });
+
+  testWidgets('login keeps name and number, then opens home', (tester) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final store = Tk2Store.forTest();
+    await store.load();
+    final router = buildTk2Router(store)..go('/login');
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.text('Log in or sign up'), findsOneWidget);
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+    expect(find.text('Type your name'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Your name'), 'Suresh Kumar');
+    await tester.enterText(find.byType(TextField).last, '9876543210');
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(store.brokerName, 'Suresh Kumar');
+    expect(find.text('Namaste, Suresh'), findsOneWidget);
   });
 }

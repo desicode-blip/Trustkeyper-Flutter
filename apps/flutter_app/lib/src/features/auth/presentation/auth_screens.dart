@@ -18,9 +18,12 @@ import 'approved_auth_widgets.dart';
 import 'login_method.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key, this.authService});
+  const SplashScreen({super.key, this.authService, this.nextRoute});
 
   final FirebaseAuthService? authService;
+
+  /// Where to go after the splash; defaults to the Firebase login check.
+  final Future<String> Function()? nextRoute;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -44,8 +47,9 @@ class _SplashScreenState extends State<SplashScreen> {
       startupError = null;
     });
     try {
-      final route = await (widget.authService ?? FirebaseAuthService.instance)
-          .landingRoute()
+      final route = await (widget.nextRoute?.call() ??
+              (widget.authService ?? FirebaseAuthService.instance)
+                  .landingRoute())
           .timeout(const Duration(seconds: 20));
       if (mounted) context.go(route);
     } catch (_) {

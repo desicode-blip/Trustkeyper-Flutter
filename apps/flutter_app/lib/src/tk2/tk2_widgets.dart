@@ -4,29 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../core/theme/app_colors.dart';
+import '../features/broker/presentation/approved_broker_home.dart';
 import 'tk2_store.dart';
 
 // Shared pieces for TrustKeeper 2: calm cards, soft pills, gentle motion.
 
 const tk2Green = Color(0xFF2FA866);
 
-/// Fades and slides a child in, a little later for each index (list entry).
+/// Kept as a plain wrapper: TrustKeeper 2 uses the main app's motion only.
 class Tk2Appear extends StatelessWidget {
   const Tk2Appear({required this.child, this.index = 0, super.key});
   final Widget child;
   final int index;
 
   @override
-  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
-    tween: Tween(begin: 0, end: 1),
-    duration: Duration(milliseconds: 380 + 70 * index.clamp(0, 6)),
-    curve: Curves.easeOutCubic,
-    builder: (context, t, child) => Opacity(
-      opacity: t,
-      child: Transform.translate(offset: Offset(0, 18 * (1 - t)), child: child),
-    ),
-    child: child,
-  );
+  Widget build(BuildContext context) => child;
 }
 
 /// Small rounded label.
@@ -66,8 +58,9 @@ class Tk2Pill extends StatelessWidget {
 
 /// The property photo, or a soft illustration when there is none.
 class Tk2Photo extends StatelessWidget {
-  const Tk2Photo({required this.listing, this.height = 170, this.index = 0, this.radius = 20, super.key});
+  const Tk2Photo({required this.listing, this.height = 170, this.index = 0, this.radius = 20, this.compact = false, super.key});
   final Tk2Listing listing;
+  final bool compact;
   final double height;
   final int index;
   final double radius;
@@ -76,7 +69,13 @@ class Tk2Photo extends StatelessWidget {
   Widget build(BuildContext context) {
     final path = index < listing.photos.length ? listing.photos[index] : null;
     final file = path == null ? null : File(path);
-    Widget fallback() => Container(
+    Widget fallback() => compact
+        ? Container(
+            color: AppColors.primarySoft,
+            alignment: Alignment.center,
+            child: const HomeIcon('house', size: 28),
+          )
+        : Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -148,101 +147,78 @@ String tk2Date(String iso) {
   return '${d.day} ${_months[d.month - 1]} ${d.year}';
 }
 
-/// One clear property card for the home shelf.
+/// Sleek property row for the home list: small photo on the left, the
+/// important facts on the right.
 class Tk2PropertyCard extends StatelessWidget {
-  const Tk2PropertyCard({required this.listing, required this.onOpen, required this.onShare, required this.onCustomerView, this.visits = 0, super.key});
+  const Tk2PropertyCard({required this.listing, required this.onOpen, required this.onShare, this.visits = 0, super.key});
   final Tk2Listing listing;
   final VoidCallback onOpen;
   final VoidCallback onShare;
-  final VoidCallback onCustomerView;
   final int visits;
 
   @override
   Widget build(BuildContext context) {
-    final p = listing.property;
-    final facts = [
-      p.rooms,
-      if (p.furnishing.isNotEmpty) p.furnishing == 'Empty' ? 'Unfurnished' : '${p.furnishing}-furnished',
-      if (p.sizeSqFt != null) '${p.sizeSqFt!.toStringAsFixed(0)} sq ft',
-    ];
+    final l = listing;
+    final p = l.property;
+    const small = TextStyle(fontSize: 13.5, height: 18 / 13.5, color: AppColors.muted);
     return Material(
       color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: AppColors.border)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: AppColors.border)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onOpen,
         child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
+          padding: const EdgeInsets.all(10),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Stack(
-                children: [
-                  Hero(tag: 'photo-${listing.id}', child: Tk2Photo(listing: listing)),
-                  if (listing.sample) const Positioned(left: 10, top: 10, child: Tk2Pill('Example', kind: 'dark')),
-                  if (visits > 0)
-                    Positioned(right: 10, top: 10, child: Tk2Pill('$visits visit${visits == 1 ? '' : 's'}', kind: 'ok', icon: Icons.event_available)),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(6, 14, 6, 4),
+              SizedBox(width: 72, height: 72, child: Tk2Photo(listing: l, height: 72, radius: 12, compact: true)),
+              const SizedBox(width: 12),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(listing.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 19, height: 24 / 19, fontWeight: FontWeight.w700, color: AppColors.heading)),
-                    if (p.address.trim().isNotEmpty && p.address.trim() != listing.name) ...[
-                      const SizedBox(height: 2),
-                      Text(p.address, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.5, color: AppColors.muted)),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${p.rooms} · ${l.name}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 15.5, height: 20 / 15.5, fontWeight: FontWeight.w600, color: AppColors.heading),
+                          ),
+                        ),
+                        if (l.sample) const Tk2Pill('Example', kind: 'info'),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(l.rentLine, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.5, height: 20 / 14.5, fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
+                    const SizedBox(height: 2),
+                    Text(
+                      [if (p.sizeSqFt != null) '${p.sizeSqFt!.toStringAsFixed(0)} sft', l.furnishingText].join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: small,
+                    ),
+                    Text(
+                      '${l.rules} · ${l.availableFrom.isEmpty ? 'Available now' : 'From ${tk2Date(l.availableFrom)}'}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: small,
+                    ),
+                    if (visits > 0) ...[
+                      const SizedBox(height: 4),
+                      Tk2Pill('$visits visit${visits == 1 ? '' : 's'} booked', kind: 'ok'),
                     ],
-                    const SizedBox(height: 10),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(listing.hasRent ? Tk2Store.money(listing.rent) : 'Add rent', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: listing.hasRent ? AppColors.heading : AppColors.primaryDark)),
-                        if (listing.hasRent) const Padding(padding: EdgeInsets.only(left: 4, bottom: 2), child: Text('/ month', style: TextStyle(fontSize: 14, color: AppColors.muted))),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(spacing: 6, runSpacing: 6, children: [for (final f in facts) Tk2Pill(f)]),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 46,
-                            child: FilledButton.icon(
-                              onPressed: onShare,
-                              icon: tk2WhatsAppLogo(size: 18),
-                              label: const Text('Share'),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: AppColors.successSoft,
-                                foregroundColor: AppColors.success,
-                                shape: const StadiumBorder(),
-                                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: SizedBox(
-                            height: 46,
-                            child: OutlinedButton.icon(
-                              onPressed: onCustomerView,
-                              icon: const Icon(Icons.visibility_outlined, size: 18),
-                              label: const Text('Customer view'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.primaryDark,
-                                side: const BorderSide(color: AppColors.border),
-                                shape: const StadiumBorder(),
-                                textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
+                ),
+              ),
+              SizedBox.square(
+                dimension: 40,
+                child: IconButton(
+                  tooltip: 'Share',
+                  onPressed: onShare,
+                  icon: tk2WhatsAppLogo(size: 22),
                 ),
               ),
             ],

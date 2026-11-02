@@ -23,7 +23,19 @@ class Tk2Listing {
     this.visitFee = 150,
     this.createdAt = 0,
     this.sample = false,
+    this.maintenance = 0,
+    this.maintenanceIncluded = true,
+    this.tenants = 'Anyone',
+    this.pets = true,
   });
+
+  /// Monthly maintenance; 0 with [maintenanceIncluded] = included in rent.
+  final int maintenance;
+  final bool maintenanceIncluded;
+
+  /// Family · Bachelors · Anyone
+  final String tenants;
+  final bool pets;
 
   final String id;
   final BrokerProperty property;
@@ -53,6 +65,10 @@ class Tk2Listing {
     String? availableFrom,
     List<String>? photos,
     int? visitFee,
+    int? maintenance,
+    bool? maintenanceIncluded,
+    String? tenants,
+    bool? pets,
   }) => Tk2Listing(
     id: id,
     property: property ?? this.property,
@@ -63,6 +79,10 @@ class Tk2Listing {
     visitFee: visitFee ?? this.visitFee,
     createdAt: createdAt,
     sample: sample,
+    maintenance: maintenance ?? this.maintenance,
+    maintenanceIncluded: maintenanceIncluded ?? this.maintenanceIncluded,
+    tenants: tenants ?? this.tenants,
+    pets: pets ?? this.pets,
   );
 
   Map<String, Object?> toJson() => {
@@ -74,6 +94,10 @@ class Tk2Listing {
     'photos': photos,
     'visitFee': visitFee,
     'createdAt': createdAt,
+    'maintenance': maintenance,
+    'maintenanceIncluded': maintenanceIncluded,
+    'tenants': tenants,
+    'pets': pets,
   };
 
   factory Tk2Listing.fromJson(Map<String, dynamic> json) => Tk2Listing(
@@ -88,7 +112,29 @@ class Tk2Listing {
     photos: [for (final p in (json['photos'] as List? ?? const [])) if (p is String) p],
     visitFee: (json['visitFee'] as num?)?.toInt() ?? 150,
     createdAt: (json['createdAt'] as num?)?.toInt() ?? 0,
+    maintenance: (json['maintenance'] as num?)?.toInt() ?? 0,
+    maintenanceIncluded: json['maintenanceIncluded'] as bool? ?? true,
+    tenants: json['tenants'] as String? ?? 'Anyone',
+    pets: json['pets'] as bool? ?? true,
   );
+
+  /// Rent line for cards: "₹32,000 incl. maintenance" or "₹32,000 + ₹3,000 maintenance".
+  String get rentLine {
+    if (!hasRent) return 'Add rent';
+    final r = Tk2Store.money(rent);
+    if (maintenanceIncluded || maintenance == 0) return '$r incl. maintenance';
+    return '$r + ${Tk2Store.money(maintenance)} maintenance';
+  }
+
+  /// Furnishing as people say it.
+  String get furnishingText => switch (property.furnishing) {
+    'Empty' || '' => 'Unfurnished',
+    'Full' => 'Fully furnished',
+    final f => '$f-furnished',
+  };
+
+  /// Who can rent and pets, e.g. "Family · No pets".
+  String get rules => [if (tenants != 'Anyone') '$tenants only' else 'Family or bachelors', pets ? 'Pets OK' : 'No pets'].join(' · ');
 
   /// The example everyone sees first.
   static final example = Tk2Listing(
@@ -97,6 +143,10 @@ class Tk2Listing {
     rent: 32000,
     deposit: 64000,
     visitFee: 150,
+    maintenance: 3000,
+    maintenanceIncluded: false,
+    tenants: 'Family',
+    pets: false,
     property: BrokerProperty(
       id: 'sample',
       name: 'Flat 402, Madhapur',
@@ -366,14 +416,16 @@ class Tk2Store extends ChangeNotifier {
     final p = l.property;
     final facts = [
       p.rooms,
-      if (p.furnishing.isNotEmpty) p.furnishing == 'Empty' ? 'Unfurnished' : '${p.furnishing}-furnished',
-      if (p.sizeSqFt != null) '${p.sizeSqFt!.toStringAsFixed(0)} sq ft',
+      l.furnishingText,
+      if (p.sizeSqFt != null) '${p.sizeSqFt!.toStringAsFixed(0)} sft',
     ].join(' · ');
     return [
       '🏠 ${l.name}',
       if (p.address.trim().isNotEmpty && p.address.trim() != l.name) p.address.trim(),
       facts,
-      if (l.hasRent) 'Rent ${money(l.rent)}/month${l.deposit > 0 ? ' · Deposit ${money(l.deposit)}' : ''}',
+      if (l.hasRent) 'Rent ${l.rentLine}${l.deposit > 0 ? ' · Deposit ${money(l.deposit)}' : ''}',
+      l.rules,
+      'Available ${l.availableFrom.isEmpty ? 'now' : 'from ${l.availableFrom}'}',
       '',
       'See photos and book a visit (${money(l.visitFee)}, refunded if the visit does not happen):',
       shareLink(l),
