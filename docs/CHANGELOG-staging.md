@@ -967,3 +967,15 @@ branch: staging (never main)
 files: website/site/src/index.html (hero CTA label, .tkh-hero-btn class), website/site/src/website.css (.tkh-hero-btn)
 verification: checked at 390/768/1280 px
 ```
+
+## Change 57 – Backend handoff document for the Onboard property journey
+Date: 2026-11-02 · Status: document only (no app change)
+New `docs/BACKEND-HANDOFF-property-onboarding.md` for the backend developer: how to run and test, every app change 1–45 in one table, what is real vs pretend (TEST ONLY buttons), the state machine, the full data model, backend tasks A–I with "done when", the app methods to replace with backend calls, open decisions, and a file map.
+```
+AGENT RECORD – Change 57
+id: CHG-057
+date: 2026-11-02
+branch: staging (never main)
+files: docs/BACKEND-HANDOFF-property-onboarding.md (new), docs/CHANGELOG-staging.md
+verification: document only; facts checked against property_onboarding.dart, agreement_templates.dart, app_router.dart and the test suite (39 old failures, unchanged)
+```
