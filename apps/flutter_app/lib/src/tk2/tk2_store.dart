@@ -151,6 +151,20 @@ class Tk2Listing {
     return next;
   }
 
+  /// What cards show: "Anyone can rent", or e.g. "Family, Bachelor" (male + female = Bachelor). No "only".
+  static String tenantLabel(String saved) {
+    if (saved == 'Anyone' || saved.trim().isEmpty) return 'Anyone can rent';
+    final set = tenantSet(saved);
+    if (set.length == tenantTypes.length) return 'Anyone can rent';
+    final both = set.contains('Bachelor male') && set.contains('Bachelor female');
+    return [
+      for (final t in tenantTypes)
+        if (set.contains(t) && !(both && t == 'Bachelor female')) both && t == 'Bachelor male' ? 'Bachelor' : t,
+    ].join(', ');
+  }
+
+  String get tenantsLabel => tenantLabel(tenants);
+
   static String tenantText(Set<String> set) => set.length == tenantTypes.length
       ? 'Anyone'
       : [
@@ -316,7 +330,7 @@ class Tk2Listing {
   };
 
   /// Who can rent and pets, e.g. "Family · No pets".
-  String get rules => [if (tenants != 'Anyone') '$tenants only' else 'Anyone can rent', pets ? 'Pets OK' : 'No pets'].join(' · ');
+  String get rules => [tenantsLabel, pets ? 'Pets OK' : 'No pets'].join(' · ');
 
   /// The example everyone sees first.
   static final example = Tk2Listing(
@@ -465,6 +479,9 @@ class Tk2Store extends ChangeNotifier {
 
   String brokerName = '';
   String brokerPhone = '';
+
+  /// People the broker has sent properties to (name, phone).
+  final List<({String name, String phone})> _contacts = [];
   final List<Tk2Listing> _listings = [];
   final List<Tk2Visit> _visits = [];
   bool _loaded = false;
@@ -486,11 +503,10 @@ class Tk2Store extends ChangeNotifier {
   int get releasedTotal => _visits.fold(0, (sum, v) => sum + v.brokerShare);
 
   Tk2Listing? listing(String id) {
-    if (id == Tk2Listing.example.id) return Tk2Listing.example;
     for (final l in _listings) {
       if (l.id == id) return l;
     }
-    return null;
+    return id == Tk2Listing.example.id ? Tk2Listing.example : null;
   }
 
   List<Tk2Visit> visitsFor(String listingId) => _visits.where((v) => v.listingId == listingId).toList()..sort((a, b) => b.at.compareTo(a.at));
@@ -503,6 +519,12 @@ class Tk2Store extends ChangeNotifier {
       try {
         final json = jsonDecode(raw) as Map<String, dynamic>;
         brokerName = json['brokerName'] as String? ?? '';
+        _contacts
+          ..clear()
+          ..addAll([
+            for (final c in (json['contacts'] as List? ?? const []))
+              if (c is Map) (name: c['name'] as String? ?? '', phone: c['phone'] as String? ?? ''),
+          ]);
         brokerPhone = json['brokerPhone'] as String? ?? '';
         _listings
           ..clear()
@@ -530,6 +552,9 @@ class Tk2Store extends ChangeNotifier {
       _key,
       jsonEncode({
         'brokerName': brokerName,
+        'contacts': [
+          for (final c in _contacts) {'name': c.name, 'phone': c.phone},
+        ],
         'brokerPhone': brokerPhone,
         'listings': [for (final l in _listings) l.toJson()],
         'visits': [for (final v in _visits) v.toJson()],
@@ -593,6 +618,33 @@ class Tk2Store extends ChangeNotifier {
   }
 
   void clearSampleNotice() => sampleJustRemoved = false;
+
+  /// Tenants to send to: people who booked visits plus numbers added before (newest first, no repeats).
+  List<({String name, String phone})> get contacts {
+    final seen = <String>{};
+    final out = <({String name, String phone})>[];
+    for (final c in [..._contacts.reversed, for (final v in _visits.reversed) (name: v.customerName, phone: v.customerPhone)]) {
+      final key = c.phone.replaceAll(RegExp(r'\D'), '');
+      if (key.isEmpty || !seen.add(key)) continue;
+      out.add(c);
+    }
+    return out;
+  }
+
+  /// Send a property (demo: recorded here; the backend sends WhatsApp/SMS).
+  Future<void> sendListing(String listingId, {required String name, required String phone, required bool whatsapp, required bool sms}) async {
+    final key = phone.replaceAll(RegExp(r'\D'), '');
+    _contacts.removeWhere((c) => c.phone.replaceAll(RegExp(r'\D'), '') == key);
+    _contacts.add((name: name.trim(), phone: phone.trim()));
+    await _save();
+  }
+
+  /// Web app: keep the listing that came in the shared link (replaces an older copy).
+  Future<void> putListing(Tk2Listing l) async {
+    _listings.removeWhere((x) => x.id == l.id);
+    _listings.insert(0, l);
+    await _save();
+  }
 
   /// Customer books a visit and pays (payment is pretend in this build).
   Future<Tk2Visit> bookVisit({required String listingId, required String name, required String phone, required DateTime at}) async {

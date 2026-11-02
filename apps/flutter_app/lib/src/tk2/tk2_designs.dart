@@ -7,6 +7,7 @@ import '../core/theme/app_colors.dart';
 import '../core/widgets/primary_button.dart';
 import '../features/broker/presentation/approved_broker_home.dart';
 import 'tk2_listing.dart';
+import 'tk2_send.dart';
 import 'tk2_store.dart';
 import 'tk2_widgets.dart';
 
@@ -15,13 +16,7 @@ import 'tk2_widgets.dart';
 // first · D: Ticket.
 
 const tk2Designs = ['e', 'b'];
-const tk2DesignNames = {
-  'a': 'A · Classic row',
-  'b': 'B · Wide photo',
-  'c': 'C · Price first',
-  'd': 'D · Ticket',
-  'e': 'E · Ticket, refined',
-};
+const tk2DesignNames = {'a': 'A · Classic row', 'b': 'B · Wide photo', 'c': 'C · Price first', 'd': 'D · Ticket', 'e': 'E · Ticket, refined'};
 
 final _shadow = [BoxShadow(color: AppColors.heading.withValues(alpha: 0.08), blurRadius: 22, offset: const Offset(0, 8))];
 
@@ -33,7 +28,7 @@ List<(IconData, String)> tk2Facts(Tk2Listing l, {bool long = false, bool outline
   return [
     if (p.sizeSqFt != null) (ic(Icons.square_foot, Icons.square_foot_outlined), '${p.sizeSqFt!.toStringAsFixed(0)} sft'),
     (Icons.chair_outlined, l.furnishingText),
-    (ic(Icons.people_outline, Icons.group_outlined), l.tenants == 'Anyone' ? 'Anyone can rent' : '${l.tenants} only'),
+    (ic(Icons.people_outline, Icons.group_outlined), l.tenantsLabel),
     (outlined ? Icons.pets_outlined : (l.pets ? Icons.pets : Icons.do_not_disturb_alt), l.pets ? 'Pets OK' : 'No pets'),
     (Icons.event_available_outlined, l.availableFrom.isEmpty ? 'Available now' : 'From ${tk2Date(l.availableFrom)}'),
     if (long && p.totalFloors > 0) (Icons.layers_outlined, 'Floor ${p.floor} of ${p.totalFloors}'),
@@ -141,7 +136,11 @@ class _SwipePhotosState extends State<_SwipePhotos> {
 
 /// Icon in the app's line style. Material has no line paw, so pets uses our own.
 Widget tk2Glyph(IconData icon, {required double size, required Color color}) => icon == Icons.pets_outlined
-    ? Center(widthFactor: 1, heightFactor: 1, child: SvgPicture.asset('assets/design/tk2-paw.svg', width: size, height: size, colorFilter: ColorFilter.mode(color, BlendMode.srcIn)))
+    ? Center(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: SvgPicture.asset('assets/design/tk2-paw.svg', width: size, height: size, colorFilter: ColorFilter.mode(color, BlendMode.srcIn)),
+      )
     : Icon(icon, size: size, color: color);
 
 Widget _iconText(IconData icon, String text, {Color color = AppColors.muted, double size = 13.5, int lines = 1}) => Row(
@@ -150,12 +149,18 @@ Widget _iconText(IconData icon, String text, {Color color = AppColors.muted, dou
   children: [
     tk2Glyph(icon, size: size + 3, color: color),
     const SizedBox(width: 4),
-    Flexible(child: Text(text, maxLines: lines, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: size, color: color))),
+    Flexible(
+      child: Text(
+        text,
+        maxLines: lines,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontSize: size, color: color),
+      ),
+    ),
   ],
 );
 
-Widget _area(Tk2Listing l, {double size = 13.5}) =>
-    l.area.isEmpty ? const SizedBox.shrink() : _iconText(Icons.place_outlined, l.area, size: size);
+Widget _area(Tk2Listing l, {double size = 13.5}) => l.area.isEmpty ? const SizedBox.shrink() : _iconText(Icons.place_outlined, l.area, size: size);
 
 Widget _tappable({required VoidCallback onTap, required Widget child, double radius = 20, Color color = Colors.white}) => DecoratedBox(
   decoration: BoxDecoration(borderRadius: BorderRadius.circular(radius), boxShadow: _shadow),
@@ -169,21 +174,31 @@ Widget _tappable({required VoidCallback onTap, required Widget child, double rad
 
 /// Home card in the chosen design.
 class Tk2DesignCard extends StatelessWidget {
-  const Tk2DesignCard({required this.design, required this.listing, required this.onOpen, this.visits = 0, super.key});
+  const Tk2DesignCard({required this.design, required this.listing, required this.onOpen, this.visits = 0, this.onSend, super.key});
   final String design;
   final Tk2Listing listing;
   final VoidCallback onOpen;
   final int visits;
 
+  /// Design B: "Send" in the bottom-right corner (send to a tenant).
+  final VoidCallback? onSend;
+
   @override
   Widget build(BuildContext context) {
     final l = listing;
-    final title = Text(l.publicTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, height: 21 / 16, fontWeight: FontWeight.w600, color: AppColors.heading));
-    final rent = Text(l.rentLine, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.primaryDark));
-    final tags = [
-      if (l.sample) const Flexible(child: Tk2Pill('Example', kind: 'info')),
-      if (visits > 0) Flexible(child: Tk2Pill('$visits visit${visits == 1 ? '' : 's'}', kind: 'ok')),
-    ];
+    final title = Text(
+      l.publicTitle,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontSize: 16, height: 21 / 16, fontWeight: FontWeight.w600, color: AppColors.heading),
+    );
+    final rent = Text(
+      l.rentLine,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
+    );
+    final tags = [if (l.sample) const Flexible(child: Tk2Pill('Example', kind: 'info')), if (visits > 0) Flexible(child: Tk2Pill('$visits visit${visits == 1 ? '' : 's'}', kind: 'ok'))];
     final facts = tk2Facts(l);
     switch (design) {
       case 'b':
@@ -210,9 +225,62 @@ class Tk2DesignCard extends StatelessWidget {
                       style: const TextStyle(fontSize: 16, height: 21 / 16, fontWeight: FontWeight.w600, color: AppColors.heading),
                     ),
                     const SizedBox(height: 4),
+                    // Same details as Design E: heading, address, then the facts in two columns.
+                    Text(
+                      tk2CardHeading(l),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.body),
+                    ),
+                    const SizedBox(height: 2),
                     _address(l),
                     const SizedBox(height: 10),
-                    Wrap(spacing: 14, runSpacing: 6, children: [for (final f in facts.take(4)) _iconText(f.$1, f.$2)]),
+                    Builder(
+                      builder: (context) {
+                        final factsB = tk2Facts(l, outlined: true);
+                        Widget col(List<(IconData, String)> items) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [for (final f in items) Padding(padding: const EdgeInsets.only(bottom: 5), child: _iconText(f.$1, f.$2, size: 13, lines: 2))],
+                        );
+                        return IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(flex: 11, child: col(factsB.sublist(0, factsB.length - 2))),
+                              const VerticalDivider(width: 17, thickness: 1, color: Color(0xFFE9EDF3)),
+                              Expanded(flex: 10, child: col(factsB.sublist(factsB.length - 2))),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    if (onSend != null)
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: Material(
+                          color: AppColors.primary,
+                          shape: const StadiumBorder(),
+                          child: InkWell(
+                            key: ValueKey('send-${l.id}'),
+                            customBorder: const StadiumBorder(),
+                            onTap: onSend,
+                            child: const Padding(
+                              padding: EdgeInsets.fromLTRB(14, 9, 16, 9),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.send_rounded, size: 17, color: Colors.white),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Send',
+                                    style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: Colors.white),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -234,10 +302,16 @@ class Tk2DesignCard extends StatelessWidget {
                       height: 46,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(14)),
-                      child: Text(l.property.rooms.replaceAll(' ', '\n'), textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, height: 14 / 12, fontWeight: FontWeight.w700, color: AppColors.primaryDark)),
+                      child: Text(
+                        l.property.rooms.replaceAll(' ', '\n'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12, height: 14 / 12, fontWeight: FontWeight.w700, color: AppColors.primaryDark),
+                      ),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [title, _area(l)])),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [title, _area(l)]),
+                    ),
                     ...tags,
                   ],
                 ),
@@ -245,7 +319,10 @@ class Tk2DesignCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(Tk2Store.money(l.rent), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.heading)),
+                    Text(
+                      Tk2Store.money(l.rent),
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.heading),
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Padding(
@@ -290,10 +367,23 @@ class Tk2DesignCard extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      FittedBox(child: Text(l.property.rooms, style: const TextStyle(fontSize: 24, height: 28 / 24, fontWeight: FontWeight.w800, color: AppColors.primaryDark))),
+                      FittedBox(
+                        child: Text(
+                          l.property.rooms,
+                          style: const TextStyle(fontSize: 24, height: 28 / 24, fontWeight: FontWeight.w800, color: AppColors.primaryDark),
+                        ),
+                      ),
                       const SizedBox(height: 6),
-                      FittedBox(child: Text(Tk2Store.money(l.rent), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.primaryDark))),
-                      Text(l.maintenanceIncluded || l.maintenance == 0 ? 'incl. maint.' : '+ ${Tk2Store.money(l.maintenance)} maint.', style: const TextStyle(fontSize: 11.5, color: AppColors.primaryDark)),
+                      FittedBox(
+                        child: Text(
+                          Tk2Store.money(l.rent),
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
+                        ),
+                      ),
+                      Text(
+                        l.maintenanceIncluded || l.maintenance == 0 ? 'incl. maint.' : '+ ${Tk2Store.money(l.maintenance)} maint.',
+                        style: const TextStyle(fontSize: 11.5, color: AppColors.primaryDark),
+                      ),
                     ],
                   ),
                 ),
@@ -304,10 +394,19 @@ class Tk2DesignCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(tk2CardHeading(l), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
+                        Text(
+                          tk2CardHeading(l),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading),
+                        ),
                         const SizedBox(height: 2),
                         _address(l),
-                        if (visits > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Tk2Pill('$visits visit${visits == 1 ? '' : 's'} booked', kind: 'ok')),
+                        if (visits > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Tk2Pill('$visits visit${visits == 1 ? '' : 's'} booked', kind: 'ok'),
+                          ),
                         const SizedBox(height: 10),
                         IntrinsicHeight(
                           child: Row(
@@ -342,9 +441,17 @@ class Tk2DesignCard extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(l.property.rooms, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
+                      Text(
+                        l.property.rooms,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
+                      ),
                       const SizedBox(height: 4),
-                      FittedBox(child: Text(Tk2Store.money(l.rent), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primaryDark))),
+                      FittedBox(
+                        child: Text(
+                          Tk2Store.money(l.rent),
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primaryDark),
+                        ),
+                      ),
                       Text(l.maintenanceIncluded || l.maintenance == 0 ? 'incl. maint.' : '+ ${Tk2Store.money(l.maintenance)}', style: const TextStyle(fontSize: 12, color: AppColors.primaryDark)),
                     ],
                   ),
@@ -356,7 +463,19 @@ class Tk2DesignCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(children: [Expanded(child: Text(tk2CardHeading(l), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading))), ...tags]),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                tk2CardHeading(l),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading),
+                              ),
+                            ),
+                            ...tags,
+                          ],
+                        ),
                         _area(l),
                         const SizedBox(height: 8),
                         for (final f in facts.take(3)) Padding(padding: const EdgeInsets.only(bottom: 3), child: _iconText(f.$1, f.$2)),
@@ -382,7 +501,12 @@ class Tk2DesignCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(children: [Expanded(child: title), ...tags]),
+                      Row(
+                        children: [
+                          Expanded(child: title),
+                          ...tags,
+                        ],
+                      ),
                       _area(l),
                       const SizedBox(height: 4),
                       rent,
@@ -431,7 +555,10 @@ class Tk2PrivateBanner extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Complete address and details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.success)),
+              Text(
+                'Complete address and details',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.success),
+              ),
               SizedBox(height: 2),
               Text(
                 'Only you can see this. It is never shared with tenants – not in the message, not on the link.',
@@ -459,12 +586,11 @@ List<(IconData, String, String)> tk2FactRows(Tk2Listing l, {bool line = true}) {
     (Icons.chair_outlined, 'Furnishing', l.furnishingText),
     if (p.totalFloors > 0) (Icons.layers_outlined, 'Floor', '${p.floor} of ${p.totalFloors}'),
     if ((p.facing ?? '').isNotEmpty) (Icons.explore_outlined, 'Facing', p.facing!),
-    (ic(Icons.people_outline, Icons.group_outlined), 'Who can rent', l.tenants == 'Anyone' ? 'Anyone can rent' : l.tenants),
+    (ic(Icons.people_outline, Icons.group_outlined), 'Who can rent', l.tenantsLabel),
     (ic(Icons.pets, Icons.pets_outlined), 'Pets', l.pets ? 'Allowed' : 'Not allowed'),
     (Icons.event_available_outlined, 'Available', l.availableFrom.isEmpty ? 'Now' : tk2Date(l.availableFrom)),
   ];
 }
-
 
 /// White grouped list of facts (the broker's Design E page). Used on the customer page too.
 class Tk2FactsGroup extends StatelessWidget {
@@ -480,7 +606,9 @@ class Tk2FactsGroup extends StatelessWidget {
         for (var i = 0; i < items.length; i++)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-            decoration: BoxDecoration(border: i == items.length - 1 ? null : const Border(bottom: BorderSide(color: Color(0xFFEEF2F7)))),
+            decoration: BoxDecoration(
+              border: i == items.length - 1 ? null : const Border(bottom: BorderSide(color: Color(0xFFEEF2F7))),
+            ),
             child: Row(
               children: [
                 Container(
@@ -492,7 +620,13 @@ class Tk2FactsGroup extends StatelessWidget {
                 const SizedBox(width: 12),
                 Text(items[i].$2, style: const TextStyle(fontSize: 15, color: AppColors.body)),
                 const SizedBox(width: 12),
-                Expanded(child: Text(items[i].$3, textAlign: TextAlign.right, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.heading))),
+                Expanded(
+                  child: Text(
+                    items[i].$3,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.heading),
+                  ),
+                ),
               ],
             ),
           ),
@@ -531,7 +665,10 @@ class Tk2PrivateDetails extends StatelessWidget {
               child: Icon(r.$1, size: 18, color: AppColors.primaryDark),
             ),
             title: Text(r.$2, style: const TextStyle(fontSize: 13, color: AppColors.muted)),
-            subtitle: Text(r.$3, style: const TextStyle(fontSize: 15.5, height: 21 / 15.5, color: AppColors.heading)),
+            subtitle: Text(
+              r.$3,
+              style: const TextStyle(fontSize: 15.5, height: 21 / 15.5, color: AppColors.heading),
+            ),
             trailing: r.$4 == null
                 ? null
                 : IconButton(
@@ -576,7 +713,11 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
           title: const Text('Remove this property?'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Keep')),
-            TextButton(onPressed: () => Navigator.pop(d, true), style: TextButton.styleFrom(foregroundColor: AppColors.error), child: const Text('Remove')),
+            TextButton(
+              onPressed: () => Navigator.pop(d, true),
+              style: TextButton.styleFrom(foregroundColor: AppColors.error),
+              child: const Text('Remove'),
+            ),
           ],
         ),
       );
@@ -615,7 +756,10 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
                 itemBuilder: (_) => const [
                   PopupMenuItem(value: 'rent', child: Text('Edit rent and details')),
                   PopupMenuItem(value: 'facts', child: Text('Edit house details')),
-                  PopupMenuItem(value: 'remove', child: Text('Remove property', style: TextStyle(color: AppColors.error))),
+                  PopupMenuItem(
+                    value: 'remove',
+                    child: Text('Remove property', style: TextStyle(color: AppColors.error)),
+                  ),
                 ],
               ),
           ],
@@ -632,7 +776,11 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
                 style: const TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted),
               )
             else
-              for (final v in visits) Padding(padding: const EdgeInsets.only(bottom: 10), child: Tk2VisitRow(visit: v, store: store)),
+              for (final v in visits)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Tk2VisitRow(visit: v, store: store),
+                ),
           ],
         ),
         bottomNavigationBar: SafeArea(
@@ -656,7 +804,9 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(child: PrimaryButton(label: 'Share', onPressed: () => showTk2Share(context, store, l))),
+                Expanded(
+                  child: PrimaryButton(label: 'Share', onPressed: () => showTk2Share(context, store, l)),
+                ),
               ],
             ),
           ),
@@ -667,21 +817,34 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
 
   Widget _heading(String t) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
-    child: Text(t, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading)),
+    child: Text(
+      t,
+      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading),
+    ),
   );
 
   Widget _titleBlock(Tk2Listing l) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      if (l.sample) const Padding(padding: EdgeInsets.only(bottom: 8), child: Tk2Pill('Example property', kind: 'info')),
-      Text(l.publicTitle, style: const TextStyle(fontSize: 24, height: 30 / 24, fontWeight: FontWeight.w700, color: AppColors.heading)),
+      if (l.sample)
+        const Padding(
+          padding: EdgeInsets.only(bottom: 8),
+          child: Tk2Pill('Example property', kind: 'info'),
+        ),
+      Text(
+        l.publicTitle,
+        style: const TextStyle(fontSize: 24, height: 30 / 24, fontWeight: FontWeight.w700, color: AppColors.heading),
+      ),
       const SizedBox(height: 4),
       _area(l, size: 15),
     ],
   );
 
   Widget _things(Tk2Listing l) {
-    final things = [for (final e in l.property.inventory.entries) if (e.value > 0) '${e.value} ${e.key}${e.value == 1 ? '' : 's'}'];
+    final things = [
+      for (final e in l.property.inventory.entries)
+        if (e.value > 0) '${e.value} ${e.key}${e.value == 1 ? '' : 's'}',
+    ];
     if (things.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -701,7 +864,10 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
         controller: PageController(viewportFraction: count > 1 ? 0.92 : 1),
         padEnds: false,
         itemCount: count,
-        itemBuilder: (context, i) => Padding(padding: EdgeInsets.only(right: count > 1 ? 8 : 0), child: Tk2Photo(listing: l, index: i, height: height, radius: radius)),
+        itemBuilder: (context, i) => Padding(
+          padding: EdgeInsets.only(right: count > 1 ? 8 : 0),
+          child: Tk2Photo(listing: l, index: i, height: height, radius: radius),
+        ),
       ),
     );
   }
@@ -718,7 +884,12 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-              Text(value, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.heading)),
+              Text(
+                value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.heading),
+              ),
             ],
           ),
         ),
@@ -731,7 +902,11 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
   Widget _grid(List<(IconData, String, String)> items) => LayoutBuilder(
     builder: (context, c) {
       final w = (c.maxWidth - 10) / 2;
-      return Wrap(spacing: 10, runSpacing: 10, children: [for (final i in items) SizedBox(width: w, child: _tile(i.$1, i.$2, i.$3))]);
+      return Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [for (final i in items) SizedBox(width: w, child: _tile(i.$1, i.$2, i.$3))],
+      );
     },
   );
 
@@ -767,14 +942,22 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
       for (final i in _labelled(l))
         Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: AppColors.border)),
+          ),
           child: Row(
             children: [
               tk2Glyph(i.$1, size: 20, color: AppColors.primaryDark),
               const SizedBox(width: 12),
               Text(i.$2, style: const TextStyle(fontSize: 15, color: AppColors.muted)),
               const SizedBox(width: 12),
-              Expanded(child: Text(i.$3, textAlign: TextAlign.right, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.heading))),
+              Expanded(
+                child: Text(
+                  i.$3,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.heading),
+                ),
+              ),
             ],
           ),
         ),
@@ -789,27 +972,47 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
     Widget section(String title, List<(IconData, String, String)> items) => Container(
       margin: const EdgeInsets.only(top: 14),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.border)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.muted, letterSpacing: 0.4)),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.muted, letterSpacing: 0.4),
+          ),
           const SizedBox(height: 6),
-          for (final i in items) Padding(padding: const EdgeInsets.symmetric(vertical: 7), child: _iconText(i.$1, '${i.$2}: ${i.$3}', color: AppColors.heading, size: 15)),
+          for (final i in items)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: _iconText(i.$1, '${i.$2}: ${i.$3}', color: AppColors.heading, size: 15),
+            ),
         ],
       ),
     );
     return [
       Container(
         padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(gradient: const LinearGradient(colors: [AppColors.primary, AppColors.primaryDark]), borderRadius: BorderRadius.circular(24)),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [AppColors.primary, AppColors.primaryDark]),
+          borderRadius: BorderRadius.circular(24),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(l.publicTitle, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Colors.white)),
+            Text(
+              l.publicTitle,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Colors.white),
+            ),
             if (l.area.isNotEmpty) Text(l.area, style: const TextStyle(fontSize: 14, color: Color(0xDDFFFFFF))),
             const SizedBox(height: 14),
-            Text(Tk2Store.money(l.rent), style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white)),
+            Text(
+              Tk2Store.money(l.rent),
+              style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white),
+            ),
             Text(
               l.maintenanceIncluded || l.maintenance == 0 ? 'per month · maintenance included' : 'per month + ${Tk2Store.money(l.maintenance)} maintenance',
               style: const TextStyle(fontSize: 14, color: Color(0xDDFFFFFF)),
@@ -845,7 +1048,9 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
     );
     Widget row(IconData icon, String label, String value, {bool last = false}) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      decoration: BoxDecoration(border: last ? null : const Border(bottom: BorderSide(color: Color(0xFFEEF2F7)))),
+      decoration: BoxDecoration(
+        border: last ? null : const Border(bottom: BorderSide(color: Color(0xFFEEF2F7))),
+      ),
       child: Row(
         children: [
           Container(
@@ -857,7 +1062,13 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
           const SizedBox(width: 12),
           Text(label, style: const TextStyle(fontSize: 15, color: AppColors.body)),
           const SizedBox(width: 12),
-          Expanded(child: Text(value, textAlign: TextAlign.right, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.heading))),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.heading),
+            ),
+          ),
         ],
       ),
     );
@@ -871,7 +1082,10 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
           scrollDirection: Axis.horizontal,
           itemCount: l.photos.isEmpty ? 1 : l.photos.length,
           separatorBuilder: (_, _) => const SizedBox(width: 8),
-          itemBuilder: (_, i) => SizedBox(width: 128, child: Tk2Photo(listing: l, index: i, height: 96, radius: 14, compact: true)),
+          itemBuilder: (_, i) => SizedBox(
+            width: 128,
+            child: Tk2Photo(listing: l, index: i, height: 96, radius: 14, compact: true),
+          ),
         ),
       ),
       group([for (var i = 0; i < items.length; i++) row(items[i].$1, items[i].$2, items[i].$3, last: i == items.length - 1)]),
@@ -901,7 +1115,14 @@ class Tk2DesignShowcase extends StatelessWidget {
           children: [
             const HomeIcon('house', size: 18),
             const SizedBox(width: 8),
-            Flexible(child: Text('Design ${tk2DesignNames[d]}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.muted))),
+            Flexible(
+              child: Text(
+                'Design ${tk2DesignNames[d]}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.muted),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -912,6 +1133,7 @@ class Tk2DesignShowcase extends StatelessWidget {
             listing: l,
             visits: store.visitsFor(l.id).where((v) => v.upcoming).length,
             onOpen: () => context.push('/p/${l.id}?d=$d'),
+            onSend: d == 'b' ? () => showTk2Send(context, store, l) : null,
           ),
           const SizedBox(height: 12),
         ],

@@ -41,12 +41,7 @@ class _TrustKeeper2AppState extends State<TrustKeeper2App> {
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp.router(
-    title: 'TrustKeeper 2',
-    debugShowCheckedModeBanner: false,
-    theme: AppTheme.light,
-    routerConfig: router,
-  );
+  Widget build(BuildContext context) => MaterialApp.router(title: 'TrustKeeper 2', debugShowCheckedModeBanner: false, theme: AppTheme.light, routerConfig: router);
 }
 
 GoRouter buildTk2Router(Tk2Store store) => GoRouter(
@@ -66,12 +61,12 @@ GoRouter buildTk2Router(Tk2Store store) => GoRouter(
     ),
     GoRoute(
       path: '/login',
-      builder: (context, state) => Tk2Login(
-        store: store,
-        onBack: state.uri.queryParameters['from'] == 'onboarding' ? () => context.go('/onboarding?page=3') : null,
-      ),
+      builder: (context, state) => Tk2Login(store: store, onBack: state.uri.queryParameters['from'] == 'onboarding' ? () => context.go('/onboarding?page=3') : null),
     ),
-    GoRoute(path: '/home', builder: (context, state) => Tk2Shell(store: store)),
+    GoRoute(
+      path: '/home',
+      builder: (context, state) => Tk2Shell(store: store),
+    ),
     // Name first, then the main app's "Onboard property" choice. "Add manually" saves
     // into TrustKeeper 2 and then asks rent and details.
     GoRoute(path: '/add', redirect: (context, state) => '/broker/property/manual'),
@@ -108,9 +103,18 @@ GoRouter buildTk2Router(Tk2Store store) => GoRouter(
       path: '/p/:id',
       builder: (context, state) => Tk2DesignDetail(store: store, id: state.pathParameters['id']!, design: state.uri.queryParameters['d'] ?? 'a'),
     ),
-    GoRoute(path: '/customer/:id', builder: (context, state) => Tk2CustomerPage(store: store, id: state.pathParameters['id']!)),
-    GoRoute(path: '/customer/:id/book', builder: (context, state) => Tk2BookVisit(store: store, id: state.pathParameters['id']!)),
-    GoRoute(path: '/booked/:visitId', builder: (context, state) => Tk2Booked(store: store, visitId: state.pathParameters['visitId']!)),
+    GoRoute(
+      path: '/customer/:id',
+      builder: (context, state) => Tk2CustomerPage(store: store, id: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/customer/:id/book',
+      builder: (context, state) => Tk2BookVisit(store: store, id: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/booked/:visitId',
+      builder: (context, state) => Tk2Booked(store: store, visitId: state.pathParameters['visitId']!),
+    ),
   ],
 );
 
@@ -130,6 +134,7 @@ class _Tk2LoginState extends State<Tk2Login> {
   final phone = TextEditingController();
   String? nameError;
   String? phoneError;
+  String dial = '+91';
 
   @override
   void dispose() {
@@ -142,10 +147,10 @@ class _Tk2LoginState extends State<Tk2Login> {
     final digits = phone.text.replaceAll(RegExp(r'\D'), '');
     setState(() {
       nameError = name.text.trim().length < 2 ? 'Type your name' : null;
-      phoneError = digits.length != 10 ? 'Enter a valid 10-digit mobile number' : null;
+      phoneError = PhoneCountry.valid(dial, digits) ? null : (dial == '+91' ? 'Enter a valid 10-digit mobile number' : 'Enter a valid phone number');
     });
     if (nameError != null || phoneError != null) return;
-    await widget.store.setBroker(name.text, '+91 $digits');
+    await widget.store.setBroker(name.text, PhoneCountry.format(dial, digits));
     if (mounted) context.go('/home');
   }
 
@@ -168,7 +173,7 @@ class _Tk2LoginState extends State<Tk2Login> {
           decoration: InputDecoration(labelText: 'Your name', prefixIcon: const Icon(Icons.person_outline), errorText: nameError),
         ),
         const SizedBox(height: 14),
-        ApprovedPhoneField(controller: phone, error: phoneError),
+        ApprovedPhoneField(controller: phone, error: phoneError, dialCode: dial, onDialCodeChanged: (c) => setState(() => dial = c)),
       ],
     ),
   );
@@ -208,7 +213,9 @@ class _Tk2ShellState extends State<Tk2Shell> {
           ),
         ];
         return Scaffold(
-          body: SafeArea(child: IndexedStack(index: tab, children: pages)),
+          body: SafeArea(
+            child: IndexedStack(index: tab, children: pages),
+          ),
           bottomNavigationBar: ApprovedBrokerNavigation(
             selectedIndex: tab,
             labels: const ['Home', 'Visits', 'Profile'],
@@ -296,14 +303,20 @@ class _Tk2HomeState extends State<Tk2Home> {
         const SizedBox(height: 28),
         Row(
           children: [
-            Text(store.listings.isEmpty ? 'Example property' : 'Your properties', style: const TextStyle(fontSize: 18, height: 24 / 18, fontWeight: FontWeight.w600, color: AppColors.heading)),
+            Text(
+              store.listings.isEmpty ? 'Example property' : 'Your properties',
+              style: const TextStyle(fontSize: 18, height: 24 / 18, fontWeight: FontWeight.w600, color: AppColors.heading),
+            ),
             const Spacer(),
             if (store.listings.isNotEmpty) Text('${store.listings.length}', style: const TextStyle(fontSize: 15, color: AppColors.muted)),
           ],
         ),
         if (store.listings.isEmpty) ...[
           const SizedBox(height: 4),
-          const Text('Add your first property and this example goes away.', style: TextStyle(fontSize: 14.5, height: 20 / 14.5, color: AppColors.muted)),
+          const Text(
+            'Add your first property and this example goes away.',
+            style: TextStyle(fontSize: 14.5, height: 20 / 14.5, color: AppColors.muted),
+          ),
         ],
         const SizedBox(height: 2),
         const Text('Two designs we are finalising: E and B. Tap to see the page.', style: TextStyle(fontSize: 14, color: AppColors.muted)),

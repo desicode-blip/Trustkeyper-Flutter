@@ -12,10 +12,16 @@ import 'tk2_widgets.dart';
 
 /// After the house facts: rent, deposit, move-in date, visit fee and photos.
 class Tk2ListingForm extends StatefulWidget {
-  const Tk2ListingForm({required this.store, required this.id, this.isNew = false, super.key});
+  const Tk2ListingForm({required this.store, required this.id, this.isNew = false, this.ownerMode = false, this.onDone, super.key});
   final Tk2Store store;
   final String id;
   final bool isNew;
+
+  /// House owner on the web: no visit fee, no "Only for you" (brokerage is the broker's).
+  final bool ownerMode;
+
+  /// Called after saving instead of the broker app's routes.
+  final VoidCallback? onDone;
 
   @override
   State<Tk2ListingForm> createState() => _Tk2ListingFormState();
@@ -45,7 +51,9 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   late final ownerFee = TextEditingController(text: (start?.ownerBrokerage ?? 0) > 0 ? '${start!.ownerBrokerage}' : '');
   late String visitDays = start?.visitDays ?? 'all';
   int step = 0;
-  static const _titles = ['Rent details', 'Visit times', 'Visit fee', 'Photos', 'Only for you'];
+  static const _all = {'rent': 'Rent details', 'times': 'Visit times', 'fee': 'Visit fee', 'photos': 'Photos', 'private': 'Only for you'};
+  late final List<String> _keys = widget.ownerMode ? const ['rent', 'times', 'photos'] : _all.keys.toList();
+  List<String> get _titles => [for (final k in _keys) _all[k]!];
   late bool pets = start?.pets ?? true;
   late List<String> photos = [...?start?.photos];
 
@@ -98,14 +106,17 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   }
 
   /// Parts of this step that still need an answer (shown in red).
-  Set<String> _check(int at) => {
-    if (at == 0 && _num(rent) <= 0) 'rent',
-    if (at == 0 && !included && _num(maintenance) <= 0) 'maintenance',
-    if (at == 0 && who.isEmpty) 'who',
-    if (at == 2 && _num(fee) > Tk2Listing.maxVisitFee) 'fee',
-    if (at == 4 && (payer == 'Owner' || payer == 'Both') && _num(ownerFee) <= 0) 'ownerFee',
-    if (at == 4 && (payer == 'Tenant' || payer == 'Both') && _num(brokerage) <= 0) 'tenantFee',
-  };
+  Set<String> _check(int at) {
+    final k = _keys[at];
+    return {
+      if (k == 'rent' && _num(rent) <= 0) 'rent',
+      if (k == 'rent' && !included && _num(maintenance) <= 0) 'maintenance',
+      if (k == 'rent' && who.isEmpty) 'who',
+      if (k == 'fee' && _num(fee) > Tk2Listing.maxVisitFee) 'fee',
+      if (k == 'private' && (payer == 'Owner' || payer == 'Both') && _num(ownerFee) <= 0) 'ownerFee',
+      if (k == 'private' && (payer == 'Tenant' || payer == 'Both') && _num(brokerage) <= 0) 'tenantFee',
+    };
+  }
 
   int get _tenantFee => payer == 'Tenant' || payer == 'Both' ? _num(brokerage) : 0;
   int get _ownerFee => payer == 'Owner' || payer == 'Both' ? _num(ownerFee) : 0;
@@ -174,7 +185,10 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
       ),
     );
     if (!mounted) return;
-    if (widget.isNew) {
+    if (widget.onDone != null) {
+      setState(() => saving = false);
+      widget.onDone!();
+    } else if (widget.isNew) {
       context.go('/home');
       context.push('/p/${l.id}?added=1');
     } else {
@@ -198,7 +212,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
           bottom: false,
           child: Column(
             children: [
-              OnbHeader(title: _titles[step], subtitle: 'Step ${step + 1} of ${_titles.length} · ${l.name}', onBack: _back),
+              OnbHeader(title: _titles[step], subtitle: widget.ownerMode ? 'Step ${step + 1} of ${_titles.length}' : 'Step ${step + 1} of ${_titles.length} · ${l.name}', onBack: _back),
               Expanded(
                 child: OnbShadowBody(
                   // Each step slides in from the right, like a new screen.
@@ -212,22 +226,28 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
                       key: ValueKey(step),
                       padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
                       children: [
-                        ...switch (step) {
-                          0 => _rentStep(),
-                          1 => _visitStep(),
-                          2 => _feeStep(),
-                          3 => _photoStep(l),
+                        ...switch (_keys[step]) {
+                          'rent' => _rentStep(),
+                          'times' => _visitStep(),
+                          'fee' => _feeStep(),
+                          'photos' => _photoStep(l),
                           _ => _privateStep(),
                         },
                         // The button scrolls with the page, so the keyboard never hides it.
                         const SizedBox(height: 28),
                         PrimaryButton(
-                          label: last ? (widget.isNew ? 'Save property' : 'Save') : 'Next',
-                          icon: last ? Icons.check : Icons.chevron_right,
+                          label: last
+                              ? (widget.ownerMode
+                                    ? 'Next'
+                                    : widget.isNew
+                                    ? 'Save property'
+                                    : 'Save')
+                              : 'Next',
+                          icon: last && !widget.ownerMode ? Icons.check : Icons.chevron_right,
                           loading: saving,
                           onPressed: saving ? null : _next,
                         ),
-                        if (step == 3 && photos.isEmpty) ...[
+                        if (_keys[step] == 'photos' && photos.isEmpty) ...[
                           const SizedBox(height: 4),
                           Center(
                             child: TextButton(onPressed: _next, child: const Text('Skip for now')),

@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/theme/app_colors.dart';
+import '../core/widgets/app_brand.dart';
 import '../core/widgets/primary_button.dart';
+import '../features/broker/presentation/onboarding_widgets.dart';
 import 'tk2_designs.dart';
 import 'tk2_store.dart';
 import 'tk2_widgets.dart';
@@ -33,13 +35,16 @@ class _PreviewBanner extends StatelessWidget {
 
 /// The booking promise shown to customers.
 String tk2VisitNotice(int fee) =>
-    'Book a visit for ${Tk2Store.money(fee)}. TrustKeeper keeps it safe and pays the broker only after your visit. '
+    'Book a visit for ${Tk2Store.money(fee)}. TrustKeyper keeps it safe and pays the broker only after your visit. '
     'If the broker or owner is not available, you get it all back. '
     'You can cancel within 5 minutes of booking (2% is kept). After that, and if you are more than 15 minutes late, it is not refunded.';
 
 /// What happens after the visit, in order. Customers see it before booking.
 class Tk2NextSteps extends StatelessWidget {
-  const Tk2NextSteps({super.key});
+  const Tk2NextSteps({this.done = 0, super.key});
+
+  /// Steps already done get a green tick.
+  final int done;
 
   static const steps = [
     ('Visit the house', 'See it with the broker.'),
@@ -69,11 +74,13 @@ class Tk2NextSteps extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 12,
-                  backgroundColor: AppColors.primarySoft,
-                  child: Text(
-                    '${i + 1}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primaryDark),
-                  ),
+                  backgroundColor: i < done ? AppColors.success : AppColors.primarySoft,
+                  child: i < done
+                      ? const Icon(Icons.check, size: 15, color: Colors.white)
+                      : Text(
+                          '${i + 1}',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primaryDark),
+                        ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -97,9 +104,18 @@ class Tk2NextSteps extends StatelessWidget {
 }
 
 class Tk2CustomerPage extends StatelessWidget {
-  const Tk2CustomerPage({required this.store, required this.id, super.key});
+  const Tk2CustomerPage({required this.store, required this.id, this.preview = true, this.onBook, this.bookLabel, super.key});
   final Tk2Store store;
   final String id;
+
+  /// Inside the broker app: "Customer view" strip. Off on the web.
+  final bool preview;
+
+  /// Web: book through the sign-up journey instead of the in-app route.
+  final VoidCallback? onBook;
+
+  /// Web: "See your visit" once a visit is booked.
+  final String? bookLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -120,12 +136,10 @@ class Tk2CustomerPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
-        title: const Text(
-          'TrustKeeper',
-          style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.primaryDark),
-        ),
+        automaticallyImplyLeading: preview,
+        title: const AppBrand(height: 30),
         centerTitle: true,
-        bottom: const PreferredSize(preferredSize: Size.fromHeight(34), child: _PreviewBanner()),
+        bottom: preview ? const PreferredSize(preferredSize: Size.fromHeight(34), child: _PreviewBanner()) : null,
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -206,7 +220,7 @@ class Tk2CustomerPage extends StatelessWidget {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-          child: PrimaryButton(label: 'Book a visit · ${l.feeText}', onPressed: () => context.push('/customer/${l.id}/book')),
+          child: PrimaryButton(label: bookLabel ?? 'Book a visit · ${l.feeText}', onPressed: onBook ?? () => context.push('/customer/${l.id}/book')),
         ),
       ),
     );
@@ -245,9 +259,12 @@ class _GalleryState extends State<_Gallery> {
 
 /// Pick a day and time, give name and phone, pay the visit fee.
 class Tk2BookVisit extends StatefulWidget {
-  const Tk2BookVisit({required this.store, required this.id, super.key});
+  const Tk2BookVisit({required this.store, required this.id, this.onPicked, super.key});
   final Tk2Store store;
   final String id;
+
+  /// Web: only pick day and time here; sign-up and payment come next.
+  final ValueChanged<DateTime>? onPicked;
 
   @override
   State<Tk2BookVisit> createState() => _Tk2BookVisitState();
@@ -263,6 +280,9 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
   String? error;
   bool paying = false;
 
+  /// Next was tapped: missing day or time turn red in place.
+  bool tried = false;
+
   @override
   void dispose() {
     name.dispose();
@@ -276,7 +296,8 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
 
   Future<void> _pay(Tk2Listing l) async {
     final digits = phone.text.replaceAll(RegExp(r'\D'), '');
-    if (day == null || hour == null) return setState(() => error = 'Pick a day and time');
+    if (day == null || hour == null) return setState(() => tried = true);
+    if (widget.onPicked != null) return widget.onPicked!(day!.add(Duration(hours: hour!)));
     if (name.text.trim().length < 2) return setState(() => error = 'Type your name');
     if (digits.length != 10) return setState(() => error = 'Type your 10 digit phone number');
     FocusScope.of(context).unfocus();
@@ -352,122 +373,186 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
     if (l == null) return Scaffold(appBar: AppBar());
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        bottom: const PreferredSize(preferredSize: Size.fromHeight(34), child: _PreviewBanner()),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        children: [
-          Tk2Appear(child: Tk2Title('Book a visit', subtitle: l.publicTitle)),
-          const SizedBox(height: 24),
-          const Text(
-            'Day',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 76,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: days.length,
-              separatorBuilder: (context, i) => const SizedBox(width: 8),
-              itemBuilder: (context, i) {
-                final d = days[i];
-                final on = day != null && DateUtils.isSameDay(day, d);
-                final allGone = slots.every((h) => _slotGone(d, h));
-                return Tk2Appear(
-                  index: i,
-                  child: _chip(
-                    on: on,
-                    disabled: allGone,
-                    width: 68,
-                    onTap: () => setState(() {
-                      day = d;
-                      if (hour != null && _slotGone(d, hour!)) hour = null;
-                      error = null;
-                    }),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(i == 0 ? 'Today' : const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d.weekday - 1], style: TextStyle(fontSize: 13, color: on ? Colors.white : AppColors.muted)),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${d.day}',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: on ? Colors.white : AppColors.heading),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeOutCubic,
-            child: day == null
-                ? const SizedBox(width: double.infinity)
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 22),
-                      const Text(
-                        'Time',
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            if (widget.onPicked == null) const _PreviewBanner(),
+            OnbHeader(title: 'Book a visit', subtitle: l.publicTitle, onBack: () => Navigator.of(context).maybePop()),
+            Expanded(
+              child: OnbShadowBody(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                  children: [
+                    _attention(
+                      bad: tried && day == null,
+                      message: 'Pick a day',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          for (final h in slots)
-                            _chip(
-                              on: hour == h,
-                              disabled: _slotGone(day!, h),
-                              width: 96,
-                              height: 46,
-                              onTap: () => setState(() {
-                                hour = h;
-                                error = null;
-                              }),
-                              child: Center(
-                                child: Text(
-                                  tk2Time(DateTime(2000, 1, 1, h)),
-                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: hour == h ? Colors.white : AppColors.heading),
-                                ),
-                              ),
+                          const Text(
+                            'Day',
+                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
+                          ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            height: 76,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: days.length,
+                              separatorBuilder: (context, i) => const SizedBox(width: 8),
+                              itemBuilder: (context, i) {
+                                final d = days[i];
+                                final on = day != null && DateUtils.isSameDay(day, d);
+                                final allGone = slots.every((h) => _slotGone(d, h));
+                                return Tk2Appear(
+                                  index: i,
+                                  child: _chip(
+                                    on: on,
+                                    disabled: allGone,
+                                    width: 68,
+                                    onTap: () => setState(() {
+                                      day = d;
+                                      if (hour != null && _slotGone(d, hour!)) hour = null;
+                                      error = null;
+                                    }),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          i == 0 ? 'Today' : const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d.weekday - 1],
+                                          style: TextStyle(fontSize: 13, color: on ? Colors.white : AppColors.muted),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '${d.day}',
+                                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: on ? Colors.white : AppColors.heading),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
+                          ),
                         ],
                       ),
+                    ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                      child: day == null
+                          ? const SizedBox(width: double.infinity)
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 22),
+                                _attention(
+                                  bad: tried && hour == null,
+                                  message: 'Pick a time',
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Time',
+                                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: [
+                                          for (final h in slots)
+                                            _chip(
+                                              on: hour == h,
+                                              disabled: _slotGone(day!, h),
+                                              width: 96,
+                                              height: 46,
+                                              onTap: () => setState(() {
+                                                hour = h;
+                                                error = null;
+                                              }),
+                                              child: Center(
+                                                child: Text(
+                                                  tk2Time(DateTime(2000, 1, 1, h)),
+                                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: hour == h ? Colors.white : AppColors.heading),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                    if (widget.onPicked == null) ...[
+                      const SizedBox(height: 26),
+                      TextField(
+                        controller: name,
+                        textCapitalization: TextCapitalization.words,
+                        onChanged: (_) => setState(() => error = null),
+                        decoration: const InputDecoration(labelText: 'Your name'),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: phone,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+                        onChanged: (_) => setState(() => error = null),
+                        decoration: const InputDecoration(labelText: 'Your phone', prefixText: '+91 ', helperText: 'The broker calls you on this number.'),
+                      ),
                     ],
-                  ),
-          ),
-          const SizedBox(height: 26),
-          TextField(
-            controller: name,
-            textCapitalization: TextCapitalization.words,
-            onChanged: (_) => setState(() => error = null),
-            decoration: const InputDecoration(labelText: 'Your name'),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: phone,
-            keyboardType: TextInputType.phone,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-            onChanged: (_) => setState(() => error = null),
-            decoration: const InputDecoration(labelText: 'Your phone', prefixText: '+91 ', helperText: 'The broker calls you on this number.'),
-          ),
-          if (error != null) ...[const SizedBox(height: 12), Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 15))],
-          // Scrolls with the page, so the keyboard never hides it.
-          const SizedBox(height: 24),
-          PrimaryButton(label: l.visitFee == 0 ? 'Book visit' : 'Pay ${Tk2Store.money(l.visitFee)} and book', loading: paying, onPressed: paying ? null : () => _pay(l)),
-          const SizedBox(height: 12),
-        ],
+                    if (error != null) ...[const SizedBox(height: 12), Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 15))],
+                    // Scrolls with the page, so the keyboard never hides it.
+                    const SizedBox(height: 24),
+                    PrimaryButton(
+                      label: widget.onPicked != null
+                          ? 'Next'
+                          : l.visitFee == 0
+                          ? 'Book visit'
+                          : 'Pay ${Tk2Store.money(l.visitFee)} and book',
+                      icon: widget.onPicked != null ? Icons.chevron_right : null,
+                      loading: paying,
+                      onPressed: paying ? null : () => _pay(l),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+
+  Widget _attention({required bool bad, required String message, required Widget child}) => AnimatedContainer(
+    duration: const Duration(milliseconds: 200),
+    padding: EdgeInsets.all(bad ? 12 : 0),
+    decoration: BoxDecoration(
+      color: bad ? AppColors.errorSoft : Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: bad ? AppColors.error : Colors.transparent, width: 1.4),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        child,
+        if (bad) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(Icons.error_outline, size: 18, color: AppColors.error),
+              const SizedBox(width: 6),
+              Text(message, style: const TextStyle(fontSize: 14.5, color: AppColors.error)),
+            ],
+          ),
+        ],
+      ],
+    ),
+  );
 
   Widget _chip({required bool on, required bool disabled, required VoidCallback onTap, required Widget child, double width = 68, double height = 76}) => Opacity(
     opacity: disabled ? 0.35 : 1,
@@ -550,7 +635,7 @@ class Tk2Booked extends StatelessWidget {
                   ? _step(Icons.call_outlined, 'The broker will call you before the visit.')
                   : Column(
                       children: [
-                        _step(Icons.lock_outline, '${Tk2Store.money(v.fee)} is kept safe with TrustKeeper.'),
+                        _step(Icons.lock_outline, '${Tk2Store.money(v.fee)} is kept safe with TrustKeyper.'),
                         _step(Icons.handshake_outlined, 'After the visit, the broker gets it.'),
                         _step(Icons.replay, 'If the visit does not happen, you get it back.'),
                       ],

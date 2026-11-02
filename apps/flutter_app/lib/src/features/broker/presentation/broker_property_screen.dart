@@ -23,6 +23,7 @@ class BrokerPropertyScreen extends StatefulWidget {
     this.askHowToAdd = false,
     this.firstStage,
     this.initialName = '',
+    this.heading,
     super.key,
   });
 
@@ -45,6 +46,9 @@ class BrokerPropertyScreen extends StatefulWidget {
   /// Open on this step (e.g. 2 after "Add manually"); Back on it leaves the screen.
   final int? firstStage;
   final String initialName;
+
+  /// Title instead of "Add new property" (the owner's web flow says "Your house").
+  final String? heading;
 
   final BrokerPropertyRepository? repository;
   final BrokerProperty? initialProperty;
@@ -163,7 +167,9 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     }
   }
 
-  String get _title => stage == 0
+  String get _title => widget.heading != null && stage > 0
+      ? widget.heading!
+      : stage == 0
       ? 'Select the property'
       : widget.initialProperty != null
       ? 'Edit property'

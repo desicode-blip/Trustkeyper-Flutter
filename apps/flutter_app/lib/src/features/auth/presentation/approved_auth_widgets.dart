@@ -254,14 +254,72 @@ class ApprovedPhoneField extends StatefulWidget {
     super.key,
     this.enabled = true,
     this.error,
+    this.dialCode = '+91',
+    this.onDialCodeChanged,
   });
 
   final TextEditingController controller;
   final bool enabled;
   final String? error;
 
+  /// Country calling code, e.g. "+91". Any code can be picked or typed.
+  final String dialCode;
+  final ValueChanged<String>? onDialCodeChanged;
+
   @override
   State<ApprovedPhoneField> createState() => _ApprovedPhoneFieldState();
+}
+
+/// A country for the phone field.
+class PhoneCountry {
+  const PhoneCountry(this.name, this.code, this.flag);
+  final String name;
+  final String code;
+  final String flag;
+
+  static const all = [
+    PhoneCountry('India', '+91', '🇮🇳'),
+    PhoneCountry('United Arab Emirates', '+971', '🇦🇪'),
+    PhoneCountry('United States', '+1', '🇺🇸'),
+    PhoneCountry('United Kingdom', '+44', '🇬🇧'),
+    PhoneCountry('Canada', '+1', '🇨🇦'),
+    PhoneCountry('Australia', '+61', '🇦🇺'),
+    PhoneCountry('Singapore', '+65', '🇸🇬'),
+    PhoneCountry('Saudi Arabia', '+966', '🇸🇦'),
+    PhoneCountry('Qatar', '+974', '🇶🇦'),
+    PhoneCountry('Kuwait', '+965', '🇰🇼'),
+    PhoneCountry('Oman', '+968', '🇴🇲'),
+    PhoneCountry('Bahrain', '+973', '🇧🇭'),
+    PhoneCountry('Germany', '+49', '🇩🇪'),
+    PhoneCountry('France', '+33', '🇫🇷'),
+    PhoneCountry('Netherlands', '+31', '🇳🇱'),
+    PhoneCountry('Ireland', '+353', '🇮🇪'),
+    PhoneCountry('Switzerland', '+41', '🇨🇭'),
+    PhoneCountry('Sweden', '+46', '🇸🇪'),
+    PhoneCountry('Italy', '+39', '🇮🇹'),
+    PhoneCountry('Spain', '+34', '🇪🇸'),
+    PhoneCountry('New Zealand', '+64', '🇳🇿'),
+    PhoneCountry('Malaysia', '+60', '🇲🇾'),
+    PhoneCountry('Japan', '+81', '🇯🇵'),
+    PhoneCountry('Hong Kong', '+852', '🇭🇰'),
+    PhoneCountry('South Africa', '+27', '🇿🇦'),
+    PhoneCountry('Kenya', '+254', '🇰🇪'),
+    PhoneCountry('Nepal', '+977', '🇳🇵'),
+    PhoneCountry('Sri Lanka', '+94', '🇱🇰'),
+    PhoneCountry('Bangladesh', '+880', '🇧🇩'),
+  ];
+
+  static String flagFor(String code) =>
+      all.where((c) => c.code == code).firstOrNull?.flag ?? '🌐';
+
+  /// India needs 10 digits; other countries 6 to 14.
+  static bool valid(String code, String digits) =>
+      code == '+91' ? digits.length == 10 : digits.length >= 6 && digits.length <= 14;
+
+  /// "+91 98765 43210" style, for showing and saving.
+  static String format(String code, String digits) => code == '+91' && digits.length == 10
+      ? '+91 ${digits.substring(0, 5)} ${digits.substring(5)}'
+      : '$code $digits';
 }
 
 class ApprovedEmailField extends StatelessWidget {
@@ -309,33 +367,57 @@ class AuthMethodSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    final phone = selected == LoginMethod.phone;
+    // Only the white thumb slides; nothing else on the screen moves.
+    return Container(
       key: const ValueKey('auth-method-selector'),
-      color: AppColors.surfaceMuted,
-      shape: const StadiumBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: SizedBox(
-        height: 52,
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: Row(
+      height: 52,
+      padding: const EdgeInsets.all(4),
+      decoration: const ShapeDecoration(
+        color: AppColors.surfaceMuted,
+        shape: StadiumBorder(),
+      ),
+      child: Stack(
+        children: [
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            alignment: phone ? Alignment.centerLeft : Alignment.centerRight,
+            child: FractionallySizedBox(
+              widthFactor: 0.5,
+              heightFactor: 1,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.heading.withValues(alpha: 0.10),
+                      blurRadius: 6,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Row(
             children: [
               _MethodButton(
                 icon: Icons.phone_outlined,
                 label: 'Phone',
-                selected: selected == LoginMethod.phone,
+                selected: phone,
                 onPressed: enabled ? () => onChanged(LoginMethod.phone) : null,
               ),
-              const SizedBox(width: 2),
               _MethodButton(
                 icon: Icons.mail_outline,
                 label: 'Email',
-                selected: selected == LoginMethod.email,
+                selected: !phone,
                 onPressed: enabled ? () => onChanged(LoginMethod.email) : null,
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
@@ -356,35 +438,30 @@ class _MethodButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final color = selected ? AppColors.primaryDark : AppColors.muted;
     return Expanded(
-      child: Material(
-        color: selected ? AppColors.background : AppColors.surfaceMuted,
-        elevation: selected ? 1 : 0,
-        shadowColor: AppColors.heading.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(22),
-        clipBehavior: Clip.antiAlias,
+      child: Semantics(
+        button: true,
+        selected: selected,
         child: InkWell(
+          key: ValueKey('auth-method-${label.toLowerCase()}'),
+          borderRadius: BorderRadius.circular(22),
           onTap: onPressed,
-          child: Ink(
-            key: ValueKey('auth-method-${label.toLowerCase()}'),
-            color: selected ? AppColors.background : AppColors.surfaceMuted,
+          child: SizedBox(
             height: 44,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  icon,
-                  size: 16,
-                  color: selected ? AppColors.primaryDark : AppColors.muted,
-                ),
+                Icon(icon, size: 16, color: color),
                 const SizedBox(width: 6),
-                Text(
-                  label,
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 200),
                   style: TextStyle(
-                    color: selected ? AppColors.primaryDark : AppColors.muted,
+                    color: color,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
+                  child: Text(label),
                 ),
               ],
             ),
@@ -393,6 +470,27 @@ class _MethodButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Swaps the phone and email fields with a quick fade; the rest stays still.
+class AuthFieldSwitcher extends StatelessWidget {
+  const AuthFieldSwitcher({required this.child, super.key});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => AnimatedSize(
+    duration: const Duration(milliseconds: 200),
+    curve: Curves.easeOutCubic,
+    alignment: Alignment.topCenter,
+    child: AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      // Only the new field is shown; it fades in.
+      layoutBuilder: (current, previous) => current ?? const SizedBox.shrink(),
+      child: child,
+    ),
+  );
 }
 
 class LoginLegalNotice extends StatelessWidget {
@@ -430,6 +528,29 @@ class LoginLegalNotice extends StatelessWidget {
 
 class _ApprovedPhoneFieldState extends State<ApprovedPhoneField> {
   bool focused = false;
+  late String dial = widget.dialCode;
+
+  @override
+  void didUpdateWidget(covariant ApprovedPhoneField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.dialCode != widget.dialCode) dial = widget.dialCode;
+  }
+
+  Future<void> _pickCountry() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      builder: (sheet) => _CountrySheet(current: dial),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => dial = picked);
+    // Re-format what is typed for the new country.
+    final digits = widget.controller.text.replaceAll(RegExp(r'\D'), '');
+    widget.controller.text = _PhoneFormatter(dial).format(digits);
+    widget.onDialCodeChanged?.call(picked);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -443,18 +564,30 @@ class _ApprovedPhoneFieldState extends State<ApprovedPhoneField> {
       children: [
         Row(
           children: [
-            Container(
-              width: 96,
-              height: 60,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              alignment: Alignment.centerLeft,
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.border),
+            Material(
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
+                side: const BorderSide(color: AppColors.border),
               ),
-              child: const Text(
-                '+91',
-                style: TextStyle(fontSize: 18, color: AppColors.heading),
+              child: InkWell(
+                key: const ValueKey('phone-country'),
+                borderRadius: BorderRadius.circular(10),
+                onTap: widget.enabled ? _pickCountry : null,
+                child: Container(
+                  height: 60,
+                  padding: const EdgeInsets.only(left: 12, right: 6),
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(PhoneCountry.flagFor(dial), style: const TextStyle(fontSize: 18)),
+                      const SizedBox(width: 6),
+                      Text(dial, style: const TextStyle(fontSize: 18, color: AppColors.heading)),
+                      const Icon(Icons.arrow_drop_down, color: AppColors.muted),
+                    ],
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 10),
@@ -466,8 +599,8 @@ class _ApprovedPhoneFieldState extends State<ApprovedPhoneField> {
                   enabled: widget.enabled,
                   keyboardType: TextInputType.phone,
                   textInputAction: TextInputAction.done,
-                  autofillHints: const [AutofillHints.telephoneNumber],
-                  inputFormatters: const [_IndianPhoneFormatter()],
+                  autofillHints: const [AutofillHints.telephoneNumberNational],
+                  inputFormatters: [_PhoneFormatter(dial)],
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
@@ -475,7 +608,7 @@ class _ApprovedPhoneFieldState extends State<ApprovedPhoneField> {
                     color: AppColors.heading,
                   ),
                   decoration: InputDecoration(
-                    hintText: '00000 00000',
+                    hintText: dial == '+91' ? '00000 00000' : 'Phone number',
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 18,
@@ -506,23 +639,109 @@ class _ApprovedPhoneFieldState extends State<ApprovedPhoneField> {
   }
 }
 
-class _IndianPhoneFormatter extends TextInputFormatter {
-  const _IndianPhoneFormatter();
+/// Country list with search; any other code can be typed at the top.
+class _CountrySheet extends StatefulWidget {
+  const _CountrySheet({required this.current});
+  final String current;
+
+  @override
+  State<_CountrySheet> createState() => _CountrySheetState();
+}
+
+class _CountrySheetState extends State<_CountrySheet> {
+  final query = TextEditingController();
+
+  @override
+  void dispose() {
+    query.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = query.text.trim().toLowerCase();
+    final typedCode = RegExp(r'^\+?\d{1,4}$').hasMatch(q) ? '+${q.replaceAll('+', '')}' : null;
+    final list = PhoneCountry.all
+        .where((c) => q.isEmpty || c.name.toLowerCase().contains(q) || c.code.contains(q.replaceAll('+', '')))
+        .toList();
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.75,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+              child: Text('Country code', style: Theme.of(context).textTheme.titleLarge),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: TextField(
+                controller: query,
+                autofocus: false,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Search country or type a code',
+                  prefixIcon: Icon(Icons.search),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView(
+                children: [
+                  if (typedCode != null && !PhoneCountry.all.any((c) => c.code == typedCode))
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                      leading: const Text('🌐', style: TextStyle(fontSize: 22)),
+                      title: Text('Use $typedCode'),
+                      onTap: () => Navigator.pop(context, typedCode),
+                    ),
+                  for (final c in list)
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                      leading: Text(c.flag, style: const TextStyle(fontSize: 22)),
+                      title: Text(c.name, style: const TextStyle(fontSize: 16, color: AppColors.heading)),
+                      trailing: Text(
+                        c.code,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: c.code == widget.current ? AppColors.primary : AppColors.muted,
+                        ),
+                      ),
+                      onTap: () => Navigator.pop(context, c.code),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// India: "98765 43210" (10 digits). Others: digits only, up to 14.
+class _PhoneFormatter extends TextInputFormatter {
+  const _PhoneFormatter(this.dial);
+  final String dial;
+
+  String format(String raw) {
+    final max = dial == '+91' ? 10 : 14;
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    final cut = digits.substring(0, digits.length.clamp(0, max));
+    if (dial != '+91' || cut.length <= 5) return cut;
+    return '${cut.substring(0, 5)} ${cut.substring(5)}';
+  }
 
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    final digits = newValue.text
-        .replaceAll(RegExp(r'\D'), '')
-        .substring(
-          0,
-          newValue.text.replaceAll(RegExp(r'\D'), '').length.clamp(0, 10),
-        );
-    final formatted = digits.length <= 5
-        ? digits
-        : '${digits.substring(0, 5)} ${digits.substring(5)}';
+    final formatted = format(newValue.text);
     return TextEditingValue(
       text: formatted,
       selection: TextSelection.collapsed(offset: formatted.length),

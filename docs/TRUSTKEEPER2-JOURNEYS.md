@@ -9,10 +9,10 @@ This document is for people (founders, developers). It says what each person see
 | Who | What they use | Where |
 |---|---|---|
 | Broker | Mobile app (Flutter) | `apps/flutter_app/lib/src/tk2/` · entry `lib/main_tk2.dart` |
-| Tenant | Web app opened from a WhatsApp link | Prototype: `docs/prototypes/tk2-web/index.html` · live demo: https://claude.ai/artifact/Szj2fK38ocoCABGHbTtxUt |
-| House owner | Web app opened from a WhatsApp link (later also a WhatsApp chat bot) | Same web app, `#owner` link |
+| Tenant | Web app (Flutter web) opened from a WhatsApp link | `apps/flutter_app/lib/src/tkweb/` · entry `lib/main_tk2_web.dart` · live demo: https://claude.ai/artifact/Szj2fK38ocoCABGHbTtxUt |
+| House owner | Same web app, owner invite link (later also a WhatsApp chat bot) | `lib/src/tkweb/tkweb_owner.dart` |
 
-The tenant/owner web app is an HTML prototype for agreeing the flow. When the flow is final, it will be rebuilt in Flutter web (same screens), hosted on trustkeyper.com.
+The web app is Flutter web and reuses the apps' own screens and design system: the login screen (logo hero, name, Phone/Email switch, any country code), the 6-box OTP, the onboarding headers, the "Add property" steps and the customer page. Build it with `apps/flutter_app/tool/build_tkweb.sh` (output `build/tkweb`, static files). Links: `#p-<base32 public details>` opens a property; `#owner-<base32 {bn, h}>` opens an owner invite; no hash opens a start page.
 
 ## 1. Broker (mobile app)
 
@@ -26,14 +26,14 @@ The tenant/owner web app is an HTML prototype for agreeing the flow. When the fl
    - **Visit fee** (₹0–500).
    - **Photos** (up to 10, 3 per row; ★ or drag to set the cover; can skip). Every photo carries a light TrustKeeper watermark.
    - **Only for you** (green, never shared): owner name and phone, keys, note, and **brokerage**: who pays (Owner / Tenant / Both / None) and how much each. Only the tenant's part is shown to tenants.
-5. Property page → **Share**: WhatsApp message with the property link. The link carries only public details.
+5. Property page → **Share**: WhatsApp message with the property link. The link carries only public details. On home cards (Design B) a **Send** button: pick a tenant added before or type a new number (any country code) → WhatsApp / text message / both → "Sent".
 6. **Visits** tab: upcoming visits; after the visit he types the tenant's 4-digit code to get the fee.
 
 ## 2. Tenant (web, from the property link)
 
 1. Opens the link: photos, rent card, facts, visit-fee rules, "What happens next". **No login.**
 2. **Book a visit**: picks a day and hour. Days/hours outside the broker's visit times are greyed. Many people can book the same hour.
-3. Signs up: name + mobile → OTP.
+3. Signs up: name + mobile (any country code) → 6-digit OTP.
 4. Pays the visit fee → **Visit booked**: 4-digit visit code, **Add to Google Calendar**, reminder call 1 hour before (to tenant and broker).
 5. After the visit: **I want this house** → pays **token ₹15,000** → house is blocked.
 6. Shares details for the agreement: full name, email, current address, work, people, Aadhaar. At the same time the owner is asked for their details.
@@ -45,9 +45,8 @@ The tenant/owner web app is an HTML prototype for agreeing the flow. When the fl
 ## 3. House owner (web, from the broker's invite; later also WhatsApp bot)
 
 1. Opens the invite: "Your broker asked you to add your house". What we ask, and a privacy note.
-2. Signs up: name + **phone or email** → OTP.
-3. One question per screen (progress bar, Back goes one question back):
-   how many owners → are you one of them → full address → rooms → size and floors → furnishing → rent, maintenance, deposit → who can rent + pets → when free → visit days/times → photos (skip) → Aadhaar of every owner → old/current rent agreement (if any) → bank (cancelled cheque) → who has the keys.
+2. Signs up: name + **phone or email** (sliding switch; any country code) → 6-digit OTP.
+3. How many owners + are you one of them → the same house steps the broker uses (address in parts, size, facing, parking, rooms, floors, furnishing) → rent details, visit times, photos (owner mode: no visit fee, no brokerage) → papers: Aadhaar of every owner, old/current agreement (optional), bank (cancelled cheque), who has the keys.
 4. Owners are **not** asked brokerage (broker sets it).
 5. Done: broker can share the house; WhatsApp updates on bookings.
 
@@ -73,10 +72,10 @@ Never shown to tenants (not in the share message, link, web app or booking): doo
 
 Today it is demo only. Each item is marked in the code/prototype as "Demo".
 
-1. Accounts + OTP (phone for tenants; phone or email for owners).
+1. Accounts + OTP (phone for tenants; phone or email for owners; demo code today: 123456).
 2. Data: properties, visits, owners, tenants in Firestore (replace on-phone storage in `Tk2Store`).
 3. Payments (Razorpay): visit fee (held), token, deposit/rent/brokerage, refunds and payouts per the money rules. Real money needs Aman's sign-off.
-4. WhatsApp: share message, owner invite, owner question-by-question bot, updates.
+4. WhatsApp + SMS: share message, Send to tenant (WhatsApp / SMS / both — `Tk2Store.sendListing` records it today), owner invite, owner question-by-question bot, updates.
 5. Google Calendar invite (prototype uses a calendar link), reminder call 1 hour before (tenant + broker).
 6. Rent agreement generation from templates, broker approval, e-sign.
 7. Burn the TrustKeeper watermark into every uploaded photo (the app shows it as an overlay today).

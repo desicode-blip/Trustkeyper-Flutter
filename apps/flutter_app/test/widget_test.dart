@@ -120,7 +120,7 @@ void main() {
     },
   );
 
-  testWidgets('auth selector uses one clipped surface without white seams', (
+  testWidgets('auth selector slides only its thumb between phone and email', (
     tester,
   ) async {
     var selected = LoginMethod.phone;
@@ -137,29 +137,17 @@ void main() {
       ),
     );
 
-    final selector = tester.widget<Material>(
+    final selector = tester.widget<Container>(
       find.byKey(const ValueKey('auth-method-selector')),
     );
-    expect(selector.clipBehavior, Clip.antiAlias);
-    expect(selector.shape, isA<StadiumBorder>());
-
-    final selectedPhone = tester.widget<Ink>(
-      find.byKey(const ValueKey('auth-method-phone')),
-    );
-    expect(
-      (selectedPhone.decoration as BoxDecoration).color,
-      AppColors.background,
-    );
+    expect((selector.decoration as ShapeDecoration).shape, isA<StadiumBorder>());
+    AnimatedAlign thumb() => tester.widget<AnimatedAlign>(find.byType(AnimatedAlign));
+    expect(thumb().alignment, Alignment.centerLeft);
 
     await tester.tap(find.text('Email'));
     await tester.pumpAndSettle();
-    final selectedEmail = tester.widget<Ink>(
-      find.byKey(const ValueKey('auth-method-email')),
-    );
-    expect(
-      (selectedEmail.decoration as BoxDecoration).color,
-      AppColors.background,
-    );
+    expect(selected, LoginMethod.email);
+    expect(thumb().alignment, Alignment.centerRight);
   });
 
   testWidgets('email verification screen explains delivery and recovery', (

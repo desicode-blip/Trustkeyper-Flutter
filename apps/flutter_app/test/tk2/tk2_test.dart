@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trustkeyper/src/tk2/tk2_link.dart';
+import 'package:trustkeyper/src/features/auth/presentation/approved_auth_widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trustkeyper/src/features/broker/data/broker_property_repository.dart';
 import 'package:trustkeyper/src/tk2/tk2_app.dart';
@@ -154,6 +155,31 @@ void main() {
       expect(Tk2Listing.fromJson(old).brokeragePayer, 'Tenant');
     });
 
+    test('who can rent label: no "only"; male + female = Bachelor', () {
+      expect(Tk2Listing.tenantLabel('Anyone'), 'Anyone can rent');
+      expect(Tk2Listing.tenantLabel('Bachelor female'), 'Bachelor female');
+      expect(Tk2Listing.tenantLabel('Bachelor male, Bachelor female'), 'Bachelor');
+      expect(Tk2Listing.tenantLabel('Family, Bachelor male, Bachelor female'), 'Family, Bachelor');
+      expect(Tk2Listing.example.copyWith(tenants: 'Family').rules, isNot(contains('only')));
+    });
+
+    test('send: new number is saved once and listed for next time', () async {
+      final store = Tk2Store.forTest();
+      await store.load();
+      await store.sendListing('x', name: 'Ravi', phone: '+91 98765 43210', whatsapp: true, sms: true);
+      await store.sendListing('x', name: 'Ravi K', phone: '+919876543210', whatsapp: true, sms: false);
+      expect(store.contacts.length, 1);
+      expect(store.contacts.single.name, 'Ravi K');
+    });
+
+    test('phone: India needs 10 digits, other countries 6 to 14', () {
+      expect(PhoneCountry.valid('+91', '9876543210'), isTrue);
+      expect(PhoneCountry.valid('+91', '987654321'), isFalse);
+      expect(PhoneCountry.valid('+971', '501234567'), isTrue);
+      expect(PhoneCountry.format('+91', '9876543210'), '+91 98765 43210');
+      expect(PhoneCountry.format('+44', '7700900123'), '+44 7700900123');
+    });
+
     test('card heading is never empty (old properties without society)', () {
       final old = Tk2Listing(id: 'x', property: BrokerProperty(id: 'x', name: 'Green Villa', address: '', rooms: '2.5 BHK', floor: 1, totalFloors: 2, furnishing: 'Semi'));
       // Never the broker's own label ("Green Villa"); falls back to rooms.
@@ -195,13 +221,13 @@ void main() {
     expect(find.text('Namaste, Suresh'), findsOneWidget);
     expect(find.text('Add property'), findsOneWidget);
     // Only designs E and B on home; door number never on cards.
-    expect(find.text('Sri Sai Residency'), findsOneWidget); // E heading
+    expect(find.text('Sri Sai Residency'), findsNWidgets(2)); // E and B show the society
     expect(find.text('2 BHK · ₹32,000 + ₹3,000 maintenance'), findsOneWidget); // B title
     expect(find.text('Sri Sai Residency, Madhapur, Hyderabad'), findsNWidgets(2)); // address line on both
     expect(find.textContaining('Flat 402'), findsNothing);
     expect(find.text('Example'), findsNothing);
 
-    await tester.tap(find.text('Sri Sai Residency'));
+    await tester.tap(find.text('Sri Sai Residency').first);
     await tester.pumpAndSettle();
     // Broker-only block is on the page, with the banner.
     await tester.scrollUntilVisible(find.text('Complete address and details'), 300, scrollable: find.byType(Scrollable).first);

@@ -41,16 +41,30 @@ class Tk2Visits extends StatelessWidget {
               index: 2,
               child: Container(
                 padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22), border: Border.all(color: AppColors.border)),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: AppColors.border),
+                ),
                 child: Column(
                   children: [
                     const Icon(Icons.event_available_outlined, size: 44, color: AppColors.primaryDark),
                     const SizedBox(height: 12),
-                    const Text('No visits yet', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: AppColors.heading)),
+                    const Text(
+                      'No visits yet',
+                      style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: AppColors.heading),
+                    ),
                     const SizedBox(height: 6),
-                    const Text('Share a property. When a customer books, the visit shows here.', textAlign: TextAlign.center, style: TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted)),
+                    const Text(
+                      'Share a property. When a customer books, the visit shows here.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted),
+                    ),
                     const SizedBox(height: 16),
-                    TextButton(onPressed: onShare, child: const Text('Go to properties', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600))),
+                    TextButton(
+                      onPressed: onShare,
+                      child: const Text('Go to properties', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    ),
                   ],
                 ),
               ),
@@ -83,7 +97,10 @@ class Tk2Visits extends StatelessWidget {
 
   Widget _heading(String t) => Padding(
     padding: const EdgeInsets.only(left: 4, bottom: 10),
-    child: Text(t, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading)),
+    child: Text(
+      t,
+      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading),
+    ),
   );
 
   Widget _money(String value, String label, String note, Color bg, Color fg, IconData icon) => Expanded(
@@ -95,9 +112,22 @@ class Tk2Visits extends StatelessWidget {
         children: [
           Icon(icon, color: fg),
           const SizedBox(height: 10),
-          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: fg)),
-          Text(label, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: fg)),
-          Text(note, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: fg.withValues(alpha: 0.8))),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: fg),
+          ),
+          Text(
+            label,
+            style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: fg),
+          ),
+          Text(
+            note,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12.5, color: fg.withValues(alpha: 0.8)),
+          ),
         ],
       ),
     ),
@@ -159,7 +189,11 @@ class _VisitSheetState extends State<_VisitSheet> {
         content: Text(cancel ? '${widget.visit.customerName} gets ${Tk2Store.money(widget.visit.fee)} back.' : 'You get ${Tk2Store.money(widget.visit.fee ~/ 2)} for your time.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Go back')),
-          TextButton(onPressed: () => Navigator.pop(d, true), style: TextButton.styleFrom(foregroundColor: AppColors.error), child: Text(cancel ? 'Cancel visit' : 'Yes, did not come')),
+          TextButton(
+            onPressed: () => Navigator.pop(d, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: Text(cancel ? 'Cancel visit' : 'Yes, did not come'),
+          ),
         ],
       ),
     );
@@ -182,7 +216,10 @@ class _VisitSheetState extends State<_VisitSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(v.customerName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
+            Text(
+              v.customerName,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading),
+            ),
             const SizedBox(height: 4),
             Text('${tk2Day(at)}, ${tk2Time(at)} · ${l?.name ?? ''}', style: const TextStyle(fontSize: 15, color: AppColors.muted)),
             const SizedBox(height: 14),
@@ -203,7 +240,12 @@ class _VisitSheetState extends State<_VisitSheet> {
                   onPressed: () => launchUrl(Uri.parse('tel:${v.customerPhone.replaceAll(' ', '')}')).catchError((_) => false),
                   icon: const Icon(Icons.call_outlined),
                   label: Text('Call ${v.customerPhone}'),
-                  style: OutlinedButton.styleFrom(foregroundColor: AppColors.primaryDark, side: const BorderSide(color: AppColors.border), shape: const StadiumBorder(), textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primaryDark,
+                    side: const BorderSide(color: AppColors.border),
+                    shape: const StadiumBorder(),
+                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ),
             if (v.upcoming) ...[
@@ -230,21 +272,19 @@ class _VisitSheetState extends State<_VisitSheet> {
                             },
                             decoration: const InputDecoration(hintText: '• • • •'),
                           ),
-                          if (error != null) ...[
-                            const SizedBox(height: 8),
-                            Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 15)),
-                          ],
+                          if (error != null) ...[const SizedBox(height: 8), Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 15))],
                         ],
                       )
-                    : PrimaryButton(
-                        label: 'Visit done · get ${Tk2Store.money(v.fee)}',
-                        onPressed: () => setState(() => askCode = true),
-                      ),
+                    : PrimaryButton(label: 'Visit done · get ${Tk2Store.money(v.fee)}', onPressed: () => setState(() => askCode = true)),
               ),
               if (early && !askCode)
                 const Padding(
                   padding: EdgeInsets.only(top: 8),
-                  child: Text('Tap this after the customer has seen the house.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13.5, color: AppColors.muted)),
+                  child: Text(
+                    'Tap this after the customer has seen the house.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13.5, color: AppColors.muted),
+                  ),
                 ),
               const SizedBox(height: 6),
               Row(

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -74,7 +75,8 @@ class Tk2Photo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final path = index < listing.photos.length ? listing.photos[index] : null;
-    final file = path == null ? null : File(path);
+    // Web gets picked photos as blob: links; phones get file paths.
+    final file = path == null || kIsWeb ? null : File(path);
     Widget fallback() => compact
         ? Container(color: AppColors.primarySoft, alignment: Alignment.center, child: const HomeIcon('house', size: 28))
         : Container(
@@ -105,12 +107,14 @@ class Tk2Photo extends StatelessWidget {
       child: SizedBox(
         height: height,
         width: double.infinity,
-        child: file != null && file.existsSync()
+        child: path != null && (kIsWeb || file!.existsSync())
             ? Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.file(file, fit: BoxFit.cover, cacheWidth: 900, errorBuilder: (context, error, stack) => fallback()),
-                  // Light TrustKeeper watermark on every uploaded photo.
+                  kIsWeb
+                      ? Image.network(path, fit: BoxFit.cover, errorBuilder: (context, error, stack) => fallback())
+                      : Image.file(file!, fit: BoxFit.cover, cacheWidth: 900, errorBuilder: (context, error, stack) => fallback()),
+                  // Light TrustKeyper watermark on every uploaded photo.
                   IgnorePointer(
                     child: Center(
                       child: Transform.rotate(
@@ -119,7 +123,7 @@ class Tk2Photo extends StatelessWidget {
                           child: Padding(
                             padding: const EdgeInsets.all(12),
                             child: Text(
-                              'TrustKeeper',
+                              'TrustKeyper',
                               style: TextStyle(
                                 fontSize: 30,
                                 fontWeight: FontWeight.w800,

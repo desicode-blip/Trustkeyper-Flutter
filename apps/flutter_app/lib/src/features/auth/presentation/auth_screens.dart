@@ -450,6 +450,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final identityController = TextEditingController();
   LoginMethod method = LoginMethod.phone;
+  String dial = '+91';
   bool keepLoggedIn = true;
   bool sending = false;
   String? errorMessage;
@@ -508,18 +509,23 @@ class _LoginScreenState extends State<LoginScreen> {
             },
           ),
           const SizedBox(height: 18),
-          if (method == LoginMethod.phone)
-            ApprovedPhoneField(
-              controller: identityController,
-              enabled: !sending,
-              error: errorMessage,
-            )
-          else
-            ApprovedEmailField(
-              controller: identityController,
-              enabled: !sending,
-              error: errorMessage,
-            ),
+          AuthFieldSwitcher(
+            child: method == LoginMethod.phone
+                ? ApprovedPhoneField(
+                    key: const ValueKey('login-phone'),
+                    controller: identityController,
+                    enabled: !sending,
+                    error: errorMessage,
+                    dialCode: dial,
+                    onDialCodeChanged: (code) => setState(() => dial = code),
+                  )
+                : ApprovedEmailField(
+                    key: const ValueKey('login-email'),
+                    controller: identityController,
+                    enabled: !sending,
+                    error: errorMessage,
+                  ),
+          ),
           if (method == LoginMethod.email && !widget.emailOtpEnabled) ...[
             const SizedBox(height: 12),
             const Text(
@@ -623,11 +629,17 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _requestOtp() async {
-    final digits = identityController.text.replaceAll(RegExp(r'\D'), '');
-    if (digits.length != 10) {
-      setState(() => errorMessage = 'Enter a valid 10-digit mobile number');
+    final local = identityController.text.replaceAll(RegExp(r'\D'), '');
+    if (!PhoneCountry.valid(dial, local)) {
+      setState(
+        () => errorMessage = dial == '+91'
+            ? 'Enter a valid 10-digit mobile number'
+            : 'Enter a valid phone number',
+      );
       return;
     }
+    // India keeps the 10-digit form; other countries go with their code.
+    final digits = dial == '+91' ? local : '${dial.substring(1)}$local';
     setState(() {
       sending = true;
       errorMessage = null;
