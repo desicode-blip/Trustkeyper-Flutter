@@ -1070,3 +1070,17 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/tk2/tk2_widgets.dart (Tk2PropertyCard restored from c1785a0), apps/flutter_app/lib/src/tk2/tk2_designs.dart (showcase: earlier section at the end), apps/flutter_app/test/tk2/tk2_test.dart (counts), docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 10/10
 ```
+
+## Change 65 – TrustKeeper 2: home shows only Designs E and B (final candidates)
+Date: 2026-11-02 · Status: code complete; installed on Aman's iPhone
+- Home now shows only E and B (A, C, D and the earlier compact row removed from the screen).
+- E heading = society name, else the area (from the area field, else read from the address) – no longer the broker's own label (e.g. "VIVID"). Below it: the complete address without house/flat/plot numbers or floor (`tk2PublicAddress`).
+- B: photo area is swipeable with 3 dots; no photos yet → the app's house illustration (welcome-home.svg) as a placeholder, no "2.5 BHK" text on it, no rent pill. Title "2.5 BHK · ₹30,000 incl. maintenance" (same style), then the same address line as E, then the facts.
+```
+AGENT RECORD – Change 65
+id: CHG-065
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/tk2_designs.dart (tk2Designs ['e','b'], tk2CardHeading, tk2PublicAddress, _SwipePhotos, B card), apps/flutter_app/lib/src/tk2/tk2_app.dart (intro line), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 11/11 (new: address drops house numbers; heading never uses the broker's label)
+```

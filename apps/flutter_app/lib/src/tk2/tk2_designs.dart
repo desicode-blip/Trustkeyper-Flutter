@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -13,7 +14,7 @@ import 'tk2_widgets.dart';
 // the other on home so Aman can pick. A: Classic · B: Wide photo · C: Price
 // first · D: Ticket.
 
-const tk2Designs = ['e', 'a', 'b', 'c', 'd'];
+const tk2Designs = ['e', 'b'];
 const tk2DesignNames = {
   'a': 'A · Classic row',
   'b': 'B · Wide photo',
@@ -42,13 +43,100 @@ List<(IconData, String)> tk2Facts(Tk2Listing l, {bool long = false, bool outline
   ];
 }
 
-/// Card heading for the broker's home (D, E): society, else area, else the
-/// broker's own name for the property – never empty.
-String tk2CardHeading(Tk2Listing l) {
-  for (final t in [l.society, l.area, l.property.name]) {
-    if (t.trim().isNotEmpty) return t.trim();
+/// Address parts with the house / flat / plot numbers taken out.
+List<String> _publicParts(Tk2Listing l) {
+  final door = RegExp(r'^(flat|house|h\.?\s?no|door|plot|apt|apartment|unit|block|tower|wing|floor|#|no\.?)\b', caseSensitive: false);
+  final parts = l.property.address.split(',').map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+  // Drop leading bits like "Flat 402", "H.No 5-6-7", "#12", "3rd floor".
+  while (parts.isNotEmpty && (door.hasMatch(parts.first) || RegExp(r'\d').hasMatch(parts.first))) {
+    parts.removeAt(0);
   }
+  return parts;
+}
+
+/// The complete address without door numbers – safe to show and share.
+String tk2PublicAddress(Tk2Listing l) {
+  final parts = _publicParts(l);
+  if (l.society.trim().isNotEmpty && !parts.any((p) => p.toLowerCase() == l.society.trim().toLowerCase())) {
+    parts.insert(0, l.society.trim());
+  }
+  if (l.locality.trim().isNotEmpty && !parts.join(', ').toLowerCase().contains(l.locality.split(',').first.trim().toLowerCase())) {
+    parts.add(l.locality.trim());
+  }
+  return parts.join(', ');
+}
+
+/// Card heading: society name, else the area – never the broker's own label
+/// and never empty.
+String tk2CardHeading(Tk2Listing l) {
+  if (l.society.trim().isNotEmpty) return l.society.trim();
+  if (l.locality.trim().isNotEmpty) return l.locality.split(',').first.trim();
+  final parts = _publicParts(l);
+  if (parts.length >= 2) return parts[parts.length - 2];
+  if (parts.isNotEmpty) return parts.first;
   return '${l.property.rooms} property';
+}
+
+Widget _address(Tk2Listing l, {double size = 13}) {
+  final a = tk2PublicAddress(l);
+  return a.isEmpty ? const SizedBox.shrink() : _iconText(Icons.place_outlined, a, size: size, lines: 2);
+}
+
+/// Swipeable card photos with dots. No photos yet → the app's house
+/// illustration as a placeholder (3 pages, so the swipe can be felt).
+class _SwipePhotos extends StatefulWidget {
+  const _SwipePhotos({required this.listing});
+  final Tk2Listing listing;
+
+  @override
+  State<_SwipePhotos> createState() => _SwipePhotosState();
+}
+
+class _SwipePhotosState extends State<_SwipePhotos> {
+  int page = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = widget.listing;
+    final count = l.photos.isEmpty ? 3 : l.photos.length;
+    return SizedBox(
+      height: 150,
+      child: Stack(
+        children: [
+          PageView.builder(
+            itemCount: count,
+            onPageChanged: (i) => setState(() => page = i),
+            itemBuilder: (context, i) => l.photos.isEmpty
+                ? Container(
+                    color: const Color(0xFFFFF1E3),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: SvgPicture.asset('assets/onboarding/welcome-home.svg', fit: BoxFit.contain),
+                  )
+                : Tk2Photo(listing: l, index: i, height: 150, radius: 0),
+          ),
+          if (count > 1)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 10,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < count; i++)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: i == page ? AppColors.heading : AppColors.heading.withValues(alpha: 0.25)),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 Widget _iconText(IconData icon, String text, {Color color = AppColors.muted, double size = 13.5, int lines = 1}) => Row(
@@ -101,9 +189,8 @@ class Tk2DesignCard extends StatelessWidget {
             children: [
               Stack(
                 children: [
-                  Tk2Photo(listing: l, height: 130, radius: 0),
-                  Positioned(left: 12, bottom: 12, child: Tk2Pill(Tk2Store.money(l.rent), kind: 'dark')),
-                  Positioned(right: 12, top: 12, child: Row(children: [if (l.sample) const Tk2Pill('Example', kind: 'info'), if (visits > 0) Padding(padding: const EdgeInsets.only(left: 6), child: Tk2Pill('$visits visit${visits == 1 ? '' : 's'}', kind: 'ok'))])),
+                  _SwipePhotos(listing: l),
+                  if (visits > 0) Positioned(right: 12, top: 12, child: Tk2Pill('$visits visit${visits == 1 ? '' : 's'}', kind: 'ok')),
                 ],
               ),
               Padding(
@@ -111,9 +198,14 @@ class Tk2DesignCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    title,
-                    const SizedBox(height: 2),
-                    _area(l),
+                    Text(
+                      '${l.property.rooms} · ${l.rentLine}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 16, height: 21 / 16, fontWeight: FontWeight.w600, color: AppColors.heading),
+                    ),
+                    const SizedBox(height: 4),
+                    _address(l),
                     const SizedBox(height: 10),
                     Wrap(spacing: 14, runSpacing: 6, children: [for (final f in facts.take(4)) _iconText(f.$1, f.$2)]),
                   ],
@@ -208,7 +300,8 @@ class Tk2DesignCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(tk2CardHeading(l), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
-                        if (l.society.isNotEmpty) _area(l, size: 13),
+                        const SizedBox(height: 2),
+                        _address(l),
                         if (visits > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Tk2Pill('$visits visit${visits == 1 ? '' : 's'} booked', kind: 'ok')),
                         const SizedBox(height: 10),
                         IntrinsicHeight(
@@ -772,26 +865,6 @@ class Tk2DesignShowcase extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
-      ],
-      // The earlier compact row, brought back below for comparison.
-      const SizedBox(height: 22),
-      const Row(
-        children: [
-          HomeIcon('house', size: 18),
-          SizedBox(width: 8),
-          Flexible(child: Text('Earlier design · Compact row', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.muted))),
-        ],
-      ),
-      const SizedBox(height: 10),
-      for (final l in store.shown) ...[
-        Tk2PropertyCard(
-          key: ValueKey('earlier-${l.id}'),
-          listing: l,
-          visits: store.visitsFor(l.id).where((v) => v.upcoming).length,
-          onOpen: () => context.push('/p/${l.id}?d=a'),
-          onShare: () => showTk2Share(context, store, l),
-        ),
-        const SizedBox(height: 12),
       ],
     ],
   );

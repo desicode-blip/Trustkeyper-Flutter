@@ -295,7 +295,7 @@ class _Tk2HomeState extends State<Tk2Home> {
           const Text('Add your first property and this example goes away.', style: TextStyle(fontSize: 14.5, height: 20 / 14.5, color: AppColors.muted)),
         ],
         const SizedBox(height: 2),
-        const Text('4 designs below, one under the other. Tap any to see its page.', style: TextStyle(fontSize: 14, color: AppColors.muted)),
+        const Text('Two designs we are finalising: E and B. Tap to see the page.', style: TextStyle(fontSize: 14, color: AppColors.muted)),
         Tk2DesignShowcase(store: store),
       ],
     );

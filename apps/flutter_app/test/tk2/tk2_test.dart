@@ -62,11 +62,20 @@ void main() {
 
     test('card heading is never empty (old properties without society)', () {
       final old = Tk2Listing(id: 'x', property: BrokerProperty(id: 'x', name: 'Green Villa', address: '', rooms: '2.5 BHK', floor: 1, totalFloors: 2, furnishing: 'Semi'));
-      expect(tk2CardHeading(old), 'Green Villa');
-      expect(tk2CardHeading(old.copyWith(locality: 'Kondapur')), 'Kondapur');
+      // Never the broker's own label ("Green Villa"); falls back to rooms.
+      expect(tk2CardHeading(old), '2.5 BHK property');
+      expect(tk2CardHeading(old.copyWith(locality: 'Kondapur, Hyderabad')), 'Kondapur');
       expect(tk2CardHeading(old.copyWith(society: 'My Home Avatar', locality: 'Kondapur')), 'My Home Avatar');
       final bare = Tk2Listing(id: 'y', property: BrokerProperty(id: 'y', address: '', rooms: '1 BHK', floor: 0, totalFloors: 0, furnishing: 'Empty'));
       expect(tk2CardHeading(bare), '1 BHK property');
+    });
+
+    test('public address drops house numbers', () {
+      final l = Tk2Listing(id: 'z', property: BrokerProperty(id: 'z', name: 'VIVID', address: 'Flat 1203, 12th floor, Vivid Heights, Kondapur, Hyderabad', rooms: '3 BHK', floor: 12, totalFloors: 20, furnishing: 'Full'));
+      expect(tk2PublicAddress(l), 'Vivid Heights, Kondapur, Hyderabad');
+      expect(tk2CardHeading(l), 'Kondapur');
+      expect(tk2CardHeading(l.copyWith(society: 'Vivid Heights')), 'Vivid Heights');
+      expect(tk2PublicAddress(Tk2Listing(id: 'h', property: BrokerProperty(id: 'h', address: 'H.No 5-6-7, Road 3, Jubilee Hills', rooms: '2 BHK', floor: 0, totalFloors: 1, furnishing: 'Semi'))), 'Jubilee Hills');
     });
 
     test('money in Indian style', () {
@@ -91,15 +100,14 @@ void main() {
 
     expect(find.text('Namaste, Suresh'), findsOneWidget);
     expect(find.text('Add property'), findsOneWidget);
-    expect(find.text('Example'), findsNWidgets(5)); // A–D + earlier compact row
-    // 4 designs of the same example; the door number never shows on cards.
-    expect(find.text('2 BHK · Sri Sai Residency'), findsNWidgets(4));
+    // Only designs E and B on home; door number never on cards.
+    expect(find.text('Sri Sai Residency'), findsOneWidget); // E heading
+    expect(find.text('2 BHK · ₹32,000 + ₹3,000 maintenance'), findsOneWidget); // B title
+    expect(find.text('Sri Sai Residency, Madhapur, Hyderabad'), findsNWidgets(2)); // address line on both
     expect(find.textContaining('Flat 402'), findsNothing);
-    expect(find.text('₹32,000 + ₹3,000 maintenance'), findsNWidgets(2));
+    expect(find.text('Example'), findsNothing);
 
-    await tester.scrollUntilVisible(find.text('2 BHK · Sri Sai Residency').first, 300, scrollable: find.byType(Scrollable).first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('2 BHK · Sri Sai Residency').first);
+    await tester.tap(find.text('Sri Sai Residency'));
     await tester.pumpAndSettle();
     // Broker-only block is on the page, with the banner.
     await tester.scrollUntilVisible(find.text('Complete address and details'), 300, scrollable: find.byType(Scrollable).first);
@@ -174,7 +182,7 @@ void main() {
     final store = Tk2Store.forTest();
     await store.load();
     await store.setBroker('Suresh', '+91 9876543210');
-    for (final d in ['a', 'b', 'c', 'd', 'e']) {
+    for (final d in ['e', 'b']) {
       final router = buildTk2Router(store)..go('/p/sample?d=$d');
       await tester.pumpWidget(MaterialApp.router(key: ValueKey(d), routerConfig: router));
       await tester.pumpAndSettle();
