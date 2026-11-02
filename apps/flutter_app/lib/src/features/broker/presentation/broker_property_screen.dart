@@ -15,8 +15,20 @@ class BrokerPropertyScreen extends StatefulWidget {
     this.repository,
     this.initialProperty,
     this.onSelected,
+    this.startNew = false,
+    this.showStepLabel = true,
+    this.doneLabel = 'Next: Owner',
     super.key,
   });
+
+  /// Open straight on "Add new property" (skips the picker; Back from the name step leaves).
+  final bool startNew;
+
+  /// Show the "Step 1 of 5" bar (the rent agreement journey). Off in TrustKeeper 2.
+  final bool showStepLabel;
+
+  /// Label of the last button after the property is saved.
+  final String doneLabel;
 
   final BrokerPropertyRepository? repository;
   final BrokerProperty? initialProperty;
@@ -59,6 +71,8 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     if (widget.initialProperty != null) {
       selected = widget.initialProperty;
       _editSelected();
+    } else if (widget.startNew) {
+      stage = 1;
     }
   }
 
@@ -76,6 +90,10 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
 
   void _back() {
     if (saving) return;
+    if (stage == 1 && widget.startNew && context.canPop()) {
+      context.pop();
+      return;
+    }
     if (stage > 0) {
       setState(() {
         // Editing skips "how to add details", so Back skips it too.
@@ -101,7 +119,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(
+                  if (widget.showStepLabel) ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: const LinearProgressIndicator(
                       value: .2,
@@ -115,7 +133,9 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          stage == 0
+                          !widget.showStepLabel
+                              ? ''
+                              : stage == 0
                               ? 'Step 1 of 5 · House'
                               : 'Step 1 of 5 · Property',
                           style: const TextStyle(
@@ -225,7 +245,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
                               : stage == 5
                               ? 'Save property'
                               : stage == 6
-                              ? 'Next: Owner'
+                              ? widget.doneLabel
                               : 'Next',
                           icon: stage == 5 ? Icons.check : Icons.chevron_right,
                           onPressed: saving ? null : _next,

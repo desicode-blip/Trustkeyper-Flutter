@@ -979,3 +979,17 @@ branch: staging (never main)
 files: docs/BACKEND-HANDOFF-property-onboarding.md (new), docs/CHANGELOG-staging.md
 verification: document only; facts checked against property_onboarding.dart, agreement_templates.dart, app_router.dart and the test suite (39 old failures, unchanged)
 ```
+
+## Change 58 – TrustKeeper 2: broker launch app (properties, one-tap share, paid visits)
+Date: 2026-11-02 · Status: code complete; test build only (data on phone, test payment)
+A separate small app for brokers (`lib/main_tk2.dart`). Home shows properties as clean cards, with one example property until the broker adds their own. Add property reuses the existing house screens, then asks rent, deposit, move-in date, visit fee (₹100/150/200) and photos. Share sends the details to WhatsApp in one tap. Customer view shows what the customer sees: book a day and time, pay the visit fee (held), get a visit code. Visits tab: fee held until the broker types the customer's code after the visit; cancel or did not come refunds it. Full notes and backend plan: `docs/TRUSTKEEPER2.md`.
+Shared screen change: `BrokerPropertyScreen` got `startNew`, `showStepLabel`, `doneLabel` (main app unchanged by default).
+```
+AGENT RECORD – Change 58
+id: CHG-058
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/main_tk2.dart (new), apps/flutter_app/lib/src/tk2/{tk2_app,tk2_store,tk2_widgets,tk2_listing,tk2_customer,tk2_visits}.dart (new), apps/flutter_app/lib/src/features/broker/presentation/broker_property_screen.dart (startNew/showStepLabel/doneLabel), apps/flutter_app/test/tk2/tk2_test.dart (new), docs/TRUSTKEEPER2.md (new), docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 5/5 pass (store rules + full welcome→book→paid flow); full suite 39 old failures, same as before this change
+install: Mac-only local switch to bundle id com.trustkeyper.tk2 + FLUTTER_TARGET=lib/main_tk2.dart (repo iOS project unchanged)
+```
