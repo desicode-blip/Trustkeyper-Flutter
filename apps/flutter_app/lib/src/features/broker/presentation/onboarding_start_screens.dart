@@ -10,7 +10,11 @@ import 'onboarding_widgets.dart';
 
 /// First screen of "Onboard property": only two choices.
 class OnboardChooseScreen extends StatelessWidget {
-  const OnboardChooseScreen({super.key});
+  const OnboardChooseScreen({this.onLink, this.onManual, super.key});
+
+  /// TrustKeeper 2 asks the name first, then these choices; null = main app routes.
+  final VoidCallback? onLink;
+  final VoidCallback? onManual;
 
   @override
   Widget build(BuildContext context) => OnbPage(
@@ -25,7 +29,7 @@ class OnboardChooseScreen extends StatelessWidget {
         title: 'Send link to owner',
         message: 'Owner sends the documents. We read them.',
         badge: 'Easiest · email or WhatsApp',
-        onTap: () => context.push('/broker/property/new'),
+        onTap: onLink ?? () => context.push('/broker/property/new'),
       ),
       const SizedBox(height: 14),
       _BigTile(
@@ -34,7 +38,7 @@ class OnboardChooseScreen extends StatelessWidget {
         message: 'You type the house details yourself.',
         badge: 'Takes longer',
         muted: true,
-        onTap: () => context.push('/broker/property/manual'),
+        onTap: onManual ?? () => context.push('/broker/property/manual'),
       ),
     ],
   );
@@ -132,7 +136,10 @@ class _BigTile extends StatelessWidget {
 /// Ask the owner for papers: how many owners → each owner → check → sent.
 /// Same flow as the rent agreement ("How many owners?", then Owner 1, Owner 2...).
 class OnboardNewScreen extends StatefulWidget {
-  const OnboardNewScreen({super.key});
+  const OnboardNewScreen({this.label = '', super.key});
+
+  /// Broker's name for the house, typed before choosing "Send link to owner".
+  final String label;
 
   @override
   State<OnboardNewScreen> createState() => _OnboardNewScreenState();
@@ -397,6 +404,7 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
         contact: contact,
         coOwners: others,
         carryFrom: _carryFrom,
+        label: widget.label,
       );
       if (!mounted) return;
       setState(() {

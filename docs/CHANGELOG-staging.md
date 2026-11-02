@@ -1097,3 +1097,17 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/core/routing/app_router.dart (brokerPropertyRoutes, dart format), apps/flutter_app/lib/src/tk2/tk2_app.dart (routes, redirects /add /broker /broker/start, BrokerDraftSection with _NoAgreementDrafts), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 11/11; property_onboarding + route tests 33/33
 ```
+
+## Change 67 – TrustKeeper 2: property name first, then "Send link to owner / Add manually"
+Date: 2026-11-02 · Status: code complete; synced to the Mac, not yet built
+Add property now opens on "Add new property" (type a name). After Next, the main app's "Onboard property" choice appears (same screen, same look). Send link to owner → the main app's owner-link journey; the typed name is kept as the house name until the owner's real address arrives. Add manually → continues the manual steps (no name asked again). Back on the choice returns to the name. Main app unchanged.
+```
+AGENT RECORD – Change 67
+id: CHG-067
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/features/broker/presentation/broker_property_screen.dart (new flag askHowToAdd; _next stage 1 pushes OnboardChooseScreen), apps/flutter_app/lib/src/features/broker/presentation/onboarding_start_screens.dart (OnboardChooseScreen onLink/onManual callbacks; OnboardNewScreen label), apps/flutter_app/lib/src/features/broker/data/property_onboarding.dart (PropertyOnboarding.label – broker-only name, stored separately from address; houseName = address, else label, else 'New house'; create(label:)), apps/flutter_app/lib/src/tk2/tk2_app.dart (/add → /broker/property/manual with startNew + askHowToAdd), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+rules: label never replaces the real address and is never shown to tenants
+verification: flutter analyze clean; test/tk2 11/11
+note: build env needs Flutter 3.38.4 (newer stable breaks the lockfile)
+```

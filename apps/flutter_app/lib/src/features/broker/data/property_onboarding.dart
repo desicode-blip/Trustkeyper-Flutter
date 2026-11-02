@@ -476,6 +476,7 @@ class PropertyOnboarding {
     this.rent = 32000,
     this.deposit = 192000,
     this.address = '',
+    this.label = '',
     this.answers = const AgreementAnswers(),
     this.draftNo = 0,
     this.draftSent = false,
@@ -515,6 +516,9 @@ class PropertyOnboarding {
   final int rent;
   final int deposit;
   final String address;
+
+  /// Broker's own name for the house (only the broker sees it).
+  final String label;
   final AgreementAnswers answers;
   final int draftNo;
   final bool draftSent;
@@ -542,7 +546,7 @@ class PropertyOnboarding {
   final bool ownerSigned;
   final int lastAskedAt;
 
-  String get houseName => address.trim().isEmpty ? 'New house' : address;
+  String get houseName => address.trim().isNotEmpty ? address : label.trim().isNotEmpty ? label : 'New house';
   String get contactText => channel == 'email' ? contact : '+91 $contact';
 
   OnboardingPaper paper(String key) =>
@@ -714,6 +718,7 @@ class PropertyOnboarding {
     int? rent,
     int? deposit,
     String? address,
+    String? label,
     AgreementAnswers? answers,
     int? draftNo,
     bool? draftSent,
@@ -742,6 +747,7 @@ class PropertyOnboarding {
     rent: rent ?? this.rent,
     deposit: deposit ?? this.deposit,
     address: address ?? this.address,
+    label: label ?? this.label,
     answers: answers ?? this.answers,
     draftNo: draftNo ?? this.draftNo,
     draftSent: draftSent ?? this.draftSent,
@@ -780,6 +786,7 @@ class PropertyOnboarding {
     'rent': rent,
     'deposit': deposit,
     'address': address,
+    'label': label,
     'answers': answers.toJson(),
     'draftNo': draftNo,
     'draftSent': draftSent,
@@ -820,6 +827,7 @@ class PropertyOnboarding {
     rent: (json['rent'] as num?)?.toInt() ?? 32000,
     deposit: (json['deposit'] as num?)?.toInt() ?? 192000,
     address: json['address'] as String? ?? '',
+    label: json['label'] as String? ?? '',
     answers: json['answers'] is Map
         ? AgreementAnswers.fromJson(Map<String, dynamic>.from(json['answers'] as Map))
         : const AgreementAnswers(),
@@ -918,6 +926,7 @@ class PropertyOnboardingStore extends ChangeNotifier {
     required String contact,
     List<CoOwner> coOwners = const [],
     PropertyOnboarding? carryFrom,
+    String label = '',
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final item = PropertyOnboarding(
@@ -928,6 +937,7 @@ class PropertyOnboardingStore extends ChangeNotifier {
       createdAt: now,
       coOwners: [for (final c in coOwners) _withKnownProofs(c, now)],
       lastAskedAt: now,
+      label: label.trim(),
     );
     // We already have the contact we used to ask, so that paper is ticked.
     var first = item;

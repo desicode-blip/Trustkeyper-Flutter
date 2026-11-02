@@ -72,9 +72,9 @@ GoRouter buildTk2Router(Tk2Store store) => GoRouter(
       ),
     ),
     GoRoute(path: '/home', builder: (context, state) => Tk2Shell(store: store)),
-    // Same "Onboard property" journey as the main app. "Add manually" saves
+    // Name first, then the main app's "Onboard property" choice. "Add manually" saves
     // into TrustKeeper 2 and then asks rent and details.
-    GoRoute(path: '/add', redirect: (context, state) => '/broker/property'),
+    GoRoute(path: '/add', redirect: (context, state) => '/broker/property/manual'),
     GoRoute(path: '/broker', redirect: (context, state) => '/home'),
     // Rent agreements are not in TrustKeeper 2 yet.
     GoRoute(path: '/broker/start', redirect: (context, state) => '/home'),
@@ -83,6 +83,8 @@ GoRouter buildTk2Router(Tk2Store store) => GoRouter(
         repository: Tk2PropertyRepository(store),
         showStepLabel: false,
         askThings: false,
+        startNew: true,
+        askHowToAdd: true,
         doneLabel: 'Next: rent',
         onSelected: (property) => context.pushReplacement('/listing/${property.id}?new=1'),
       ),

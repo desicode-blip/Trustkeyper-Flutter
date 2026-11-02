@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../auth/presentation/approved_auth_widgets.dart';
 import '../data/broker_property_repository.dart';
+import 'onboarding_start_screens.dart';
 
 class BrokerPropertyScreen extends StatefulWidget {
   const BrokerPropertyScreen({
@@ -19,6 +20,7 @@ class BrokerPropertyScreen extends StatefulWidget {
     this.showStepLabel = true,
     this.doneLabel = 'Next: Owner',
     this.askThings = true,
+    this.askHowToAdd = false,
     super.key,
   });
 
@@ -33,6 +35,10 @@ class BrokerPropertyScreen extends StatefulWidget {
 
   /// Ask "Things in the house". Off in TrustKeeper 2 (asked later, while drafting the agreement).
   final bool askThings;
+
+  /// After the name of a new property, ask "Send link to owner" or "Add manually"
+  /// (the main app's Onboard property choice). On in TrustKeeper 2.
+  final bool askHowToAdd;
 
   final BrokerPropertyRepository? repository;
   final BrokerProperty? initialProperty;
@@ -1224,6 +1230,24 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     if (stage == 1) {
       if (name.text.trim().length < 2) {
         setState(() => error = 'Type a name for the property');
+        return;
+      }
+      if (widget.askHowToAdd && selected == null) {
+        final label = name.text.trim();
+        await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (choose) => OnboardChooseScreen(
+            onLink: () => Navigator.of(choose).pushReplacement(
+              MaterialPageRoute<void>(builder: (_) => OnboardNewScreen(label: label)),
+            ),
+            onManual: () {
+              Navigator.of(choose).pop();
+              setState(() {
+                stage = 2;
+                error = null;
+              });
+            },
+          ),
+        ));
         return;
       }
       // Editing a saved property: no need to ask how to add details again.

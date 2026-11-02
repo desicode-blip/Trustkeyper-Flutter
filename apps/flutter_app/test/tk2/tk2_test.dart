@@ -208,10 +208,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add property'));
     await tester.pumpAndSettle();
+    // Name first, then the choice.
+    expect(find.text('Add new property'), findsWidgets);
+    await tester.enterText(find.byType(TextField).first, 'Flat 402, Madhapur');
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
     expect(find.text('Onboard property'), findsOneWidget);
     expect(find.text('Send link to owner'), findsOneWidget);
     await tester.tap(find.text('Add manually'));
     await tester.pumpAndSettle();
+    expect(find.text('Onboard property'), findsNothing);
     expect(find.text('Things in the house. Tap + or −.'), findsNothing);
     // "Go to home" from the journey lands on TrustKeeper 2 home.
     router.go('/broker');
