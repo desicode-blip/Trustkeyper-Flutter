@@ -1198,3 +1198,19 @@ files: apps/flutter_app/lib/src/tk2/tk2_link.dart (new: tk2WebApp, tk2PublicPayl
 rules: link payload = public fields only (tested); visit money table in TRUSTKEEPER2-JOURNEYS.md
 verification: flutter analyze clean; test/tk2 17/17; web prototype: tenant and owner journeys run end to end in headless Chromium with no page errors
 ```
+
+## Change 73 – Address asked in parts when adding a property; removed from Rent details
+Date: 2026-11-02 · Status: code complete; synced to the Mac, not yet built
+- "Tell us about the property" now asks the address in parts: Flat / house number (required, with a green "Only you see the flat number" note) · Society / building name (if any) · Area / locality (required) · City (required, starts as Hyderabad). Each missing part turns red in place.
+- The saved address is the parts joined ("Flat 402, Sri Sai Residency, Madhapur, Hyderabad"). Older properties with one address line keep it as is.
+- TrustKeeper 2: the parts fill the listing automatically – flat → private door number, society → card heading, area + city → public area. So "Rent details" no longer asks Society/Area, and "Only for you" no longer asks Flat/door number.
+- Main app uses the same screen and gets the same split address.
+```
+AGENT RECORD – Change 73
+id: CHG-073
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/features/broker/data/broker_property_repository.dart (BrokerProperty.flat/society/area/city, compose(), toMap/fromMap keys – additive), apps/flutter_app/lib/src/features/broker/presentation/broker_property_screen.dart (_part fields with keys property-flat/-society/-area/-city; validation flat/area/city; legacy one-line address kept), apps/flutter_app/lib/src/tk2/tk2_store.dart (saveProperty maps parts → door/society/locality), apps/flutter_app/lib/src/tk2/tk2_listing.dart (removed society/area and door fields), apps/flutter_app/test/broker_property_test.dart, apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+rules: flat number is private (never in share text or link payload) – tested
+verification: flutter analyze clean; test/tk2 18/18; broker_property_test passes
+```

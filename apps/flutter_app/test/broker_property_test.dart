@@ -228,8 +228,12 @@ void main() {
           isNotNull,
         );
         await tester.enterText(
-          find.byKey(const ValueKey('property-address')),
-          'Flat 402, Phoenix Towers',
+          find.byKey(const ValueKey('property-flat')),
+          'Flat 402',
+        );
+        await tester.enterText(
+          find.byKey(const ValueKey('property-area')),
+          'Madhapur',
         );
         await tester.enterText(
           find.byKey(const ValueKey('property-size')),
@@ -273,7 +277,7 @@ void main() {
         repository.failSave = false;
         await tapVisible(tester, find.text('Save property'));
         expect(find.text('Property added'), findsOneWidget);
-        expect(repository.saved.single.address, 'Flat 402, Phoenix Towers');
+        expect(repository.saved.single.address, 'Flat 402, Madhapur, Hyderabad');
         expect(repository.saved.single.name, 'Phoenix flat');
         expect(repository.saved.single.floor, 4);
         expect(repository.saved.single.totalFloors, 5);

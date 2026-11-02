@@ -14,6 +14,10 @@ class BrokerProperty {
     this.facing,
     this.carParking = 0,
     this.bikeParking = 0,
+    this.flat = '',
+    this.society = '',
+    this.area = '',
+    this.city = '',
     Map<String, int> inventory = const {},
   }) : inventory = Map.unmodifiable(inventory);
 
@@ -22,6 +26,26 @@ class BrokerProperty {
   /// What the broker calls this property (e.g. "Flat 402, Madhapur").
   final String name;
   final String address;
+
+  /// Address in parts so we can control who sees what: [flat] is private
+  /// (never shown to tenants); society, area and city can be shown.
+  final String flat;
+  final String society;
+  final String area;
+  final String city;
+
+  /// "Flat 402, Sri Sai Residency, Madhapur, Hyderabad" (empty parts skipped).
+  static String compose({
+    String flat = '',
+    String society = '',
+    String area = '',
+    String city = '',
+  }) => [
+    flat,
+    society,
+    area,
+    city,
+  ].map((e) => e.trim()).where((e) => e.isNotEmpty).join(', ');
   final String rooms;
   final int floor;
   final int totalFloors;
@@ -68,6 +92,10 @@ class BrokerProperty {
   Map<String, dynamic> toMap() => {
     'name': name.trim(),
     'address': address.trim(),
+    'flat': flat.trim(),
+    'society': society.trim(),
+    'area': area.trim(),
+    'city': city.trim(),
     'rooms': rooms,
     'floor': floor,
     'totalFloors': totalFloors,
@@ -94,6 +122,10 @@ class BrokerProperty {
           : data['name'] is String
           ? data['name'] as String
           : '',
+      flat: data['flat'] is String ? data['flat'] as String : '',
+      society: data['society'] is String ? data['society'] as String : '',
+      area: data['area'] is String ? data['area'] as String : '',
+      city: data['city'] is String ? data['city'] as String : '',
       rooms: data['rooms'] is String ? data['rooms'] as String : '',
       floor: (data['floor'] as num?)?.toInt() ?? 0,
       totalFloors: (data['totalFloors'] as num?)?.toInt() ?? 0,

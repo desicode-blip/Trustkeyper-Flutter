@@ -538,14 +538,20 @@ class Tk2Store extends ChangeNotifier {
       facing: property.facing,
       carParking: property.carParking,
       bikeParking: property.bikeParking,
+      flat: property.flat,
+      society: property.society,
+      area: property.area,
+      city: property.city,
       inventory: property.inventory,
     );
+    // Address parts feed the listing: flat stays private (door), the rest is public.
+    final locality = [property.area, property.city].map((e) => e.trim()).where((e) => e.isNotEmpty).join(', ');
     final at = _listings.indexWhere((l) => l.id == id);
     if (at >= 0) {
-      _listings[at] = _listings[at].copyWith(property: saved);
+      _listings[at] = _listings[at].copyWith(property: saved, door: property.flat, society: property.society, locality: locality);
     } else {
       sampleJustRemoved = _listings.isEmpty;
-      _listings.insert(0, Tk2Listing(id: id, property: saved, createdAt: DateTime.now().millisecondsSinceEpoch));
+      _listings.insert(0, Tk2Listing(id: id, property: saved, door: property.flat, society: property.society, locality: locality, createdAt: DateTime.now().millisecondsSinceEpoch));
     }
     await _save();
     return saved;
@@ -629,7 +635,6 @@ class Tk2Store extends ChangeNotifier {
       if (brokerName.isNotEmpty) '– $brokerName${brokerPhone.isNotEmpty ? ', $brokerPhone' : ''}',
     ].join('\n');
   }
-
 
   static String money(int v) {
     final s = v.toString();

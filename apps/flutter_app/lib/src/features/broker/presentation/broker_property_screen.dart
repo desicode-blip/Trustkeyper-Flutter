@@ -59,6 +59,16 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
   late final Stream<List<BrokerProperty>> properties;
   final name = TextEditingController();
   final address = TextEditingController();
+  final flat = TextEditingController();
+  final society = TextEditingController();
+  final area = TextEditingController();
+  final city = TextEditingController(text: 'Hyderabad');
+  bool legacy = false;
+  bool get _oneLine =>
+      legacy &&
+      flat.text.trim().isEmpty &&
+      society.text.trim().isEmpty &&
+      city.text.trim().isEmpty;
 
   /// manual · saleDeed · oldAgreement (how the broker wants to add details)
   String addWay = 'manual';
@@ -87,6 +97,9 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     repository = widget.repository ?? FirebaseBrokerPropertyRepository();
     properties = repository.watchProperties();
     address.addListener(_changed);
+    for (final c in [flat, society, area, city]) {
+      c.addListener(_changed);
+    }
     size.addListener(_changed);
     name.addListener(_changed);
     if (widget.initialProperty != null) {
@@ -104,7 +117,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     if (mounted) {
       setState(() {
         error = null;
-        bad.removeAll(const ['name', 'address', 'size']);
+        bad.removeAll(const ['name', 'flat', 'area', 'city', 'size']);
       });
     }
   }
@@ -113,6 +126,9 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
   void dispose() {
     name.dispose();
     address.dispose();
+    for (final c in [flat, society, area, city]) {
+      c.dispose();
+    }
     size.dispose();
     super.dispose();
   }
@@ -622,29 +638,57 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     }
   }
 
+  Widget _part(
+    TextEditingController c,
+    String label,
+    String? key,
+    String? need,
+  ) => TextField(
+    key: ValueKey('property-${key ?? 'society'}'),
+    controller: c,
+    textCapitalization: TextCapitalization.words,
+    style: const TextStyle(
+      fontSize: 18,
+      height: 24 / 18,
+      color: AppColors.heading,
+    ),
+    decoration: InputDecoration(
+      labelText: label,
+      errorText: key != null && bad.contains(key) ? need : null,
+    ),
+  );
+
   Widget _addressFields() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      TextField(
-        key: const ValueKey('property-address'),
-        controller: address,
-        minLines: 2,
-        maxLines: 2,
-        style: const TextStyle(
-          fontSize: 18,
-          height: 24 / 18,
-          color: AppColors.heading,
-        ),
-        textCapitalization: TextCapitalization.words,
-        decoration: InputDecoration(
-          labelText: 'Full address',
-          errorText: bad.contains('address') ? 'Type the full address' : null,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
-          ),
+      // Address in parts: flat stays private, the rest can be shown.
+      _part(
+        flat,
+        'Flat / house number',
+        'flat',
+        'Type the flat or house number',
+      ),
+      const Padding(
+        padding: EdgeInsets.only(top: 6, left: 4),
+        child: Row(
+          children: [
+            Icon(Icons.lock_outline, size: 15, color: AppColors.success),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Only you see the flat number. Tenants never do.',
+                style: TextStyle(fontSize: 13.5, color: AppColors.success),
+              ),
+            ),
+          ],
         ),
       ),
+      const SizedBox(height: 14),
+      _part(society, 'Society / building name (if any)', null, null),
+      const SizedBox(height: 14),
+      _part(area, 'Area / locality', 'area', 'Type the area'),
+      const SizedBox(height: 14),
+      _part(city, 'City', 'city', 'Type the city'),
       const SizedBox(height: 26),
       TextField(
         key: const ValueKey('property-size'),
@@ -1209,6 +1253,13 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     final property = selected!;
     name.text = property.name;
     address.text = property.address;
+    flat.text = property.flat;
+    society.text = property.society;
+    // Older properties saved one address line: keep it as is (in Area).
+    legacy =
+        property.flat.isEmpty && property.area.isEmpty && property.city.isEmpty;
+    area.text = legacy ? property.address : property.area;
+    city.text = legacy ? '' : property.city;
     size.text = property.sizeSqFt?.toString() ?? '';
     setState(() {
       rooms = property.rooms;
@@ -1230,6 +1281,9 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     name.clear();
     addWay = 'manual';
     address.clear();
+    for (final c in [flat, society, area]) {
+      c.clear();
+    }
     size.clear();
     setState(() {
       selected = null;
@@ -1356,7 +1410,9 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     }
     // Mark every part that needs attention at once (red, in place).
     final need = <String>{
-      if (stage == 3 && address.text.trim().length < 5) 'address',
+      if (stage == 3 && !legacy && flat.text.trim().isEmpty) 'flat',
+      if (stage == 3 && area.text.trim().length < 2) 'area',
+      if (stage == 3 && !legacy && city.text.trim().length < 2) 'city',
       if (stage == 3 &&
           size.text.isNotEmpty &&
           (double.tryParse(size.text) == null || double.parse(size.text) <= 0))
@@ -1384,7 +1440,17 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     final property = BrokerProperty(
       id: selected?.id ?? '',
       name: name.text.trim(),
-      address: address.text,
+      address: BrokerProperty.compose(
+        flat: flat.text,
+        society: society.text,
+        area: area.text,
+        city: city.text,
+      ),
+      // An older one-line address left as is stays one line.
+      flat: flat.text.trim(),
+      society: society.text.trim(),
+      area: _oneLine ? '' : area.text.trim(),
+      city: city.text.trim(),
       rooms: rooms!,
       floor: floor,
       totalFloors: totalFloors,

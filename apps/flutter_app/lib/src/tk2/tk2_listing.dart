@@ -96,7 +96,6 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
 
   /// Parts of this step that still need an answer (shown in red).
   Set<String> _check(int at) => {
-    if (at == 0 && society.text.trim().isEmpty && locality.text.trim().isEmpty) 'place',
     if (at == 0 && _num(rent) <= 0) 'rent',
     if (at == 0 && !included && _num(maintenance) <= 0) 'maintenance',
     if (at == 0 && brokerageWay == 'amount' && _num(brokerage) <= 0) 'brokerage',
@@ -250,12 +249,6 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   }
 
   List<Widget> _rentStep() => [
-    _label('Customers see'),
-    _text(society, 'Society / building name', Icons.apartment_outlined, bad: missing.contains('place')),
-    const SizedBox(height: 12),
-    _text(locality, 'Area, city', Icons.place_outlined, bad: missing.contains('place')),
-    if (missing.contains('place')) _needed('Type the society or the area'),
-    const SizedBox(height: 16),
     // Rent and maintenance side by side; "Extra" opens the amount.
     Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -495,8 +488,6 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
             ],
           ),
           const SizedBox(height: 16),
-          _text(door, 'Flat / door number', Icons.door_front_door_outlined, filled: true),
-          const SizedBox(height: 12),
           _text(ownerName, 'Owner name', Icons.person_outline, filled: true),
           const SizedBox(height: 12),
           _text(ownerPhone, 'Owner phone', Icons.call_outlined, phone: true, filled: true),

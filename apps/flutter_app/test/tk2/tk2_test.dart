@@ -130,6 +130,18 @@ void main() {
       expect(v.customerCanCancel(now.add(const Duration(minutes: 6))), isFalse);
     });
 
+    test('address parts: flat stays private, society and area are shown', () async {
+      final store = Tk2Store.forTest();
+      await store.load();
+      final saved = await store.saveProperty(BrokerProperty(id: '', name: 'Mine', address: 'Flat 9B, Green Park, Kondapur, Hyderabad', flat: 'Flat 9B', society: 'Green Park', area: 'Kondapur', city: 'Hyderabad', rooms: '2 BHK', floor: 2, totalFloors: 5, furnishing: 'Semi'));
+      final l = store.listing(saved.id)!;
+      expect(l.door, 'Flat 9B');
+      expect(l.society, 'Green Park');
+      expect(l.locality, 'Kondapur, Hyderabad');
+      expect(store.shareText(l), isNot(contains('9B')));
+      expect(jsonEncode(tk2PublicPayload(l, 'S')), isNot(contains('9B')));
+    });
+
     test('card heading is never empty (old properties without society)', () {
       final old = Tk2Listing(id: 'x', property: BrokerProperty(id: 'x', name: 'Green Villa', address: '', rooms: '2.5 BHK', floor: 1, totalFloors: 2, furnishing: 'Semi'));
       // Never the broker's own label ("Green Villa"); falls back to rooms.
