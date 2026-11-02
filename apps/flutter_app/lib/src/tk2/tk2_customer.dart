@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/widgets/primary_button.dart';
+import 'tk2_designs.dart';
 import 'tk2_store.dart';
 import 'tk2_widgets.dart';
 
@@ -28,6 +29,12 @@ class _PreviewBanner extends StatelessWidget {
   );
 }
 
+/// The booking promise shown to customers.
+String tk2VisitNotice(int fee) =>
+    'Book a visit for ${Tk2Store.money(fee)}. TrustKeeper keeps it safe and pays the broker only after your visit. '
+    'If the broker or owner is not available, you get it all back. '
+    'We wait 15 minutes: if you are more than 15 minutes late, or the visit is cancelled from your side, the amount is not refunded.';
+
 class Tk2CustomerPage extends StatelessWidget {
   const Tk2CustomerPage({required this.store, required this.id, super.key});
   final Tk2Store store;
@@ -38,13 +45,6 @@ class Tk2CustomerPage extends StatelessWidget {
     final l = store.listing(id);
     if (l == null) return Scaffold(appBar: AppBar(), body: const Center(child: Text('This property is no longer listed.')));
     final p = l.property;
-    final facts = [
-      p.rooms,
-      l.furnishingText,
-      if (p.sizeSqFt != null) '${p.sizeSqFt!.toStringAsFixed(0)} sft',
-      if (p.floor > 0) 'Floor ${p.floor}',
-      if ((p.facing ?? '').isNotEmpty) '${p.facing} facing',
-    ];
     final things = [for (final e in p.inventory.entries) if (e.value > 0) '${e.value} ${e.key}${e.value == 1 ? '' : 's'}'];
     return Scaffold(
       backgroundColor: Colors.white,
@@ -60,34 +60,9 @@ class Tk2CustomerPage extends StatelessWidget {
         children: [
           Tk2Appear(child: _Gallery(listing: l)),
           const SizedBox(height: 18),
-          Tk2Appear(index: 1, child: Tk2Title(l.publicTitle, subtitle: l.area.isEmpty ? null : l.area)),
-          const SizedBox(height: 14),
-          Tk2Appear(
-            index: 2,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(l.hasRent ? Tk2Store.money(l.rent) : 'Ask for rent', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: AppColors.heading)),
-                if (l.hasRent) const Padding(padding: EdgeInsets.only(left: 4, bottom: 3), child: Text('/ month', style: TextStyle(fontSize: 15, color: AppColors.muted))),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    [
-                      if (l.maintenanceIncluded || l.maintenance == 0) 'Incl. maintenance' else '+ ${Tk2Store.money(l.maintenance)} maint.',
-                      if (l.deposit > 0) 'Deposit ${Tk2Store.money(l.deposit)}',
-                      if (l.brokerage > 0) 'Brokerage ${Tk2Store.money(l.brokerage)}',
-                    ].join('\n'),
-                    textAlign: TextAlign.right,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13.5, color: AppColors.muted),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          Tk2Appear(index: 3, child: Wrap(spacing: 6, runSpacing: 6, children: [for (final f in facts) Tk2Pill(f), Tk2Pill(l.availableFrom.isEmpty ? 'Available now' : 'From ${tk2Date(l.availableFrom)}', kind: 'ok'), Tk2Pill(l.tenants == 'Anyone' ? 'Family or bachelors' : '${l.tenants} only'), Tk2Pill(l.pets ? 'Pets OK' : 'No pets')])),
+          // Same layout the broker sees: ticket card, then the facts list.
+          Tk2Appear(index: 1, child: Tk2DesignCard(design: 'e', listing: l, onOpen: () {})),
+          Tk2Appear(index: 2, child: Tk2FactsGroup(items: tk2FactRows(l))),
           if (things.isNotEmpty) ...[
             const SizedBox(height: 22),
             const Text('In the house', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading)),
@@ -107,7 +82,7 @@ class Tk2CustomerPage extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      l.visitFee == 0 ? 'Booking a visit is free. Pick a time and the broker will call you.' : 'Book a visit for ${Tk2Store.money(l.visitFee)}. TrustKeeper keeps it safe and gives it to the broker only after your visit. If the visit does not happen, you get it back.',
+                      l.visitFee == 0 ? 'Booking a visit is free. Pick a time and the broker will call you.' : tk2VisitNotice(l.visitFee),
                       style: const TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.primaryDark),
                     ),
                   ),
@@ -189,7 +164,7 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
   final name = TextEditingController();
   final phone = TextEditingController();
   late final List<DateTime> days = [for (var i = 0; i < 7; i++) DateUtils.dateOnly(DateTime.now()).add(Duration(days: i))];
-  static const slots = [10, 11, 12, 14, 15, 16, 17, 18, 19];
+  static const slots = Tk2Listing.visitHours;
   DateTime? day;
   int? hour;
   String? error;
@@ -202,7 +177,8 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
     super.dispose();
   }
 
-  bool _slotGone(DateTime d, int h) => DateUtils.isSameDay(d, DateTime.now()) && DateTime.now().hour >= h - 1;
+  // Closed: outside the broker's visit hours, or too soon today. Other bookings never close a slot.
+  bool _slotGone(DateTime d, int h) => !(widget.store.listing(widget.id)?.slotOpen(h) ?? true) || (DateUtils.isSameDay(d, DateTime.now()) && DateTime.now().hour >= h - 1);
 
   Future<void> _pay(Tk2Listing l) async {
     final digits = phone.text.replaceAll(RegExp(r'\D'), '');
@@ -361,13 +337,11 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
             const SizedBox(height: 12),
             Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 15)),
           ],
+          // Scrolls with the page, so the keyboard never hides it.
+          const SizedBox(height: 24),
+          PrimaryButton(label: l.visitFee == 0 ? 'Book visit' : 'Pay ${Tk2Store.money(l.visitFee)} and book', loading: paying, onPressed: paying ? null : () => _pay(l)),
+          const SizedBox(height: 12),
         ],
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-          child: PrimaryButton(label: l.visitFee == 0 ? 'Book visit' : 'Pay ${Tk2Store.money(l.visitFee)} and book', loading: paying, onPressed: paying ? null : () => _pay(l)),
-        ),
       ),
     );
   }

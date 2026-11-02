@@ -21,6 +21,8 @@ class BrokerPropertyScreen extends StatefulWidget {
     this.doneLabel = 'Next: Owner',
     this.askThings = true,
     this.askHowToAdd = false,
+    this.firstStage,
+    this.initialName = '',
     super.key,
   });
 
@@ -39,6 +41,10 @@ class BrokerPropertyScreen extends StatefulWidget {
   /// After the name of a new property, ask "Send link to owner" or "Add manually"
   /// (the main app's Onboard property choice). On in TrustKeeper 2.
   final bool askHowToAdd;
+
+  /// Open on this step (e.g. 2 after "Add manually"); Back on it leaves the screen.
+  final int? firstStage;
+  final String initialName;
 
   final BrokerPropertyRepository? repository;
   final BrokerProperty? initialProperty;
@@ -66,6 +72,10 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
   String? furnishing;
   String? facing;
   String? error;
+
+  /// Parts that need attention, shown in red where they are:
+  /// name · address · size · rooms · floors · furnishing.
+  final Set<String> bad = {};
   bool saving = false;
   bool justSaved = false;
   BrokerProperty? selected;
@@ -77,17 +87,26 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     repository = widget.repository ?? FirebaseBrokerPropertyRepository();
     properties = repository.watchProperties();
     address.addListener(_changed);
+    size.addListener(_changed);
     name.addListener(_changed);
     if (widget.initialProperty != null) {
       selected = widget.initialProperty;
       _editSelected();
+    } else if (widget.firstStage != null) {
+      stage = widget.firstStage!;
+      name.text = widget.initialName;
     } else if (widget.startNew) {
       stage = 1;
     }
   }
 
   void _changed() {
-    if (mounted) setState(() => error = null);
+    if (mounted) {
+      setState(() {
+        error = null;
+        bad.removeAll(const ['name', 'address', 'size']);
+      });
+    }
   }
 
   @override
@@ -107,10 +126,8 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
       context.pop();
       return;
     }
-    // Came from the "Send link / Add manually" choice: Back reopens it.
-    if (stage == 2 && widget.askHowToAdd && selected == null) {
-      setState(() => stage = 1);
-      _openChoice();
+    if (stage == widget.firstStage && context.canPop()) {
+      Navigator.of(context).pop();
       return;
     }
     if (stage > 0) {
@@ -379,7 +396,10 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
           height: 24 / 18,
           color: AppColors.heading,
         ),
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
+          errorText: bad.contains('name')
+              ? 'Type a name for the property'
+              : null,
           labelText: 'Property name',
           hintText: 'For example: Flat 402, Madhapur',
           contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 18),
@@ -617,7 +637,8 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
         ),
         textCapitalization: TextCapitalization.words,
         decoration: InputDecoration(
-          labelText: 'Full address (optional)',
+          labelText: 'Full address',
+          errorText: bad.contains('address') ? 'Type the full address' : null,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 14,
@@ -636,7 +657,8 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
         ),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
+          errorText: bad.contains('size') ? 'Enter a valid size' : null,
           labelText: 'Size',
           suffixIcon: Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
@@ -705,52 +727,81 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
   Widget _roomFields() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const _FieldLabel(icon: 'rooms', label: 'Rooms'),
-      const SizedBox(height: 10),
-      _choiceGrid(
-        BrokerProperty.roomChoices,
-        rooms,
-        (value) => setState(() {
-          rooms = value;
-          error = null;
-        }),
+      _Attention(
+        message: bad.contains('rooms') ? 'Choose the rooms' : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _FieldLabel(icon: 'rooms', label: 'Rooms'),
+            const SizedBox(height: 10),
+            _choiceGrid(
+              BrokerProperty.roomChoices,
+              rooms,
+              (value) => setState(() {
+                rooms = value;
+                error = null;
+                bad.remove('rooms');
+              }),
+            ),
+          ],
+        ),
       ),
       const SizedBox(height: 26),
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: _labelCounter(
-              'floor',
-              'Floor',
-              floor,
-              (value) => setState(() => floor = value),
-              maximum: 200,
+      _Attention(
+        message: bad.contains('floors')
+            ? 'Total floors cannot be less than the floor'
+            : null,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _labelCounter(
+                'floor',
+                'Floor',
+                floor,
+                (value) => setState(() {
+                  floor = value;
+                  bad.remove('floors');
+                }),
+                maximum: 200,
+              ),
             ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: _labelCounter(
-              'building',
-              'Total floors',
-              totalFloors,
-              (value) => setState(() => totalFloors = value),
-              maximum: 200,
+            const SizedBox(width: 14),
+            Expanded(
+              child: _labelCounter(
+                'building',
+                'Total floors',
+                totalFloors,
+                (value) => setState(() {
+                  totalFloors = value;
+                  bad.remove('floors');
+                }),
+                maximum: 200,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       const SizedBox(height: 26),
-      const _FieldLabel(icon: 'furnished', label: 'Furnished'),
-      const SizedBox(height: 10),
-      _choiceGrid(
-        BrokerProperty.furnishingChoices,
-        furnishing,
-        (value) => setState(() {
-          furnishing = value;
-          error = null;
-        }),
-        furnished: true,
+      _Attention(
+        message: bad.contains('furnishing') ? 'Choose the furnishing' : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _FieldLabel(icon: 'furnished', label: 'Furnished'),
+            const SizedBox(height: 10),
+            _choiceGrid(
+              BrokerProperty.furnishingChoices,
+              furnishing,
+              (value) => setState(() {
+                furnishing = value;
+                error = null;
+                bad.remove('furnishing');
+              }),
+              furnished: true,
+            ),
+          ],
+        ),
       ),
     ],
   );
@@ -1237,13 +1288,20 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
               builder: (_) => OnboardNewScreen(label: label),
             ),
           ),
-          onManual: () {
-            Navigator.of(choose).pop();
-            setState(() {
-              stage = 2;
-              error = null;
-            });
-          },
+          // Opens like "Send link to owner" does (a new screen slides in).
+          onManual: () => Navigator.of(choose).push(
+            MaterialPageRoute<void>(
+              builder: (_) => BrokerPropertyScreen(
+                repository: repository,
+                showStepLabel: widget.showStepLabel,
+                doneLabel: widget.doneLabel,
+                askThings: widget.askThings,
+                onSelected: widget.onSelected,
+                firstStage: 2,
+                initialName: label,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -1252,7 +1310,11 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
   Future<void> _next() async {
     if (stage == 1) {
       if (name.text.trim().length < 2) {
-        setState(() => error = 'Type a name for the property');
+        setState(
+          () => bad
+            ..clear()
+            ..add('name'),
+        );
         return;
       }
       if (widget.askHowToAdd && selected == null) {
@@ -1292,20 +1354,22 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
       }
       return;
     }
-    if (stage == 3 &&
-        size.text.isNotEmpty &&
-        (double.tryParse(size.text) == null || double.parse(size.text) <= 0)) {
-      setState(() => error = 'Enter a valid size');
-      return;
-    }
-    if (stage == 4 &&
-        (rooms == null || furnishing == null || totalFloors < floor)) {
+    // Mark every part that needs attention at once (red, in place).
+    final need = <String>{
+      if (stage == 3 && address.text.trim().length < 5) 'address',
+      if (stage == 3 &&
+          size.text.isNotEmpty &&
+          (double.tryParse(size.text) == null || double.parse(size.text) <= 0))
+        'size',
+      if (stage == 4 && rooms == null) 'rooms',
+      if (stage == 4 && totalFloors < floor) 'floors',
+      if (stage == 4 && furnishing == null) 'furnishing',
+    };
+    if (need.isNotEmpty) {
       setState(
-        () => error = rooms == null
-            ? 'Choose the rooms'
-            : furnishing == null
-            ? 'Choose the furnishing'
-            : 'Total floors cannot be less than the property floor',
+        () => bad
+          ..clear()
+          ..addAll(need),
       );
       return;
     }
@@ -1313,6 +1377,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
       setState(() {
         stage++;
         error = null;
+        bad.clear();
       });
       return;
     }
@@ -1462,6 +1527,51 @@ class _DesignIcon extends StatelessWidget {
     width: size,
     height: size,
     colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+  );
+}
+
+/// Wraps a section; when [message] is set the whole section turns red.
+class _Attention extends StatelessWidget {
+  const _Attention({required this.child, this.message});
+  final Widget child;
+  final String? message;
+
+  @override
+  Widget build(BuildContext context) => AnimatedContainer(
+    duration: const Duration(milliseconds: 200),
+    padding: EdgeInsets.all(message == null ? 0 : 12),
+    decoration: BoxDecoration(
+      color: message == null ? Colors.transparent : AppColors.errorSoft,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(
+        color: message == null ? Colors.transparent : AppColors.error,
+        width: 1.4,
+      ),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        child,
+        if (message != null) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(Icons.error_outline, size: 18, color: AppColors.error),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  message!,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    color: AppColors.error,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    ),
   );
 }
 

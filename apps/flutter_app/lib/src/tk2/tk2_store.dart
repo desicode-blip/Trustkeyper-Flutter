@@ -19,6 +19,8 @@ class Tk2Listing {
     this.rent = 0,
     this.deposit = 0,
     this.brokerage = 0,
+    this.visitFrom = 7,
+    this.visitTo = 23,
     this.availableFrom = '',
     this.photos = const [],
     this.visitFee = 150,
@@ -82,6 +84,16 @@ class Tk2Listing {
   /// Brokerage the broker charges the tenant, in ₹ (0 = no brokerage). Customers see it.
   final int brokerage;
 
+  /// Visit hours the broker/owner is fine with (24h clock, both included). Default 7 am – 11 pm.
+  final int visitFrom;
+  final int visitTo;
+
+  /// Hours a customer can pick: every hour 7 am – 11 pm.
+  static const visitHours = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+
+  /// A slot is open inside the broker's hours. Other bookings never close a slot.
+  bool slotOpen(int hour) => hour >= visitFrom && hour <= visitTo;
+
   /// yyyy-MM-dd, '' = now.
   final String availableFrom;
 
@@ -103,6 +115,8 @@ class Tk2Listing {
     int? rent,
     int? deposit,
     int? brokerage,
+    int? visitFrom,
+    int? visitTo,
     String? availableFrom,
     List<String>? photos,
     int? visitFee,
@@ -123,6 +137,8 @@ class Tk2Listing {
     rent: rent ?? this.rent,
     deposit: deposit ?? this.deposit,
     brokerage: brokerage ?? this.brokerage,
+    visitFrom: visitFrom ?? this.visitFrom,
+    visitTo: visitTo ?? this.visitTo,
     availableFrom: availableFrom ?? this.availableFrom,
     photos: photos ?? this.photos,
     visitFee: visitFee ?? this.visitFee,
@@ -147,6 +163,8 @@ class Tk2Listing {
     'rent': rent,
     'deposit': deposit,
     'brokerage': brokerage,
+    'visitFrom': visitFrom,
+    'visitTo': visitTo,
     'availableFrom': availableFrom,
     'photos': photos,
     'visitFee': visitFee,
@@ -173,6 +191,8 @@ class Tk2Listing {
     rent: (json['rent'] as num?)?.toInt() ?? 0,
     deposit: (json['deposit'] as num?)?.toInt() ?? 0,
     brokerage: (json['brokerage'] as num?)?.toInt() ?? 0,
+    visitFrom: (json['visitFrom'] as num?)?.toInt() ?? 7,
+    visitTo: (json['visitTo'] as num?)?.toInt() ?? 23,
     availableFrom: json['availableFrom'] as String? ?? '',
     photos: [for (final p in (json['photos'] as List? ?? const [])) if (p is String) p],
     visitFee: (json['visitFee'] as num?)?.toInt() ?? 150,

@@ -445,6 +445,62 @@ class Tk2PrivateBanner extends StatelessWidget {
   );
 }
 
+/// Public facts of a listing (rent, brokerage, fee, size …). Safe for customers.
+List<(IconData, String, String)> tk2FactRows(Tk2Listing l, {bool line = true}) {
+  final p = l.property;
+  final o = line;
+  IconData ic(IconData classic, IconData line) => o ? line : classic;
+  return [
+    (ic(Icons.currency_rupee, Icons.currency_rupee_outlined), 'Rent', l.rentLine),
+    if (l.deposit > 0) (Icons.savings_outlined, 'Deposit', Tk2Store.money(l.deposit)),
+    (Icons.handshake_outlined, 'Brokerage', l.brokerageText),
+    (Icons.confirmation_number_outlined, 'Visit fee', l.feeText),
+    if (p.sizeSqFt != null) (ic(Icons.square_foot, Icons.square_foot_outlined), 'Size', '${p.sizeSqFt!.toStringAsFixed(0)} sft'),
+    (Icons.chair_outlined, 'Furnishing', l.furnishingText),
+    if (p.totalFloors > 0) (Icons.layers_outlined, 'Floor', '${p.floor} of ${p.totalFloors}'),
+    if ((p.facing ?? '').isNotEmpty) (Icons.explore_outlined, 'Facing', p.facing!),
+    (ic(Icons.people_outline, Icons.group_outlined), 'Who can rent', l.tenants == 'Anyone' ? 'Family or bachelors' : l.tenants),
+    (ic(Icons.pets, Icons.pets_outlined), 'Pets', l.pets ? 'Allowed' : 'Not allowed'),
+    (Icons.event_available_outlined, 'Available', l.availableFrom.isEmpty ? 'Now' : tk2Date(l.availableFrom)),
+  ];
+}
+
+
+/// White grouped list of facts (the broker's Design E page). Used on the customer page too.
+class Tk2FactsGroup extends StatelessWidget {
+  const Tk2FactsGroup({required this.items, super.key});
+  final List<(IconData, String, String)> items;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(top: 12),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: _shadow),
+    child: Column(
+      children: [
+        for (var i = 0; i < items.length; i++)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            decoration: BoxDecoration(border: i == items.length - 1 ? null : const Border(bottom: BorderSide(color: Color(0xFFEEF2F7)))),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(10)),
+                  child: tk2Glyph(items[i].$1, size: 18, color: AppColors.primaryDark),
+                ),
+                const SizedBox(width: 12),
+                Text(items[i].$2, style: const TextStyle(fontSize: 15, color: AppColors.body)),
+                const SizedBox(width: 12),
+                Expanded(child: Text(items[i].$3, textAlign: TextAlign.right, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.heading))),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
 /// The broker-only block: full address, owner, keys, note.
 class Tk2PrivateDetails extends StatelessWidget {
   const Tk2PrivateDetails({required this.listing, super.key});
@@ -670,24 +726,7 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
     ),
   );
 
-  List<(IconData, String, String)> _labelled(Tk2Listing l) {
-    final p = l.property;
-    final o = widget.design == 'e';
-    IconData ic(IconData classic, IconData line) => o ? line : classic;
-    return [
-      (ic(Icons.currency_rupee, Icons.currency_rupee_outlined), 'Rent', l.rentLine),
-      if (l.deposit > 0) (Icons.savings_outlined, 'Deposit', Tk2Store.money(l.deposit)),
-      (Icons.handshake_outlined, 'Brokerage', l.brokerageText),
-      (Icons.confirmation_number_outlined, 'Visit fee', l.feeText),
-      if (p.sizeSqFt != null) (ic(Icons.square_foot, Icons.square_foot_outlined), 'Size', '${p.sizeSqFt!.toStringAsFixed(0)} sft'),
-      (Icons.chair_outlined, 'Furnishing', l.furnishingText),
-      if (p.totalFloors > 0) (Icons.layers_outlined, 'Floor', '${p.floor} of ${p.totalFloors}'),
-      if ((p.facing ?? '').isNotEmpty) (Icons.explore_outlined, 'Facing', p.facing!),
-      (ic(Icons.people_outline, Icons.group_outlined), 'Who can rent', l.tenants == 'Anyone' ? 'Family or bachelors' : l.tenants),
-      (ic(Icons.pets, Icons.pets_outlined), 'Pets', l.pets ? 'Allowed' : 'Not allowed'),
-      (Icons.event_available_outlined, 'Available', l.availableFrom.isEmpty ? 'Now' : tk2Date(l.availableFrom)),
-    ];
-  }
+  List<(IconData, String, String)> _labelled(Tk2Listing l) => tk2FactRows(l, line: widget.design == 'e');
 
   Widget _grid(List<(IconData, String, String)> items) => LayoutBuilder(
     builder: (context, c) {

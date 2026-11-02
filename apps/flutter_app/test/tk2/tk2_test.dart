@@ -71,6 +71,19 @@ void main() {
       expect(Tk2Listing.fromJson(some.toJson()).brokerage, 30000);
     });
 
+    test('visit hours: 7 am – 11 pm by default; outside the broker hours is closed', () {
+      final l = Tk2Listing.example;
+      expect(Tk2Listing.visitHours.first, 7);
+      expect(Tk2Listing.visitHours.last, 23);
+      expect(Tk2Listing.visitHours.every(l.slotOpen), isTrue);
+      final narrow = l.copyWith(visitFrom: 10, visitTo: 18);
+      expect(narrow.slotOpen(9), isFalse);
+      expect(narrow.slotOpen(10), isTrue);
+      expect(narrow.slotOpen(18), isTrue);
+      expect(narrow.slotOpen(19), isFalse);
+      expect(Tk2Listing.fromJson(narrow.toJson()).visitFrom, 10);
+    });
+
     test('card heading is never empty (old properties without society)', () {
       final old = Tk2Listing(id: 'x', property: BrokerProperty(id: 'x', name: 'Green Villa', address: '', rooms: '2.5 BHK', floor: 1, totalFloors: 2, furnishing: 'Semi'));
       // Never the broker's own label ("Green Villa"); falls back to rooms.
@@ -136,9 +149,11 @@ void main() {
     await tester.tap(find.text('${tomorrow.day}').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('11:00 am'));
+    await tester.scrollUntilVisible(find.widgetWithText(TextField, 'Your phone'), 200, scrollable: find.byType(Scrollable).last);
     await tester.enterText(find.widgetWithText(TextField, 'Your name'), 'Ravi');
     await tester.enterText(find.widgetWithText(TextField, 'Your phone'), '9000000000');
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Pay ₹150 and book'), 200, scrollable: find.byType(Scrollable).last);
     await tester.tap(find.text('Pay ₹150 and book'));
     await tester.pumpAndSettle();
     expect(find.text('Test payment. No money moves in this build.'), findsOneWidget);

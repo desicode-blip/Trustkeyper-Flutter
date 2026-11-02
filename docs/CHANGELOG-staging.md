@@ -1141,3 +1141,23 @@ files: apps/flutter_app/lib/src/features/broker/presentation/onboarding_widgets.
 design rule: every flow screen uses the fixed heading with soft shadow (OnbPage, or OnbHeader + OnbShadowBody)
 verification: flutter analyze clean; test/tk2 12/12
 ```
+
+## Change 70 – Add-property polish, Rent & details reorder, customer page, visit hours
+Date: 2026-11-02 · Status: code complete; synced to the Mac, not yet built
+- "Add manually" now opens its next screen with the same slide-in as "Send link to owner" (a new screen). Back from it returns to the choice.
+- Full address is required (label no longer says "optional").
+- Errors are shown where the problem is: the section turns red (light red background, red border, short message inside) – Rooms, Floor/Total floors, Furnished; fields (Property name, Full address, Size) get a red border and message. All missing parts are marked at once. No more error line above the buttons for these.
+- Rent and details, new order: Society, Area → Rent + Maintenance (Included / Extra) side by side; Extra opens the maintenance amount → Security deposit (renamed) → Brokerage → Who can rent → Pets → Available from → Visit times (From / To) → Visit fee → Photos → green "Confidential · only for you" card (never shared) with Flat/door, Owner name, Owner phone, Keys, Note. Missing society/area, rent or maintenance are all marked in red at once.
+- Save button now sits after the last field and scrolls with the page (the keyboard can't hide it). Same for "Pay and book" on Book a visit.
+- Customer page: under the photos, the same layout the broker sees (ticket card + facts list with icons). New booking notice: refund if broker/owner is not available; we wait 15 minutes; late by more than 15 minutes or cancelled by the customer = no refund.
+- Book a visit: hourly slots 7 am – 11 pm. Times outside the broker's "Visit times" are greyed out. Other bookings never block a slot (many people can book the same hour).
+```
+AGENT RECORD – Change 70
+id: CHG-070
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/features/broker/presentation/broker_property_screen.dart (firstStage/initialName; onManual pushes a new BrokerPropertyScreen(firstStage: 2); Back on firstStage pops; Set<String> bad + _Attention section wrapper; address required (<5 chars = missing)), apps/flutter_app/lib/src/tk2/tk2_listing.dart (reordered form, maintenance dropdown, Security deposit, visit times, confidential card, button in scroll, missing set + red borders), apps/flutter_app/lib/src/tk2/tk2_store.dart (Tk2Listing.visitFrom/visitTo, visitHours 7..23, slotOpen), apps/flutter_app/lib/src/tk2/tk2_customer.dart (customer page uses Tk2DesignCard 'e' + Tk2FactsGroup; tk2VisitNotice; book slots = visitHours, closed outside broker hours; button in scroll), apps/flutter_app/lib/src/tk2/tk2_designs.dart (public tk2FactRows + Tk2FactsGroup), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+rules: same-hour bookings allowed (slots never close because of other bookings); confidential fields never reach customer views
+open: Visits tab still refunds on "didn't come"/cancel – not yet matched to the new no-show rule (needs Aman's call)
+verification: flutter analyze clean; test/tk2 13/13 (new: visit hours); broker_property_test 5/5
+```
