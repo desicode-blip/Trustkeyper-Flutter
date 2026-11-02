@@ -18,6 +18,7 @@ class BrokerPropertyScreen extends StatefulWidget {
     this.startNew = false,
     this.showStepLabel = true,
     this.doneLabel = 'Next: Owner',
+    this.askThings = true,
     super.key,
   });
 
@@ -29,6 +30,9 @@ class BrokerPropertyScreen extends StatefulWidget {
 
   /// Label of the last button after the property is saved.
   final String doneLabel;
+
+  /// Ask "Things in the house". Off in TrustKeeper 2 (asked later, while drafting the agreement).
+  final bool askThings;
 
   final BrokerPropertyRepository? repository;
   final BrokerProperty? initialProperty;
@@ -88,6 +92,9 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     super.dispose();
   }
 
+  /// Last step before saving: 5 (things) or 4 (rooms) when things are skipped.
+  int get _lastInput => widget.askThings ? 5 : 4;
+
   void _back() {
     if (saving) return;
     if (stage == 1 && widget.startNew && context.canPop()) {
@@ -97,7 +104,11 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     if (stage > 0) {
       setState(() {
         // Editing skips "how to add details", so Back skips it too.
-        stage = stage == 3 && selected != null ? 1 : stage - 1;
+        stage = stage == 3 && selected != null
+            ? 1
+            : stage == 6 && !widget.askThings
+            ? 4
+            : stage - 1;
         error = null;
       });
     } else if (context.canPop()) {
@@ -119,15 +130,16 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (widget.showStepLabel) ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: const LinearProgressIndicator(
-                      value: .2,
-                      minHeight: 6,
-                      color: AppColors.primary,
-                      backgroundColor: AppColors.primaryBorder,
+                  if (widget.showStepLabel)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: const LinearProgressIndicator(
+                        value: .2,
+                        minHeight: 6,
+                        color: AppColors.primary,
+                        backgroundColor: AppColors.primaryBorder,
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -242,12 +254,14 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
                         child: PrimaryButton(
                           label: saving
                               ? 'Saving…'
-                              : stage == 5
+                              : stage == _lastInput
                               ? 'Save property'
                               : stage == 6
                               ? widget.doneLabel
                               : 'Next',
-                          icon: stage == 5 ? Icons.check : Icons.chevron_right,
+                          icon: stage == _lastInput
+                              ? Icons.check
+                              : Icons.chevron_right,
                           onPressed: saving ? null : _next,
                         ),
                       ),
@@ -354,7 +368,11 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
         textCapitalization: TextCapitalization.words,
         textInputAction: TextInputAction.next,
         onSubmitted: (_) => _next(),
-        style: const TextStyle(fontSize: 18, height: 24 / 18, color: AppColors.heading),
+        style: const TextStyle(
+          fontSize: 18,
+          height: 24 / 18,
+          color: AppColors.heading,
+        ),
         decoration: const InputDecoration(
           labelText: 'Property name',
           hintText: 'For example: Flat 402, Madhapur',
@@ -371,7 +389,13 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
 
   /// Step: add details yourself (main way), or from a sale deed / old rent agreement.
   Widget _howToAdd() {
-    Widget option(String value, IconData icon, String title, String sub, {bool recommended = false}) {
+    Widget option(
+      String value,
+      IconData icon,
+      String title,
+      String sub, {
+      bool recommended = false,
+    }) {
       final on = addWay == value;
       return Padding(
         padding: const EdgeInsets.only(bottom: 12),
@@ -379,7 +403,10 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
           color: on ? AppColors.primarySoft : Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: on ? AppColors.primary : AppColors.border, width: on ? 2 : 1),
+            side: BorderSide(
+              color: on ? AppColors.primary : AppColors.border,
+              width: on ? 2 : 1,
+            ),
           ),
           child: InkWell(
             key: ValueKey('add-way-$value'),
@@ -396,10 +423,16 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
                     width: recommended ? 52 : 44,
                     height: recommended ? 52 : 44,
                     decoration: BoxDecoration(
-                      color: recommended ? AppColors.primary : AppColors.surfaceMuted,
+                      color: recommended
+                          ? AppColors.primary
+                          : AppColors.surfaceMuted,
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Icon(icon, size: recommended ? 26 : 22, color: recommended ? Colors.white : AppColors.primaryDark),
+                    child: Icon(
+                      icon,
+                      size: recommended ? 26 : 22,
+                      color: recommended ? Colors.white : AppColors.primaryDark,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -411,26 +444,55 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
                             Flexible(
                               child: Text(
                                 title,
-                                style: TextStyle(fontSize: recommended ? 18 : 17, fontWeight: FontWeight.w600, color: AppColors.heading),
+                                style: TextStyle(
+                                  fontSize: recommended ? 18 : 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.heading,
+                                ),
                               ),
                             ),
                             if (recommended) ...[
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(color: AppColors.successSoft, borderRadius: BorderRadius.circular(10)),
-                                child: const Text('Best', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.success)),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.successSoft,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Text(
+                                  'Best',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.success,
+                                  ),
+                                ),
                               ),
                             ],
                           ],
                         ),
                         const SizedBox(height: 2),
-                        Text(sub, style: const TextStyle(fontSize: 14, height: 19 / 14, color: AppColors.muted)),
+                        Text(
+                          sub,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 19 / 14,
+                            color: AppColors.muted,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(on ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: on ? AppColors.primary : AppColors.muted),
+                  Icon(
+                    on
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    color: on ? AppColors.primary : AppColors.muted,
+                  ),
                 ],
               ),
             ),
@@ -442,13 +504,36 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        option('manual', Icons.edit_note, 'Add details myself', 'Answer a few quick questions. Takes 2 minutes.', recommended: true),
+        option(
+          'manual',
+          Icons.edit_note,
+          'Add details myself',
+          'Answer a few quick questions. Takes 2 minutes.',
+          recommended: true,
+        ),
         const Padding(
           padding: EdgeInsets.fromLTRB(4, 6, 4, 12),
-          child: Text('Or let us read a paper', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.muted)),
+          child: Text(
+            'Or let us read a paper',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: AppColors.muted,
+            ),
+          ),
         ),
-        option('saleDeed', Icons.description_outlined, 'Upload sale deed', 'We fill the details from it. You check them.'),
-        option('oldAgreement', Icons.history_edu_outlined, 'Upload old rent agreement', 'We fill the details from it. You check them.'),
+        option(
+          'saleDeed',
+          Icons.description_outlined,
+          'Upload sale deed',
+          'We fill the details from it. You check them.',
+        ),
+        option(
+          'oldAgreement',
+          Icons.history_edu_outlined,
+          'Upload old rent agreement',
+          'We fill the details from it. You check them.',
+        ),
       ],
     );
   }
@@ -467,16 +552,36 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Reading a $paper is coming soon', style: const TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
+              Text(
+                'Reading a $paper is coming soon',
+                style: const TextStyle(
+                  fontSize: 22,
+                  height: 28 / 22,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.heading,
+                ),
+              ),
               const SizedBox(height: 6),
               const Text(
                 'For now, add the details yourself. It takes 2 minutes.',
-                style: TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted),
+                style: TextStyle(
+                  fontSize: 16,
+                  height: 23 / 16,
+                  color: AppColors.muted,
+                ),
               ),
               const SizedBox(height: 20),
-              PrimaryButton(label: 'Add details myself', onPressed: () => Navigator.pop(sheet, true)),
+              PrimaryButton(
+                label: 'Add details myself',
+                onPressed: () => Navigator.pop(sheet, true),
+              ),
               const SizedBox(height: 4),
-              Center(child: TextButton(onPressed: () => Navigator.pop(sheet, false), child: const Text('Go back'))),
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(sheet, false),
+                  child: const Text('Go back'),
+                ),
+              ),
             ],
           ),
         ),
@@ -978,61 +1083,64 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
                   ),
                 ),
               ),
-              Container(
-                color: AppColors.surfaceMuted,
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Things in the house',
-                      style: TextStyle(fontSize: 14, color: AppColors.muted),
-                    ),
-                    const SizedBox(height: 8),
-                    if (property.inventory.values.every((count) => count == 0))
-                      const Text('No items added'),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final item in property.inventory.entries)
-                          if (item.value > 0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (BrokerProperty.inventoryItems.contains(
-                                    item.key,
-                                  )) ...[
-                                    _DesignIcon(
-                                      item.key.toLowerCase(),
-                                      color: AppColors.primaryDark,
+              if (widget.askThings)
+                Container(
+                  color: AppColors.surfaceMuted,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Things in the house',
+                        style: TextStyle(fontSize: 14, color: AppColors.muted),
+                      ),
+                      const SizedBox(height: 8),
+                      if (property.inventory.values.every(
+                        (count) => count == 0,
+                      ))
+                        const Text('No items added'),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final item in property.inventory.entries)
+                            if (item.value > 0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (BrokerProperty.inventoryItems.contains(
+                                      item.key,
+                                    )) ...[
+                                      _DesignIcon(
+                                        item.key.toLowerCase(),
+                                        color: AppColors.primaryDark,
+                                      ),
+                                      const SizedBox(width: 6),
+                                    ],
+                                    Text(
+                                      '${item.value} ${item.key}',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: AppColors.heading,
+                                      ),
                                     ),
-                                    const SizedBox(width: 6),
                                   ],
-                                  Text(
-                                    '${item.value} ${item.key}',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: AppColors.heading,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -1168,7 +1276,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
       );
       return;
     }
-    if (stage < 5) {
+    if (stage < _lastInput) {
       setState(() {
         stage++;
         error = null;
@@ -1519,7 +1627,9 @@ class _PropertySearchState extends State<_PropertySearch> {
     final matches = widget.properties
         .where(
           (property) =>
-              property.displayName.toLowerCase().contains(query.toLowerCase()) ||
+              property.displayName.toLowerCase().contains(
+                query.toLowerCase(),
+              ) ||
               property.address.toLowerCase().contains(query.toLowerCase()),
         )
         .toList();

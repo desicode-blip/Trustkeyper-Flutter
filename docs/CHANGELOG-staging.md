@@ -1034,3 +1034,15 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/tk2/tk2_designs.dart, apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 8/8 (all 5 pages open)
 ```
+
+## Change 62 – TrustKeeper 2: no "Things in the house" step when adding a property
+Date: 2026-11-02 · Status: code complete; installed on Aman's iPhone
+Add property in TK2 now goes name → how → address → rooms → **Save property**. Things in the house (fans, lights, AC…) will be asked later while drafting the agreement. The check page hides the empty "Things in the house" box. Main app unchanged (`BrokerPropertyScreen.askThings`, default true).
+```
+AGENT RECORD – Change 62
+id: CHG-062
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/features/broker/presentation/broker_property_screen.dart (askThings, _lastInput; dart format), apps/flutter_app/lib/src/tk2/tk2_app.dart, apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 + broker_property_test 14/14
+```

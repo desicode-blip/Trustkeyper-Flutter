@@ -176,4 +176,18 @@ void main() {
       expect(find.text('Complete address and details'), findsOneWidget, reason: 'design $d');
     }
   });
+
+  testWidgets('add property skips "Things in the house" and saves after rooms', (tester) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final store = Tk2Store.forTest();
+    await store.load();
+    await store.setBroker('Suresh', '+91 9876543210');
+    final router = buildTk2Router(store)..go('/add');
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.text('Things in the house. Tap + or −.'), findsNothing);
+    expect(find.text('Things in the house'), findsNothing);
+  });
 }
