@@ -1046,3 +1046,15 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/features/broker/presentation/broker_property_screen.dart (askThings, _lastInput; dart format), apps/flutter_app/lib/src/tk2/tk2_app.dart, apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 + broker_property_test 14/14
 ```
+
+## Change 63 – TrustKeeper 2: card heading never empty; A–D icons restored
+Date: 2026-11-02 · Status: code complete; installed on Aman's iPhone
+Bug: D and E headings were blank for properties saved before the society/area fields existed (heading used society → area only). Now `tk2CardHeading`: society → area → broker's own property name → "2 BHK property". Home is broker-only, so the broker's own name is fine there; customers still only see rooms · society. Change 61 had also switched the icons on A–D; reverted – the outlined icon family now applies to Design E only (card + its page). E fact text can wrap to 2 lines instead of "Family or bach…".
+```
+AGENT RECORD – Change 63
+id: CHG-063
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/tk2_designs.dart (tk2Facts outlined flag, tk2CardHeading, _labelled per design), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 10/10 (new: heading fallback)
+```

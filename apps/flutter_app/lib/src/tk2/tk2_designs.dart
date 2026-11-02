@@ -25,27 +25,39 @@ const tk2DesignNames = {
 final _shadow = [BoxShadow(color: AppColors.heading.withValues(alpha: 0.08), blurRadius: 22, offset: const Offset(0, 8))];
 
 /// Icon facts customers may see (no door number, no owner details).
-List<(IconData, String)> tk2Facts(Tk2Listing l, {bool long = false}) {
+List<(IconData, String)> tk2Facts(Tk2Listing l, {bool long = false, bool outlined = false}) {
   final p = l.property;
+  // Design E uses one outlined icon family (same stroke); A–D keep their icons.
+  IconData ic(IconData classic, IconData line) => outlined ? line : classic;
   return [
-    if (p.sizeSqFt != null) (Icons.square_foot_outlined, '${p.sizeSqFt!.toStringAsFixed(0)} sft'),
+    if (p.sizeSqFt != null) (ic(Icons.square_foot, Icons.square_foot_outlined), '${p.sizeSqFt!.toStringAsFixed(0)} sft'),
     (Icons.chair_outlined, l.furnishingText),
-    (Icons.group_outlined, l.tenants == 'Anyone' ? 'Family or bachelors' : '${l.tenants} only'),
-    (Icons.pets_outlined, l.pets ? 'Pets OK' : 'No pets'),
+    (ic(Icons.people_outline, Icons.group_outlined), l.tenants == 'Anyone' ? 'Family or bachelors' : '${l.tenants} only'),
+    (outlined ? Icons.pets_outlined : (l.pets ? Icons.pets : Icons.do_not_disturb_alt), l.pets ? 'Pets OK' : 'No pets'),
     (Icons.event_available_outlined, l.availableFrom.isEmpty ? 'Available now' : 'From ${tk2Date(l.availableFrom)}'),
     if (long && p.totalFloors > 0) (Icons.layers_outlined, 'Floor ${p.floor} of ${p.totalFloors}'),
     if (long && (p.facing ?? '').isNotEmpty) (Icons.explore_outlined, '${p.facing} facing'),
     if (long && p.carParking + p.bikeParking > 0)
-      (Icons.local_parking_outlined, [if (p.carParking > 0) '${p.carParking} car', if (p.bikeParking > 0) '${p.bikeParking} bike'].join(' · ')),
+      (ic(Icons.local_parking, Icons.local_parking_outlined), [if (p.carParking > 0) '${p.carParking} car', if (p.bikeParking > 0) '${p.bikeParking} bike'].join(' · ')),
   ];
 }
 
-Widget _iconText(IconData icon, String text, {Color color = AppColors.muted, double size = 13.5}) => Row(
+/// Card heading for the broker's home (D, E): society, else area, else the
+/// broker's own name for the property – never empty.
+String tk2CardHeading(Tk2Listing l) {
+  for (final t in [l.society, l.area, l.property.name]) {
+    if (t.trim().isNotEmpty) return t.trim();
+  }
+  return '${l.property.rooms} property';
+}
+
+Widget _iconText(IconData icon, String text, {Color color = AppColors.muted, double size = 13.5, int lines = 1}) => Row(
   mainAxisSize: MainAxisSize.min,
+  crossAxisAlignment: lines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
   children: [
     Icon(icon, size: size + 3, color: color),
     const SizedBox(width: 4),
-    Flexible(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: size, color: color))),
+    Flexible(child: Text(text, maxLines: lines, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: size, color: color))),
   ],
 );
 
@@ -160,11 +172,13 @@ class Tk2DesignCard extends StatelessWidget {
           ),
         );
       case 'e':
-        final left = facts.where((f) => f.$1 != Icons.pets_outlined && f.$1 != Icons.event_available_outlined).toList();
-        final right = facts.where((f) => f.$1 == Icons.pets_outlined || f.$1 == Icons.event_available_outlined).toList();
+        final factsE = tk2Facts(l, outlined: true);
+        // Left: size, furnishing, who can rent. Right: pets, available from (room for more).
+        final left = factsE.sublist(0, factsE.length - 2);
+        final right = factsE.sublist(factsE.length - 2);
         Widget col(List<(IconData, String)> items) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [for (final f in items) Padding(padding: const EdgeInsets.only(bottom: 5), child: _iconText(f.$1, f.$2, size: 13))],
+          children: [for (final f in items) Padding(padding: const EdgeInsets.only(bottom: 5), child: _iconText(f.$1, f.$2, size: 13, lines: 2))],
         );
         return _tappable(
           onTap: onOpen,
@@ -193,7 +207,7 @@ class Tk2DesignCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(l.society.isNotEmpty ? l.society : l.area, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
+                        Text(tk2CardHeading(l), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
                         if (l.society.isNotEmpty) _area(l, size: 13),
                         if (visits > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Tk2Pill('$visits visit${visits == 1 ? '' : 's'} booked', kind: 'ok')),
                         const SizedBox(height: 10),
@@ -244,7 +258,7 @@ class Tk2DesignCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(children: [Expanded(child: Text(l.society.isNotEmpty ? l.society : l.area, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading))), ...tags]),
+                        Row(children: [Expanded(child: Text(tk2CardHeading(l), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading))), ...tags]),
                         _area(l),
                         const SizedBox(height: 8),
                         for (final f in facts.take(3)) Padding(padding: const EdgeInsets.only(bottom: 3), child: _iconText(f.$1, f.$2)),
@@ -555,16 +569,18 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
 
   List<(IconData, String, String)> _labelled(Tk2Listing l) {
     final p = l.property;
+    final o = widget.design == 'e';
+    IconData ic(IconData classic, IconData line) => o ? line : classic;
     return [
-      (Icons.currency_rupee_outlined, 'Rent', l.rentLine),
+      (ic(Icons.currency_rupee, Icons.currency_rupee_outlined), 'Rent', l.rentLine),
       if (l.deposit > 0) (Icons.savings_outlined, 'Deposit', Tk2Store.money(l.deposit)),
       (Icons.confirmation_number_outlined, 'Visit fee', l.feeText),
-      if (p.sizeSqFt != null) (Icons.square_foot_outlined, 'Size', '${p.sizeSqFt!.toStringAsFixed(0)} sft'),
+      if (p.sizeSqFt != null) (ic(Icons.square_foot, Icons.square_foot_outlined), 'Size', '${p.sizeSqFt!.toStringAsFixed(0)} sft'),
       (Icons.chair_outlined, 'Furnishing', l.furnishingText),
       if (p.totalFloors > 0) (Icons.layers_outlined, 'Floor', '${p.floor} of ${p.totalFloors}'),
       if ((p.facing ?? '').isNotEmpty) (Icons.explore_outlined, 'Facing', p.facing!),
-      (Icons.group_outlined, 'Who can rent', l.tenants == 'Anyone' ? 'Family or bachelors' : l.tenants),
-      (Icons.pets_outlined, 'Pets', l.pets ? 'Allowed' : 'Not allowed'),
+      (ic(Icons.people_outline, Icons.group_outlined), 'Who can rent', l.tenants == 'Anyone' ? 'Family or bachelors' : l.tenants),
+      (ic(Icons.pets, Icons.pets_outlined), 'Pets', l.pets ? 'Allowed' : 'Not allowed'),
       (Icons.event_available_outlined, 'Available', l.availableFrom.isEmpty ? 'Now' : tk2Date(l.availableFrom)),
     ];
   }

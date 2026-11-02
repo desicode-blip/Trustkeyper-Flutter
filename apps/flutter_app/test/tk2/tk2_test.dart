@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trustkeyper/src/features/broker/data/broker_property_repository.dart';
 import 'package:trustkeyper/src/tk2/tk2_app.dart';
+import 'package:trustkeyper/src/tk2/tk2_designs.dart';
 import 'package:trustkeyper/src/tk2/tk2_store.dart';
 
 void main() {
@@ -57,6 +58,15 @@ void main() {
       expect(text, isNot(contains('90000')));
       expect(Tk2Listing.example.copyWith(visitFee: 0).feeText, 'Free');
       expect(store.shareText(Tk2Listing.example.copyWith(visitFee: 0)), contains('(free)'));
+    });
+
+    test('card heading is never empty (old properties without society)', () {
+      final old = Tk2Listing(id: 'x', property: BrokerProperty(id: 'x', name: 'Green Villa', address: '', rooms: '2.5 BHK', floor: 1, totalFloors: 2, furnishing: 'Semi'));
+      expect(tk2CardHeading(old), 'Green Villa');
+      expect(tk2CardHeading(old.copyWith(locality: 'Kondapur')), 'Kondapur');
+      expect(tk2CardHeading(old.copyWith(society: 'My Home Avatar', locality: 'Kondapur')), 'My Home Avatar');
+      final bare = Tk2Listing(id: 'y', property: BrokerProperty(id: 'y', address: '', rooms: '1 BHK', floor: 0, totalFloors: 0, furnishing: 'Empty'));
+      expect(tk2CardHeading(bare), '1 BHK property');
     });
 
     test('money in Indian style', () {
