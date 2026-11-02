@@ -196,6 +196,10 @@ void main() {
       await store.sendListing('x', name: 'Ravi K', phone: '+919876543210', whatsapp: true, sms: false);
       expect(store.contacts.length, 1);
       expect(store.contacts.single.name, 'Ravi K');
+      // Email is remembered for next time, even when a later send has none.
+      await store.sendListing('x', name: 'Ravi K', phone: '+91 98765 43210', email: 'ravi@example.com', whatsapp: false, sms: false, byEmail: true);
+      await store.sendListing('x', name: 'Ravi K', phone: '+91 98765 43210', whatsapp: true, sms: false);
+      expect(store.contacts.single.email, 'ravi@example.com');
     });
 
     test('phone: India needs 10 digits, other countries 6 to 14', () {

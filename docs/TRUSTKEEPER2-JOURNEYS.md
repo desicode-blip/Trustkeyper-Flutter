@@ -26,7 +26,7 @@ The web app is Flutter web and reuses the apps' own screens and design system: t
    - **Visit fee** (₹0–500).
    - **Photos** (up to 10, 3 per row; ★ or drag to set the cover; can skip). Every photo carries a light TrustKeeper watermark.
    - **Only for you** (green, never shared): owner name and phone, keys, note, and **brokerage**: who pays (Owner / Tenant / Both / None) and how much each. Only the tenant's part is shown to tenants.
-5. Property page → **Share**: WhatsApp message with the property link. The link carries only public details. On home cards (Design B) a **Send** button: pick a tenant added before or type a new number (any country code) → WhatsApp / text message / both → "Sent".
+5. Property page → **Share**: WhatsApp message with the property link. The link carries only public details. On home cards (Design B) a quiet **Share** button right of the heading: **Recent** people (tap one) or **Add new** (number, any country code; name optional) → tick any of WhatsApp / Text message / Email (email address asked if not known) → "Sent".
 6. **Visits** tab: upcoming visits. **Add gate pass** on each visit (photo/screenshot) → sent to the tenant on WhatsApp. The 1-hour reminder call also reminds him, and the app pings him. After the visit he types the tenant's 4-digit code to get the fee (code works from 24 h before to 24 h after the visit time).
 
 ## 2. Tenant (web, from the property link)
@@ -75,7 +75,7 @@ Today it is demo only. Each item is marked in the code/prototype as "Demo".
 1. Accounts + OTP (phone for tenants; phone or email for owners; demo code today: 123456).
 2. Data: properties, visits, owners, tenants in Firestore (replace on-phone storage in `Tk2Store`).
 3. Payments (Razorpay): visit fee (held), token, deposit/rent/brokerage, refunds and payouts per the money rules. Real money needs Aman's sign-off.
-4. WhatsApp + SMS: share message, Send to tenant (WhatsApp / SMS / both — `Tk2Store.sendListing` records it today), owner invite, owner question-by-question bot, updates.
+4. WhatsApp + SMS: share message, Share to tenant (any mix of WhatsApp / SMS / email — `Tk2Store.sendListing` records it today, email remembered per contact), owner invite, owner question-by-question bot, updates.
 5. Google Calendar invite (prototype uses a calendar link), reminder call 1 hour before (tenant + broker).
 6. Rent agreement generation from templates, broker approval, e-sign.
 7. Burn the TrustKeeper watermark into every uploaded photo (the app shows it as an overlay today).

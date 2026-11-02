@@ -1301,3 +1301,17 @@ files: apps/flutter_app/lib/src/tk2/{tk2_store,tk2_link,tk2_listing,tk2_visits}.
 verification: flutter analyze clean; test/tk2 25/25; owner web flow clicked through in headless Chromium (rent negotiable, Keys cards incl. red check, All done, Documents with red checks)
 open: tenant browsing the broker's other houses (later)
 ```
+
+## Change 79 – Design B: quiet Share button; new share sheet
+Date: 2026-11-02 · Status: broker app code synced to the Mac, not yet built (web app unchanged)
+- Design B card: the blue "Send" pill at the bottom is gone. A secondary outline "Share" button sits right of the heading (heading wraps to 2 lines if long).
+- Share sheet: two sections – Recent (people shared with before / who booked; tap goes straight on) and Add new (phone, any country code; name optional). No "New number" option in the list.
+- Share by: WhatsApp, Text message, Email as checkboxes – tick any mix, at least one. Email asks for the address when we don't have it and remembers it for that person.
+```
+AGENT RECORD – Change 79
+id: CHG-079
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/{tk2_send,tk2_designs,tk2_store}.dart (contacts carry email; sendListing email/byEmail), apps/flutter_app/test/tk2/tk2_test.dart, docs/TRUSTKEEPER2-JOURNEYS.md, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 25/25; broker app web build checked in headless Chromium (Share button, Recent/Add new, Add new page, checkboxes, email field)
+```

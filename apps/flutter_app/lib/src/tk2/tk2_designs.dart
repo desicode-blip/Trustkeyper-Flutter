@@ -218,11 +218,38 @@ class Tk2DesignCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${l.property.rooms} · ${l.rentLine}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 16, height: 21 / 16, fontWeight: FontWeight.w600, color: AppColors.heading),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${l.property.rooms} · ${l.rentLine}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 16, height: 21 / 16, fontWeight: FontWeight.w600, color: AppColors.heading),
+                          ),
+                        ),
+                        // Secondary "Share": quiet outline, right of the heading.
+                        if (onSend != null) ...[
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            key: ValueKey('send-${l.id}'),
+                            onPressed: onSend,
+                            icon: const Icon(Icons.share_outlined, size: 16),
+                            label: const Text('Share'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primaryDark,
+                              side: const BorderSide(color: AppColors.border),
+                              shape: const StadiumBorder(),
+                              minimumSize: const Size(0, 34),
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              visualDensity: VisualDensity.compact,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 4),
                     // Same details as Design E: heading, address, then the facts in two columns.
@@ -254,33 +281,6 @@ class Tk2DesignCard extends StatelessWidget {
                         );
                       },
                     ),
-                    if (onSend != null)
-                      Align(
-                        alignment: Alignment.bottomRight,
-                        child: Material(
-                          color: AppColors.primary,
-                          shape: const StadiumBorder(),
-                          child: InkWell(
-                            key: ValueKey('send-${l.id}'),
-                            customBorder: const StadiumBorder(),
-                            onTap: onSend,
-                            child: const Padding(
-                              padding: EdgeInsets.fromLTRB(14, 9, 16, 9),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.send_rounded, size: 17, color: Colors.white),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'Send',
-                                    style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: Colors.white),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),

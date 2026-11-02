@@ -541,7 +541,7 @@ class Tk2Store extends ChangeNotifier {
   String brokerPhone = '';
 
   /// People the broker has sent properties to (name, phone).
-  final List<({String name, String phone})> _contacts = [];
+  final List<({String name, String phone, String email})> _contacts = [];
   final List<Tk2Listing> _listings = [];
   final List<Tk2Visit> _visits = [];
   bool _loaded = false;
@@ -583,7 +583,7 @@ class Tk2Store extends ChangeNotifier {
           ..clear()
           ..addAll([
             for (final c in (json['contacts'] as List? ?? const []))
-              if (c is Map) (name: c['name'] as String? ?? '', phone: c['phone'] as String? ?? ''),
+              if (c is Map) (name: c['name'] as String? ?? '', phone: c['phone'] as String? ?? '', email: c['email'] as String? ?? ''),
           ]);
         brokerPhone = json['brokerPhone'] as String? ?? '';
         _listings
@@ -613,7 +613,7 @@ class Tk2Store extends ChangeNotifier {
       jsonEncode({
         'brokerName': brokerName,
         'contacts': [
-          for (final c in _contacts) {'name': c.name, 'phone': c.phone},
+          for (final c in _contacts) {'name': c.name, 'phone': c.phone, 'email': c.email},
         ],
         'brokerPhone': brokerPhone,
         'listings': [for (final l in _listings) l.toJson()],
@@ -690,10 +690,10 @@ class Tk2Store extends ChangeNotifier {
   void clearSampleNotice() => sampleJustRemoved = false;
 
   /// Tenants to send to: people who booked visits plus numbers added before (newest first, no repeats).
-  List<({String name, String phone})> get contacts {
+  List<({String name, String phone, String email})> get contacts {
     final seen = <String>{};
-    final out = <({String name, String phone})>[];
-    for (final c in [..._contacts.reversed, for (final v in _visits.reversed) (name: v.customerName, phone: v.customerPhone)]) {
+    final out = <({String name, String phone, String email})>[];
+    for (final c in [..._contacts.reversed, for (final v in _visits.reversed) (name: v.customerName, phone: v.customerPhone, email: '')]) {
       final key = c.phone.replaceAll(RegExp(r'\D'), '');
       if (key.isEmpty || !seen.add(key)) continue;
       out.add(c);
@@ -701,11 +701,21 @@ class Tk2Store extends ChangeNotifier {
     return out;
   }
 
-  /// Send a property (demo: recorded here; the backend sends WhatsApp/SMS).
-  Future<void> sendListing(String listingId, {required String name, required String phone, required bool whatsapp, required bool sms}) async {
+  /// Send a property by any mix of WhatsApp, text message and email
+  /// (demo: recorded here; the backend delivers them).
+  Future<void> sendListing(
+    String listingId, {
+    required String name,
+    required String phone,
+    String email = '',
+    required bool whatsapp,
+    required bool sms,
+    bool byEmail = false,
+  }) async {
     final key = phone.replaceAll(RegExp(r'\D'), '');
+    final old = _contacts.where((c) => c.phone.replaceAll(RegExp(r'\D'), '') == key).firstOrNull;
     _contacts.removeWhere((c) => c.phone.replaceAll(RegExp(r'\D'), '') == key);
-    _contacts.add((name: name.trim(), phone: phone.trim()));
+    _contacts.add((name: name.trim(), phone: phone.trim(), email: email.trim().isNotEmpty ? email.trim() : old?.email ?? ''));
     await _save();
   }
 
