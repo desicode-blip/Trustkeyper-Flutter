@@ -91,11 +91,11 @@ void main() {
 
     expect(find.text('Namaste, Suresh'), findsOneWidget);
     expect(find.text('Add property'), findsOneWidget);
-    expect(find.text('Example'), findsNWidgets(4));
+    expect(find.text('Example'), findsNWidgets(5)); // A–D + earlier compact row
     // 4 designs of the same example; the door number never shows on cards.
-    expect(find.text('2 BHK · Sri Sai Residency'), findsNWidgets(3));
+    expect(find.text('2 BHK · Sri Sai Residency'), findsNWidgets(4));
     expect(find.textContaining('Flat 402'), findsNothing);
-    expect(find.text('₹32,000 + ₹3,000 maintenance'), findsOneWidget);
+    expect(find.text('₹32,000 + ₹3,000 maintenance'), findsNWidgets(2));
 
     await tester.scrollUntilVisible(find.text('2 BHK · Sri Sai Residency').first, 300, scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();

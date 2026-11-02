@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../core/theme/app_colors.dart';
 import '../features/broker/presentation/approved_broker_home.dart';
+import 'tk2_designs.dart';
 import 'tk2_store.dart';
 
 // Shared pieces for TrustKeeper 2: calm cards, soft pills, gentle motion.
@@ -145,6 +146,88 @@ String tk2Date(String iso) {
   final d = DateTime.tryParse(iso);
   if (d == null) return 'Now';
   return '${d.day} ${_months[d.month - 1]} ${d.year}';
+}
+
+/// Earlier design (brought back for comparison): compact row – small photo
+/// left, facts right, WhatsApp share.
+class Tk2PropertyCard extends StatelessWidget {
+  const Tk2PropertyCard({required this.listing, required this.onOpen, required this.onShare, this.visits = 0, super.key});
+  final Tk2Listing listing;
+  final VoidCallback onOpen;
+  final VoidCallback onShare;
+  final int visits;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = listing;
+    final p = l.property;
+    const small = TextStyle(fontSize: 13.5, height: 18 / 13.5, color: AppColors.muted);
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: AppColors.border)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(width: 72, height: 72, child: Tk2Photo(listing: l, height: 72, radius: 12, compact: true)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${p.rooms} · ${tk2CardHeading(l)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 15.5, height: 20 / 15.5, fontWeight: FontWeight.w600, color: AppColors.heading),
+                          ),
+                        ),
+                        if (l.sample) const Tk2Pill('Example', kind: 'info'),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(l.rentLine, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.5, height: 20 / 14.5, fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
+                    const SizedBox(height: 2),
+                    Text(
+                      [if (p.sizeSqFt != null) '${p.sizeSqFt!.toStringAsFixed(0)} sft', l.furnishingText].join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: small,
+                    ),
+                    Text(
+                      '${l.rules} · ${l.availableFrom.isEmpty ? 'Available now' : 'From ${tk2Date(l.availableFrom)}'}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: small,
+                    ),
+                    if (visits > 0) ...[
+                      const SizedBox(height: 4),
+                      Tk2Pill('$visits visit${visits == 1 ? '' : 's'} booked', kind: 'ok'),
+                    ],
+                  ],
+                ),
+              ),
+              SizedBox.square(
+                dimension: 40,
+                child: IconButton(
+                  tooltip: 'Share',
+                  onPressed: onShare,
+                  icon: tk2WhatsAppLogo(size: 22),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// A green tick that pops in (success screens).

@@ -773,6 +773,26 @@ class Tk2DesignShowcase extends StatelessWidget {
           const SizedBox(height: 12),
         ],
       ],
+      // The earlier compact row, brought back below for comparison.
+      const SizedBox(height: 22),
+      const Row(
+        children: [
+          HomeIcon('house', size: 18),
+          SizedBox(width: 8),
+          Flexible(child: Text('Earlier design · Compact row', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.muted))),
+        ],
+      ),
+      const SizedBox(height: 10),
+      for (final l in store.shown) ...[
+        Tk2PropertyCard(
+          key: ValueKey('earlier-${l.id}'),
+          listing: l,
+          visits: store.visitsFor(l.id).where((v) => v.upcoming).length,
+          onOpen: () => context.push('/p/${l.id}?d=a'),
+          onShare: () => showTk2Share(context, store, l),
+        ),
+        const SizedBox(height: 12),
+      ],
     ],
   );
 }

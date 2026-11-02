@@ -1058,3 +1058,15 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/tk2/tk2_designs.dart (tk2Facts outlined flag, tk2CardHeading, _labelled per design), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 10/10 (new: heading fallback)
 ```
+
+## Change 64 – TrustKeeper 2: earlier compact row card brought back for comparison
+Date: 2026-11-02 · Status: code complete; installed on Aman's iPhone
+The compact row card from Change 59 (small photo left; rooms · name, rent line, sft · furnishing, rules · available; WhatsApp share) is back on home, below designs E, A–D, labelled "Earlier design · Compact row". Same look as before; only the title now uses the card heading (society / area / broker's name) so the door number rule still holds. Tapping it opens the A page. Nothing else changed.
+```
+AGENT RECORD – Change 64
+id: CHG-064
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/tk2_widgets.dart (Tk2PropertyCard restored from c1785a0), apps/flutter_app/lib/src/tk2/tk2_designs.dart (showcase: earlier section at the end), apps/flutter_app/test/tk2/tk2_test.dart (counts), docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 10/10
+```
