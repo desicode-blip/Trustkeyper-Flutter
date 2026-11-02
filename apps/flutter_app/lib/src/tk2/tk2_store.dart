@@ -18,6 +18,7 @@ class Tk2Listing {
     required this.property,
     this.rent = 0,
     this.deposit = 0,
+    this.brokerage = 0,
     this.availableFrom = '',
     this.photos = const [],
     this.visitFee = 150,
@@ -61,6 +62,8 @@ class Tk2Listing {
   /// Full address for the broker: door + saved address.
   String get fullAddress => [if (door.trim().isNotEmpty) door.trim(), if (society.trim().isNotEmpty) society.trim(), if (property.address.trim().isNotEmpty) property.address.trim()].join(', ');
 
+  String get brokerageText => brokerage == 0 ? 'No brokerage' : Tk2Store.money(brokerage);
+
   String get feeText => visitFee == 0 ? 'Free' : Tk2Store.money(visitFee);
 
   /// Monthly maintenance; 0 with [maintenanceIncluded] = included in rent.
@@ -75,6 +78,9 @@ class Tk2Listing {
   final BrokerProperty property;
   final int rent;
   final int deposit;
+
+  /// Brokerage the broker charges the tenant, in ₹ (0 = no brokerage). Customers see it.
+  final int brokerage;
 
   /// yyyy-MM-dd, '' = now.
   final String availableFrom;
@@ -96,6 +102,7 @@ class Tk2Listing {
     BrokerProperty? property,
     int? rent,
     int? deposit,
+    int? brokerage,
     String? availableFrom,
     List<String>? photos,
     int? visitFee,
@@ -115,6 +122,7 @@ class Tk2Listing {
     property: property ?? this.property,
     rent: rent ?? this.rent,
     deposit: deposit ?? this.deposit,
+    brokerage: brokerage ?? this.brokerage,
     availableFrom: availableFrom ?? this.availableFrom,
     photos: photos ?? this.photos,
     visitFee: visitFee ?? this.visitFee,
@@ -138,6 +146,7 @@ class Tk2Listing {
     'property': property.toMap(),
     'rent': rent,
     'deposit': deposit,
+    'brokerage': brokerage,
     'availableFrom': availableFrom,
     'photos': photos,
     'visitFee': visitFee,
@@ -163,6 +172,7 @@ class Tk2Listing {
     ),
     rent: (json['rent'] as num?)?.toInt() ?? 0,
     deposit: (json['deposit'] as num?)?.toInt() ?? 0,
+    brokerage: (json['brokerage'] as num?)?.toInt() ?? 0,
     availableFrom: json['availableFrom'] as String? ?? '',
     photos: [for (final p in (json['photos'] as List? ?? const [])) if (p is String) p],
     visitFee: (json['visitFee'] as num?)?.toInt() ?? 150,
@@ -493,6 +503,7 @@ class Tk2Store extends ChangeNotifier {
       if (l.area.isNotEmpty) '📍 ${l.area}',
       facts,
       if (l.hasRent) 'Rent ${l.rentLine}${l.deposit > 0 ? ' · Deposit ${money(l.deposit)}' : ''}',
+      if (l.brokerage > 0) 'Brokerage ${money(l.brokerage)}',
       l.rules,
       'Available ${l.availableFrom.isEmpty ? 'now' : 'from ${l.availableFrom}'}',
       '',

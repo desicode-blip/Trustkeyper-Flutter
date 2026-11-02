@@ -139,11 +139,16 @@ class _SwipePhotosState extends State<_SwipePhotos> {
   }
 }
 
+/// Icon in the app's line style. Material has no line paw, so pets uses our own.
+Widget tk2Glyph(IconData icon, {required double size, required Color color}) => icon == Icons.pets_outlined
+    ? Center(widthFactor: 1, heightFactor: 1, child: SvgPicture.asset('assets/design/tk2-paw.svg', width: size, height: size, colorFilter: ColorFilter.mode(color, BlendMode.srcIn)))
+    : Icon(icon, size: size, color: color);
+
 Widget _iconText(IconData icon, String text, {Color color = AppColors.muted, double size = 13.5, int lines = 1}) => Row(
   mainAxisSize: MainAxisSize.min,
   crossAxisAlignment: lines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
   children: [
-    Icon(icon, size: size + 3, color: color),
+    tk2Glyph(icon, size: size + 3, color: color),
     const SizedBox(width: 4),
     Flexible(child: Text(text, maxLines: lines, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: size, color: color))),
   ],
@@ -463,7 +468,12 @@ class Tk2PrivateDetails extends StatelessWidget {
         for (final r in rows)
           ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-            leading: Icon(r.$1, color: AppColors.primaryDark),
+            leading: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(10)),
+              child: Icon(r.$1, size: 18, color: AppColors.primaryDark),
+            ),
             title: Text(r.$2, style: const TextStyle(fontSize: 13, color: AppColors.muted)),
             subtitle: Text(r.$3, style: const TextStyle(fontSize: 15.5, height: 21 / 15.5, color: AppColors.heading)),
             trailing: r.$4 == null
@@ -471,7 +481,7 @@ class Tk2PrivateDetails extends StatelessWidget {
                 : IconButton(
                     tooltip: 'Call owner',
                     onPressed: () => launchUrl(Uri.parse('tel:${r.$4!.replaceAll(' ', '')}')).then((_) {}, onError: (_) {}),
-                    icon: const Icon(Icons.call, color: AppColors.primary),
+                    icon: const Icon(Icons.call_outlined, color: AppColors.primary),
                   ),
           ),
         if (!l.sample)
@@ -645,7 +655,7 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
     decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(16)),
     child: Row(
       children: [
-        Icon(icon, size: 20, color: AppColors.primaryDark),
+        tk2Glyph(icon, size: 20, color: AppColors.primaryDark),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -667,6 +677,7 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
     return [
       (ic(Icons.currency_rupee, Icons.currency_rupee_outlined), 'Rent', l.rentLine),
       if (l.deposit > 0) (Icons.savings_outlined, 'Deposit', Tk2Store.money(l.deposit)),
+      (Icons.handshake_outlined, 'Brokerage', l.brokerageText),
       (Icons.confirmation_number_outlined, 'Visit fee', l.feeText),
       if (p.sizeSqFt != null) (ic(Icons.square_foot, Icons.square_foot_outlined), 'Size', '${p.sizeSqFt!.toStringAsFixed(0)} sft'),
       (Icons.chair_outlined, 'Furnishing', l.furnishingText),
@@ -720,7 +731,7 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
           decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
           child: Row(
             children: [
-              Icon(i.$1, size: 20, color: AppColors.primaryDark),
+              tk2Glyph(i.$1, size: 20, color: AppColors.primaryDark),
               const SizedBox(width: 12),
               Text(i.$2, style: const TextStyle(fontSize: 15, color: AppColors.muted)),
               const SizedBox(width: 12),
@@ -802,7 +813,7 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
             width: 34,
             height: 34,
             decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, size: 18, color: AppColors.primaryDark),
+            child: tk2Glyph(icon, size: 18, color: AppColors.primaryDark),
           ),
           const SizedBox(width: 12),
           Text(label, style: const TextStyle(fontSize: 15, color: AppColors.body)),

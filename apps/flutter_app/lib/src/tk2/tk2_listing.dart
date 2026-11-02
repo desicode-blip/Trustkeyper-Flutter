@@ -25,6 +25,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   late final Tk2Listing? start = widget.store.listing(widget.id);
   late final rent = TextEditingController(text: (start?.rent ?? 0) > 0 ? '${start!.rent}' : '');
   late final deposit = TextEditingController(text: (start?.deposit ?? 0) > 0 ? '${start!.deposit}' : '');
+  late final brokerage = TextEditingController(text: (start?.brokerage ?? 0) > 0 ? '${start!.brokerage}' : '');
   late String availableFrom = start?.availableFrom ?? '';
   late final fee = TextEditingController(text: '${start?.visitFee ?? 150}');
   late final society = TextEditingController(text: start?.society ?? '');
@@ -47,6 +48,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   void dispose() {
     rent.dispose();
     deposit.dispose();
+    brokerage.dispose();
     maintenance.dispose();
     for (final c in [fee, society, locality, door, ownerName, ownerPhone, note]) {
       c.dispose();
@@ -98,7 +100,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
       return;
     }
     setState(() => saving = true);
-    await widget.store.saveListing(l.copyWith(rent: _num(rent), deposit: _num(deposit), availableFrom: availableFrom, photos: photos, visitFee: _num(fee), society: society.text.trim(), locality: locality.text.trim(), door: door.text.trim(), ownerName: ownerName.text.trim(), ownerPhone: ownerPhone.text.trim(), keys: keys, note: note.text.trim(), maintenance: included ? 0 : _num(maintenance), maintenanceIncluded: included, tenants: tenants, pets: pets));
+    await widget.store.saveListing(l.copyWith(rent: _num(rent), deposit: _num(deposit), brokerage: _num(brokerage), availableFrom: availableFrom, photos: photos, visitFee: _num(fee), society: society.text.trim(), locality: locality.text.trim(), door: door.text.trim(), ownerName: ownerName.text.trim(), ownerPhone: ownerPhone.text.trim(), keys: keys, note: note.text.trim(), maintenance: included ? 0 : _num(maintenance), maintenanceIncluded: included, tenants: tenants, pets: pets));
     if (!mounted) return;
     if (widget.isNew) {
       context.go('/home');
@@ -135,6 +137,8 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          _moneyField(brokerage, 'Brokerage'),
           if (error != null) ...[
             const SizedBox(height: 8),
             Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 15)),

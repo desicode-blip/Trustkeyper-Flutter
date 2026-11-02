@@ -1111,3 +1111,18 @@ rules: label never replaces the real address and is never shown to tenants
 verification: flutter analyze clean; test/tk2 11/11
 note: build env needs Flutter 3.38.4 (newer stable breaks the lockfile)
 ```
+
+## Change 68 – TrustKeeper 2: Brokerage row; consistent line icons on the property page
+Date: 2026-11-02 · Status: code complete; synced to the Mac, not yet built
+- New "Brokerage" field (₹) on the Rent & details screen, under Rent / Deposit. Empty = no brokerage.
+- Property page list: new "Brokerage" row (handshake icon) after Rent/Deposit – shows the amount or "No brokerage". Customers see it too: customer page price box and share message show "Brokerage ₹X" only when it is set.
+- Icons: Pets now uses a line paw (own SVG, same stroke as the other icons) instead of the filled paw, in Design E's card and list. The broker-only "Complete address and details" icons (Full address, Owner, Owner phone, Keys, Note) now sit in the same small light-blue squares at 18 px as the rows above, so the line weight matches; call button uses the outlined phone.
+```
+AGENT RECORD – Change 68
+id: CHG-068
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/tk2_store.dart (Tk2Listing.brokerage int ₹, json 'brokerage', brokerageText, shareText line), apps/flutter_app/lib/src/tk2/tk2_listing.dart (brokerage money field), apps/flutter_app/lib/src/tk2/tk2_customer.dart (price box line), apps/flutter_app/lib/src/tk2/tk2_designs.dart (_labelled Brokerage row; tk2Glyph maps Icons.pets_outlined → assets/design/tk2-paw.svg; Tk2PrivateDetails leading icon 18px in primarySoft 34px square; Icons.call_outlined), apps/flutter_app/assets/design/tk2-paw.svg (new), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+rules: brokerage is public (customers see it); 0 is never shown to customers
+verification: flutter analyze clean; test/tk2 12/12 (new: brokerage save/share)
+```

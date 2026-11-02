@@ -75,9 +75,10 @@ class Tk2CustomerPage extends StatelessWidget {
                     [
                       if (l.maintenanceIncluded || l.maintenance == 0) 'Incl. maintenance' else '+ ${Tk2Store.money(l.maintenance)} maint.',
                       if (l.deposit > 0) 'Deposit ${Tk2Store.money(l.deposit)}',
+                      if (l.brokerage > 0) 'Brokerage ${Tk2Store.money(l.brokerage)}',
                     ].join('\n'),
                     textAlign: TextAlign.right,
-                    maxLines: 2,
+                    maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 13.5, color: AppColors.muted),
                   ),

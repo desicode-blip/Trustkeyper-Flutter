@@ -60,6 +60,17 @@ void main() {
       expect(store.shareText(Tk2Listing.example.copyWith(visitFee: 0)), contains('(free)'));
     });
 
+    test('brokerage: saved, shown to customers only when set', () async {
+      final store = Tk2Store.forTest();
+      await store.load();
+      final none = Tk2Listing.example.copyWith(brokerage: 0);
+      expect(none.brokerageText, 'No brokerage');
+      expect(store.shareText(none), isNot(contains('Brokerage')));
+      final some = Tk2Listing.example.copyWith(brokerage: 30000);
+      expect(store.shareText(some), contains('Brokerage ₹30,000'));
+      expect(Tk2Listing.fromJson(some.toJson()).brokerage, 30000);
+    });
+
     test('card heading is never empty (old properties without society)', () {
       final old = Tk2Listing(id: 'x', property: BrokerProperty(id: 'x', name: 'Green Villa', address: '', rooms: '2.5 BHK', floor: 1, totalFloors: 2, furnishing: 'Semi'));
       // Never the broker's own label ("Green Villa"); falls back to rooms.
