@@ -19,11 +19,13 @@ The tenant/owner web app is an HTML prototype for agreeing the flow. When the fl
 1. Home → **Add property** → type a name only he sees (e.g. "Flat 402, Madhapur").
 2. Choose: **Send link to owner** (owner fills everything, see journey 3) or **Add manually**.
 3. Add manually: address (required), size, door facing, parking → rooms, floor, furnishing.
-4. Then 4 short steps:
-   - **Rent details**: society, area · rent + maintenance (included/extra → amount) · security deposit · brokerage (none / 15 days rent / 1 month rent / fixed amount) · who can rent (tick boxes: Anyone, Family, Bachelor male, Bachelor female, Companies) · pets · available (now / from a date).
-   - **Visits**: days (every day / Mon–Fri / Sat–Sun), times (7 am – 11 pm range), visit fee (₹0–500).
-   - **Photos** (can skip).
-   - **Only for you** (green, never shared): flat/door, owner name and phone, keys, note.
+   The address is asked in parts: flat/house no. (private), society, area, city.
+4. Then 5 short steps:
+   - **Rent details**: rent + maintenance (included/extra → amount) · security deposit · who can rent (tick boxes: Anyone, Family, Bachelor male, Bachelor female, Companies) · pets · property available from (calendar, today pre-selected).
+   - **Visit times**: days (every day / Mon–Fri / Sat–Sun), times (7 am – 11 pm range).
+   - **Visit fee** (₹0–500).
+   - **Photos** (up to 10, 3 per row; ★ or drag to set the cover; can skip). Every photo carries a light TrustKeeper watermark.
+   - **Only for you** (green, never shared): owner name and phone, keys, note, and **brokerage**: who pays (Owner / Tenant / Both / None) and how much each. Only the tenant's part is shown to tenants.
 5. Property page → **Share**: WhatsApp message with the property link. The link carries only public details.
 6. **Visits** tab: upcoming visits; after the visit he types the tenant's 4-digit code to get the fee.
 
@@ -77,4 +79,5 @@ Today it is demo only. Each item is marked in the code/prototype as "Demo".
 4. WhatsApp: share message, owner invite, owner question-by-question bot, updates.
 5. Google Calendar invite (prototype uses a calendar link), reminder call 1 hour before (tenant + broker).
 6. Rent agreement generation from templates, broker approval, e-sign.
-7. Host the web app on trustkeyper.com (Flutter web) and point `tk2WebApp` in `tk2_link.dart` to it.
+7. Burn the TrustKeeper watermark into every uploaded photo (the app shows it as an overlay today).
+8. Host the web app on trustkeyper.com (Flutter web) and point `tk2WebApp` in `tk2_link.dart` to it.

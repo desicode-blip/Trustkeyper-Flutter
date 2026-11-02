@@ -1214,3 +1214,20 @@ files: apps/flutter_app/lib/src/features/broker/data/broker_property_repository.
 rules: flat number is private (never in share text or link payload) – tested
 verification: flutter analyze clean; test/tk2 18/18; broker_property_test passes
 ```
+
+## Change 74 – Brokerage in "Only for you" (main-app flow), available-from calendar, visit fee page, photo grid with cover, watermark
+Date: 2026-11-02 · Status: code complete; synced to the Mac, not yet built
+- Steps are now 5: Rent details → Visit times → Visit fee (own page) → Photos → Only for you.
+- Rent details: brokerage removed from here. "Property available from" is one row; tapping opens the calendar with today already picked (today = available now).
+- Only for you: brokerage asked here with the main TrustKeyper app's flow – who pays you: Owner / Tenant / Both / None → "From owner" and/or "From tenant" amounts with ½ month rent / 1 month rent shortcuts (any other amount can be typed) → "You will get ₹X". Only the tenant's part is shown to customers; the owner's part stays private.
+- Photos: 3 per row (3·3·3·1, up to 10). First photo = cover (blue border + "Cover"). Tap ★ on any photo to make it the cover – it slides to the first place. Long-press and drag to reorder. ✕ removes.
+- Every uploaded photo shows a light, slanted "TrustKeeper" watermark (on screen everywhere photos show; the real file gets it burned in when the backend uploads it).
+```
+AGENT RECORD – Change 74
+id: CHG-074
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/tk2_listing.dart (5 steps; _feeStep; payer/ownerFee; _feePresets; Tk2PhotoGrid with AnimatedPositioned + LongPressDraggable/DragTarget; date row), apps/flutter_app/lib/src/tk2/tk2_store.dart (Tk2Listing.brokeragePayer, ownerBrokerage (private), daysFor; old saves → payer Tenant if brokerage > 0), apps/flutter_app/lib/src/tk2/tk2_widgets.dart (Tk2Photo watermark overlay, cacheWidth 900), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+rules: owner's brokerage never in share text or link payload (tested); watermark must be burned into stored images by the backend (see TRUSTKEEPER2-JOURNEYS.md)
+verification: flutter analyze clean; test/tk2 19/19
+```

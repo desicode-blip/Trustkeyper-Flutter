@@ -40,17 +40,12 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   late bool included = start?.maintenanceIncluded ?? true;
   late Set<String> who = Tk2Listing.tenantSet(start?.tenants ?? 'Anyone');
   // none · 15 · 30 · amount
-  late String brokerageWay = (start?.brokerage ?? 0) == 0
-      ? 'none'
-      : start!.brokerageDays == 15
-      ? '15'
-      : start!.brokerageDays == 30
-      ? '30'
-      : 'amount';
-  late bool availableNow = (start?.availableFrom ?? '').isEmpty;
+  // Who pays the broker (Owner · Tenant · Both · None) and how much each.
+  late String payer = start?.brokeragePayer ?? 'None';
+  late final ownerFee = TextEditingController(text: (start?.ownerBrokerage ?? 0) > 0 ? '${start!.ownerBrokerage}' : '');
   late String visitDays = start?.visitDays ?? 'all';
   int step = 0;
-  static const _titles = ['Rent details', 'Visits', 'Photos', 'Only for you'];
+  static const _titles = ['Rent details', 'Visit times', 'Visit fee', 'Photos', 'Only for you'];
   late bool pets = start?.pets ?? true;
   late List<String> photos = [...?start?.photos];
 
@@ -65,6 +60,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
     rent.dispose();
     deposit.dispose();
     brokerage.dispose();
+    ownerFee.dispose();
     maintenance.dispose();
     for (final c in [fee, society, locality, door, ownerName, ownerPhone, note]) {
       c.dispose();
@@ -88,9 +84,16 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   Future<void> _pickDate() async {
     final now = DateUtils.dateOnly(DateTime.now());
     final current = DateTime.tryParse(availableFrom) ?? now;
-    final d = await showDatePicker(context: context, initialDate: current.isBefore(now) ? now : current, firstDate: now, lastDate: now.add(const Duration(days: 330)), helpText: 'Available from');
+    final d = await showDatePicker(
+      context: context,
+      initialDate: current.isBefore(now) ? now : current,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 330)),
+      helpText: 'Property available from',
+    );
     if (d != null) {
-      setState(() => availableFrom = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
+      // Today means "available now".
+      setState(() => availableFrom = DateUtils.isSameDay(d, now) ? '' : '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
     }
   }
 
@@ -98,18 +101,14 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   Set<String> _check(int at) => {
     if (at == 0 && _num(rent) <= 0) 'rent',
     if (at == 0 && !included && _num(maintenance) <= 0) 'maintenance',
-    if (at == 0 && brokerageWay == 'amount' && _num(brokerage) <= 0) 'brokerage',
     if (at == 0 && who.isEmpty) 'who',
-    if (at == 0 && !availableNow && availableFrom.isEmpty) 'date',
-    if (at == 1 && _num(fee) > Tk2Listing.maxVisitFee) 'fee',
+    if (at == 2 && _num(fee) > Tk2Listing.maxVisitFee) 'fee',
+    if (at == 4 && (payer == 'Owner' || payer == 'Both') && _num(ownerFee) <= 0) 'ownerFee',
+    if (at == 4 && (payer == 'Tenant' || payer == 'Both') && _num(brokerage) <= 0) 'tenantFee',
   };
 
-  int get _brokerageAmount => switch (brokerageWay) {
-    '15' => Tk2Listing.brokerageFor(_num(rent), 15),
-    '30' => Tk2Listing.brokerageFor(_num(rent), 30),
-    'amount' => _num(brokerage),
-    _ => 0,
-  };
+  int get _tenantFee => payer == 'Tenant' || payer == 'Both' ? _num(brokerage) : 0;
+  int get _ownerFee => payer == 'Owner' || payer == 'Both' ? _num(ownerFee) : 0;
 
   void _next() {
     final need = _check(step);
@@ -151,16 +150,14 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
       l.copyWith(
         rent: _num(rent),
         deposit: _num(deposit),
-        brokerage: _brokerageAmount,
-        brokerageDays: brokerageWay == '15'
-            ? 15
-            : brokerageWay == '30'
-            ? 30
-            : 0,
+        brokerage: _tenantFee,
+        brokerageDays: Tk2Listing.daysFor(_num(rent), _tenantFee),
+        brokeragePayer: payer,
+        ownerBrokerage: _ownerFee,
         visitDays: visitDays,
         visitFrom: visitFrom,
         visitTo: visitTo,
-        availableFrom: availableNow ? '' : availableFrom,
+        availableFrom: availableFrom,
         photos: photos,
         visitFee: _num(fee),
         society: society.text.trim(),
@@ -218,7 +215,8 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
                         ...switch (step) {
                           0 => _rentStep(),
                           1 => _visitStep(),
-                          2 => _photoStep(l),
+                          2 => _feeStep(),
+                          3 => _photoStep(l),
                           _ => _privateStep(),
                         },
                         // The button scrolls with the page, so the keyboard never hides it.
@@ -229,7 +227,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
                           loading: saving,
                           onPressed: saving ? null : _next,
                         ),
-                        if (step == 2 && photos.isEmpty) ...[
+                        if (step == 3 && photos.isEmpty) ...[
                           const SizedBox(height: 4),
                           Center(
                             child: TextButton(onPressed: _next, child: const Text('Skip for now')),
@@ -266,16 +264,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
     const SizedBox(height: 12),
     _moneyField(deposit, 'Security deposit'),
     const SizedBox(height: 12),
-    // Brokerage: none, part of rent, or a fixed amount (opens the amount).
-    _pick<String>('Brokerage (paid by tenant)', brokerageWay, const {'none': 'No brokerage', '15': '15 days rent', '30': '1 month rent', 'amount': 'Fixed amount'}, (v) => brokerageWay = v),
-    if (brokerageWay == '15' || brokerageWay == '30')
-      Padding(
-        padding: const EdgeInsets.only(top: 6, left: 4),
-        child: Text(_num(rent) > 0 ? 'Tenant pays ${Tk2Store.money(_brokerageAmount)}' : 'Type the rent to see the amount', style: const TextStyle(fontSize: 14, color: AppColors.muted)),
-      ),
-    if (brokerageWay == 'amount') ...[const SizedBox(height: 12), _moneyField(brokerage, 'Brokerage amount', bad: missing.contains('brokerage'))],
-    if (missing.contains('brokerage')) _needed('Type the brokerage amount'),
-    const SizedBox(height: 20),
+    const SizedBox(height: 8),
     _label('Who can rent'),
     _box('Anyone', who.length == Tk2Listing.tenantTypes.length),
     for (final t in Tk2Listing.tenantTypes) _box(t, who.contains(t)),
@@ -290,16 +279,8 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
       ],
     ),
     const SizedBox(height: 20),
-    // "From a date" opens the date.
-    _pick<bool>('Available', availableNow, const {true: 'Now', false: 'From a date'}, (v) {
-      availableNow = v;
-      if (!v && availableFrom.isEmpty) WidgetsBinding.instance.addPostFrameCallback((_) => _pickDate());
-    }),
-    if (!availableNow) ...[
-      const SizedBox(height: 12),
-      _row(icon: Icons.event_outlined, title: 'Available from', value: availableFrom.isEmpty ? 'Pick a date' : tk2Date(availableFrom), onTap: _pickDate),
-    ],
-    if (missing.contains('date')) _needed('Pick the date'),
+    // Tap opens the calendar with today already picked.
+    _row(icon: Icons.event_outlined, title: 'Property available from', value: availableFrom.isEmpty ? 'Today' : tk2Date(availableFrom), onTap: _pickDate),
   ];
 
   List<Widget> _visitStep() => [
@@ -340,7 +321,9 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
     ),
     const SizedBox(height: 6),
     const Text('Customers can book only on these days and times.', style: TextStyle(fontSize: 14, color: AppColors.muted)),
-    const SizedBox(height: 26),
+  ];
+
+  List<Widget> _feeStep() => [
     const Text(
       'Visit fee',
       style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading),
@@ -366,91 +349,20 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   ];
 
   List<Widget> _photoStep(Tk2Listing l) => [
-    Tk2Appear(
-      index: 4,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Photos',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading),
-                ),
-              ),
-              Text('${photos.length}/10', style: const TextStyle(color: AppColors.muted)),
-            ],
+    Row(
+      children: [
+        const Expanded(
+          child: Text(
+            'Good photos get more visits. Tap ★ or drag a photo to the first place to make it the cover.',
+            style: TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted),
           ),
-          const SizedBox(height: 4),
-          const Text('Good photos get more visits. Start with the living room.', style: TextStyle(fontSize: 15, color: AppColors.muted)),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 104,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                if (photos.length < 10)
-                  InkWell(
-                    borderRadius: BorderRadius.circular(18),
-                    onTap: _addPhotos,
-                    child: Container(
-                      width: 104,
-                      decoration: BoxDecoration(
-                        color: AppColors.primarySoft,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: AppColors.primaryBorder),
-                      ),
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add_a_photo_outlined, color: AppColors.primaryDark),
-                          SizedBox(height: 6),
-                          Text(
-                            'Add photos',
-                            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                for (var i = 0; i < photos.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 10),
-                    child: Stack(
-                      children: [
-                        SizedBox(
-                          width: 104,
-                          child: Tk2Photo(
-                            listing: l.copyWith(photos: photos),
-                            index: i,
-                            height: 104,
-                            radius: 18,
-                          ),
-                        ),
-                        Positioned(
-                          right: 4,
-                          top: 4,
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: () => setState(() => photos = [...photos]..removeAt(i)),
-                            child: const CircleAvatar(
-                              radius: 13,
-                              backgroundColor: Color(0xCC172231),
-                              child: Icon(Icons.close, size: 15, color: Colors.white),
-                            ),
-                          ),
-                        ),
-                        if (i == 0) const Positioned(left: 6, bottom: 6, child: Tk2Pill('Cover', kind: 'dark')),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 12),
+        Text('${photos.length}/10', style: const TextStyle(color: AppColors.muted)),
+      ],
     ),
+    const SizedBox(height: 14),
+    Tk2PhotoGrid(listing: l, photos: photos, onAdd: photos.length < 10 ? _addPhotos : null, onChanged: (next) => setState(() => photos = next)),
   ];
 
   List<Widget> _privateStep() => [
@@ -500,10 +412,71 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
           ),
           const SizedBox(height: 16),
           _text(note, 'Note for yourself', Icons.sticky_note_2_outlined, filled: true),
+          // Brokerage: same flow as the main app (who pays, how much each).
+          const SizedBox(height: 20),
+          _label('Your brokerage · who pays you?'),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final choice in const ['Owner', 'Tenant', 'Both', 'None'])
+                ChoiceChip(
+                  label: Text(choice),
+                  selected: payer == choice,
+                  onSelected: (_) => setState(() {
+                    payer = choice;
+                    missing.removeAll(const ['ownerFee', 'tenantFee']);
+                  }),
+                ),
+            ],
+          ),
+          if (payer == 'Owner' || payer == 'Both') ...[
+            const SizedBox(height: 16),
+            _moneyField(ownerFee, 'From owner', bad: missing.contains('ownerFee'), filled: true),
+            if (missing.contains('ownerFee')) _needed('Type the owner\'s brokerage'),
+            _feePresets(ownerFee),
+          ],
+          if (payer == 'Tenant' || payer == 'Both') ...[
+            const SizedBox(height: 16),
+            _moneyField(brokerage, 'From tenant', bad: missing.contains('tenantFee'), filled: true),
+            if (missing.contains('tenantFee')) _needed('Type the tenant\'s brokerage'),
+            _feePresets(brokerage),
+            const Padding(
+              padding: EdgeInsets.only(top: 6, left: 4),
+              child: Text('Tenants see this amount before they book.', style: TextStyle(fontSize: 13.5, color: AppColors.muted)),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text('You will get', style: TextStyle(color: Color(0xFF008763), fontSize: 16)),
+                ),
+                Text(
+                  Tk2Store.money(_tenantFee + _ownerFee),
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     ),
   ];
+
+  /// ½ month / 1 month rent shortcuts (as in the main app); any other amount can be typed.
+  Widget _feePresets(TextEditingController c) => Padding(
+    padding: const EdgeInsets.only(top: 10),
+    child: Wrap(
+      spacing: 8,
+      children: [
+        ActionChip(label: const Text('½ month rent'), onPressed: () => setState(() => c.text = '${Tk2Listing.brokerageFor(_num(rent), 15)}')),
+        ActionChip(label: const Text('1 month rent'), onPressed: () => setState(() => c.text = '${_num(rent)}')),
+      ],
+    ),
+  );
 
   /// Tick box row for "Who can rent".
   Widget _box(String label, bool on) => CheckboxListTile(
@@ -529,7 +502,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
       if (v == null) return;
       setState(() {
         onChanged(v);
-        missing.removeAll(const ['maintenance', 'brokerage', 'date']);
+        missing.remove('maintenance');
       });
     },
   );
@@ -568,13 +541,13 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
     onChanged: (h) => onChanged(h ?? value),
   );
 
-  Widget _moneyField(TextEditingController c, String label, {bool autofocus = false, bool bad = false}) => TextField(
+  Widget _moneyField(TextEditingController c, String label, {bool autofocus = false, bool bad = false, bool filled = false}) => TextField(
     controller: c,
     autofocus: autofocus,
     keyboardType: TextInputType.number,
     inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(8)],
     onChanged: (_) => setState(() => missing.clear()),
-    decoration: InputDecoration(labelText: label, prefixText: '₹ ', enabledBorder: bad ? _redBorder : null, focusedBorder: bad ? _redBorder : null),
+    decoration: InputDecoration(labelText: label, prefixText: '₹ ', filled: filled, fillColor: Colors.white, enabledBorder: bad ? _redBorder : null, focusedBorder: bad ? _redBorder : null),
   );
 
   Widget _row({required IconData icon, required String title, required String value, required VoidCallback onTap}) => Material(
@@ -786,3 +759,162 @@ Future<void> showTk2Share(BuildContext context, Tk2Store store, Tk2Listing l) =>
     );
   },
 );
+
+/// Photos in 3 columns (up to 10). The first is the cover (blue border, "Cover").
+/// Tap ★ to make a photo the cover, or long-press and drag it to a new place;
+/// photos slide to their new places.
+class Tk2PhotoGrid extends StatefulWidget {
+  const Tk2PhotoGrid({required this.listing, required this.photos, required this.onChanged, this.onAdd, super.key});
+  final Tk2Listing listing;
+  final List<String> photos;
+  final ValueChanged<List<String>> onChanged;
+  final VoidCallback? onAdd;
+
+  @override
+  State<Tk2PhotoGrid> createState() => _Tk2PhotoGridState();
+}
+
+class _Tk2PhotoGridState extends State<Tk2PhotoGrid> {
+  String? dragging;
+
+  void _move(String path, int to) {
+    final next = [...widget.photos]..remove(path);
+    next.insert(to.clamp(0, next.length), path);
+    widget.onChanged(next);
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, c) {
+      const gap = 10.0;
+      final size = (c.maxWidth - gap * 2) / 3;
+      final photos = widget.photos;
+      final count = photos.length + (widget.onAdd != null ? 1 : 0);
+      final rows = (count / 3).ceil().clamp(1, 4);
+      Offset at(int i) => Offset((i % 3) * (size + gap), (i ~/ 3) * (size + gap));
+      return SizedBox(
+        height: rows * size + (rows - 1) * gap,
+        child: Stack(
+          children: [
+            for (var i = 0; i < photos.length; i++)
+              AnimatedPositioned(
+                key: ValueKey(photos[i]),
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutCubic,
+                left: at(i).dx,
+                top: at(i).dy,
+                width: size,
+                height: size,
+                child: DragTarget<String>(
+                  onWillAcceptWithDetails: (d) => d.data != photos[i],
+                  onAcceptWithDetails: (d) => _move(d.data, i),
+                  builder: (context, over, _) => LongPressDraggable<String>(
+                    data: photos[i],
+                    onDragStarted: () => setState(() => dragging = photos[i]),
+                    onDragEnd: (_) => setState(() => dragging = null),
+                    feedback: SizedBox(
+                      width: size,
+                      height: size,
+                      child: Opacity(opacity: 0.85, child: _tile(i, size, lifted: true)),
+                    ),
+                    childWhenDragging: Container(
+                      decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: AnimatedScale(scale: over.isNotEmpty ? 0.94 : 1, duration: const Duration(milliseconds: 150), child: _tile(i, size)),
+                  ),
+                ),
+              ),
+            if (widget.onAdd != null)
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutCubic,
+                left: at(photos.length).dx,
+                top: at(photos.length).dy,
+                width: size,
+                height: size,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: widget.onAdd,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.primaryBorder),
+                    ),
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_a_photo_outlined, color: AppColors.primaryDark),
+                        SizedBox(height: 6),
+                        Text(
+                          'Add photos',
+                          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    },
+  );
+
+  Widget _tile(int i, double size, {bool lifted = false}) {
+    final cover = i == 0;
+    return Material(
+      color: Colors.transparent,
+      elevation: lifted ? 8 : 0,
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cover ? AppColors.primary : Colors.transparent, width: 3),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Tk2Photo(
+              listing: widget.listing.copyWith(photos: widget.photos),
+              index: i,
+              height: size,
+              radius: 13,
+              compact: true,
+            ),
+            if (cover)
+              const Positioned(left: 6, bottom: 6, child: Tk2Pill('Cover', kind: 'dark'))
+            else
+              Positioned(
+                left: 4,
+                bottom: 4,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => _move(widget.photos[i], 0),
+                  child: const CircleAvatar(
+                    radius: 14,
+                    backgroundColor: Color(0xCC172231),
+                    child: Icon(Icons.star_border_rounded, size: 18, color: Colors.white),
+                  ),
+                ),
+              ),
+            Positioned(
+              right: 4,
+              top: 4,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => widget.onChanged([...widget.photos]..removeAt(i)),
+                child: const CircleAvatar(
+                  radius: 13,
+                  backgroundColor: Color(0xCC172231),
+                  child: Icon(Icons.close, size: 15, color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

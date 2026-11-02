@@ -21,6 +21,8 @@ class Tk2Listing {
     this.deposit = 0,
     this.brokerage = 0,
     this.brokerageDays = 0,
+    this.brokeragePayer = 'None',
+    this.ownerBrokerage = 0,
     this.visitDays = 'all',
     this.visitFrom = 7,
     this.visitTo = 23,
@@ -96,8 +98,21 @@ class Tk2Listing {
   /// Brokerage as part of rent: 15 = half month, 30 = one month; 0 = fixed amount (or none).
   final int brokerageDays;
 
+  /// Who pays the broker: Owner · Tenant · Both · None (same as the main app).
+  final String brokeragePayer;
+
+  /// Owner's part, in ₹. Private: never shown to customers. [brokerage] is the tenant's part.
+  final int ownerBrokerage;
+
   /// Brokerage for these days of rent, in ₹ (rent × days ÷ 30).
   static int brokerageFor(int rent, int days) => (rent * days / 30).round();
+
+  /// 15 or 30 when the tenant's brokerage is half or one month rent, else 0.
+  static int daysFor(int rent, int amount) => rent > 0 && amount == rent
+      ? 30
+      : rent > 0 && amount == brokerageFor(rent, 15)
+      ? 15
+      : 0;
 
   /// Visit days: 'all' · 'weekdays' (Mon–Fri) · 'weekends' (Sat, Sun).
   final String visitDays;
@@ -175,6 +190,8 @@ class Tk2Listing {
     int? deposit,
     int? brokerage,
     int? brokerageDays,
+    String? brokeragePayer,
+    int? ownerBrokerage,
     String? visitDays,
     int? visitFrom,
     int? visitTo,
@@ -199,6 +216,8 @@ class Tk2Listing {
     deposit: deposit ?? this.deposit,
     brokerage: brokerage ?? this.brokerage,
     brokerageDays: brokerageDays ?? this.brokerageDays,
+    brokeragePayer: brokeragePayer ?? this.brokeragePayer,
+    ownerBrokerage: ownerBrokerage ?? this.ownerBrokerage,
     visitDays: visitDays ?? this.visitDays,
     visitFrom: visitFrom ?? this.visitFrom,
     visitTo: visitTo ?? this.visitTo,
@@ -227,6 +246,8 @@ class Tk2Listing {
     'deposit': deposit,
     'brokerage': brokerage,
     'brokerageDays': brokerageDays,
+    'brokeragePayer': brokeragePayer,
+    'ownerBrokerage': ownerBrokerage,
     'visitDays': visitDays,
     'visitFrom': visitFrom,
     'visitTo': visitTo,
@@ -254,6 +275,8 @@ class Tk2Listing {
     deposit: (json['deposit'] as num?)?.toInt() ?? 0,
     brokerage: (json['brokerage'] as num?)?.toInt() ?? 0,
     brokerageDays: (json['brokerageDays'] as num?)?.toInt() ?? 0,
+    brokeragePayer: json['brokeragePayer'] as String? ?? ((json['brokerage'] as num? ?? 0) > 0 ? 'Tenant' : 'None'),
+    ownerBrokerage: (json['ownerBrokerage'] as num?)?.toInt() ?? 0,
     visitDays: json['visitDays'] as String? ?? 'all',
     visitFrom: (json['visitFrom'] as num?)?.toInt() ?? 7,
     visitTo: (json['visitTo'] as num?)?.toInt() ?? 23,

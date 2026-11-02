@@ -49,7 +49,12 @@ class Tk2Pill extends StatelessWidget {
         children: [
           if (icon != null) ...[Icon(icon, size: 14, color: fg), const SizedBox(width: 4)],
           Flexible(
-            child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: fg)),
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: fg),
+            ),
           ),
         ],
       ),
@@ -71,42 +76,65 @@ class Tk2Photo extends StatelessWidget {
     final path = index < listing.photos.length ? listing.photos[index] : null;
     final file = path == null ? null : File(path);
     Widget fallback() => compact
-        ? Container(
-            color: AppColors.primarySoft,
-            alignment: Alignment.center,
-            child: const HomeIcon('house', size: 28),
-          )
+        ? Container(color: AppColors.primarySoft, alignment: Alignment.center, child: const HomeIcon('house', size: 28))
         : Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFEAF0FF), Color(0xFFDCE5F6)],
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-              child: const Icon(Icons.home_work_outlined, size: 32, color: AppColors.primaryDark),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFEAF0FF), Color(0xFFDCE5F6)]),
             ),
-            const SizedBox(height: 8),
-            Text(listing.property.rooms, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
-          ],
-        ),
-      ),
-    );
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                    child: const Icon(Icons.home_work_outlined, size: 32, color: AppColors.primaryDark),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    listing.property.rooms,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
+                  ),
+                ],
+              ),
+            ),
+          );
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: SizedBox(
         height: height,
         width: double.infinity,
         child: file != null && file.existsSync()
-            ? Image.file(file, fit: BoxFit.cover, errorBuilder: (context, error, stack) => fallback())
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.file(file, fit: BoxFit.cover, cacheWidth: 900, errorBuilder: (context, error, stack) => fallback()),
+                  // Light TrustKeeper watermark on every uploaded photo.
+                  IgnorePointer(
+                    child: Center(
+                      child: Transform.rotate(
+                        angle: -0.35,
+                        child: FittedBox(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(
+                              'TrustKeeper',
+                              style: TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1,
+                                color: Colors.white.withValues(alpha: 0.32),
+                                shadows: [Shadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 4)],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              )
             : fallback(),
       ),
     );
@@ -164,7 +192,10 @@ class Tk2PropertyCard extends StatelessWidget {
     const small = TextStyle(fontSize: 13.5, height: 18 / 13.5, color: AppColors.muted);
     return Material(
       color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: AppColors.border)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: AppColors.border),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onOpen,
@@ -193,34 +224,22 @@ class Tk2PropertyCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Text(l.rentLine, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.5, height: 20 / 14.5, fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
+                    Text(
+                      l.rentLine,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14.5, height: 20 / 14.5, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
+                    ),
                     const SizedBox(height: 2),
-                    Text(
-                      [if (p.sizeSqFt != null) '${p.sizeSqFt!.toStringAsFixed(0)} sft', l.furnishingText].join(' · '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: small,
-                    ),
-                    Text(
-                      '${l.rules} · ${l.availableFrom.isEmpty ? 'Available now' : 'From ${tk2Date(l.availableFrom)}'}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: small,
-                    ),
-                    if (visits > 0) ...[
-                      const SizedBox(height: 4),
-                      Tk2Pill('$visits visit${visits == 1 ? '' : 's'} booked', kind: 'ok'),
-                    ],
+                    Text([if (p.sizeSqFt != null) '${p.sizeSqFt!.toStringAsFixed(0)} sft', l.furnishingText].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: small),
+                    Text('${l.rules} · ${l.availableFrom.isEmpty ? 'Available now' : 'From ${tk2Date(l.availableFrom)}'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: small),
+                    if (visits > 0) ...[const SizedBox(height: 4), Tk2Pill('$visits visit${visits == 1 ? '' : 's'} booked', kind: 'ok')],
                   ],
                 ),
               ),
               SizedBox.square(
                 dimension: 40,
-                child: IconButton(
-                  tooltip: 'Share',
-                  onPressed: onShare,
-                  icon: tk2WhatsAppLogo(size: 22),
-                ),
+                child: IconButton(tooltip: 'Share', onPressed: onShare, icon: tk2WhatsAppLogo(size: 22)),
               ),
             ],
           ),
@@ -265,10 +284,16 @@ class Tk2Title extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(title, style: const TextStyle(fontSize: 28, height: 34 / 28, fontWeight: FontWeight.w700, color: AppColors.heading)),
+      Text(
+        title,
+        style: const TextStyle(fontSize: 28, height: 34 / 28, fontWeight: FontWeight.w700, color: AppColors.heading),
+      ),
       if (subtitle != null) ...[
         const SizedBox(height: 6),
-        Text(subtitle!, style: const TextStyle(fontSize: 16.5, height: 23 / 16.5, color: AppColors.muted)),
+        Text(
+          subtitle!,
+          style: const TextStyle(fontSize: 16.5, height: 23 / 16.5, color: AppColors.muted),
+        ),
       ],
     ],
   );

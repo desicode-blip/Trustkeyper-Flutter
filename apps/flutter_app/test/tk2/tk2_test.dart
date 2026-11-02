@@ -142,6 +142,18 @@ void main() {
       expect(jsonEncode(tk2PublicPayload(l, 'S')), isNot(contains('9B')));
     });
 
+    test('brokerage: owner part stays private, tenant part is public', () {
+      final l = Tk2Listing.example.copyWith(brokeragePayer: 'Both', ownerBrokerage: 12345, brokerage: 16000);
+      expect(jsonEncode(tk2PublicPayload(l, 'S')), isNot(contains('12345')));
+      expect(Tk2Listing.fromJson(l.toJson()).ownerBrokerage, 12345);
+      expect(Tk2Listing.daysFor(32000, 32000), 30);
+      expect(Tk2Listing.daysFor(32000, 16000), 15);
+      expect(Tk2Listing.daysFor(32000, 5000), 0);
+      // Old saves without a payer: tenant paid if there was an amount.
+      final old = l.toJson()..remove('brokeragePayer');
+      expect(Tk2Listing.fromJson(old).brokeragePayer, 'Tenant');
+    });
+
     test('card heading is never empty (old properties without society)', () {
       final old = Tk2Listing(id: 'x', property: BrokerProperty(id: 'x', name: 'Green Villa', address: '', rooms: '2.5 BHK', floor: 1, totalFloors: 2, furnishing: 'Semi'));
       // Never the broker's own label ("Green Villa"); falls back to rooms.
