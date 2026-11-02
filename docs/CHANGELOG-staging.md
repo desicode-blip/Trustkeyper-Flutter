@@ -1007,3 +1007,18 @@ files: lib/src/tk2/{tk2_app,tk2_store,tk2_widgets,tk2_listing,tk2_customer}.dart
 verification: flutter analyze clean; test/tk2 6/6; full suite 39 old failures (unchanged)
 install (Mac only): bundle id com.trustkeyper.tk2, FLUTTER_TARGET=lib/main_tk2.dart, entitlements off (no push/App Attest) so the team wildcard profile signs it
 ```
+
+## Change 60 – TrustKeeper 2: private details hidden from tenants, 4 card/page designs, visit fee ₹0–500
+Date: 2026-11-02 · Status: code complete; installed on Aman's iPhone
+- Customers (shared message, link page, booking) now see only: rooms · society, area, rent, facts. Door number, full address, owner name/phone, keys and a note live in a broker-only "Complete address and details" block with a green lock banner ("Only you can see this. It is never shared with tenants").
+- Rent screen: "Customers see" (society, area) and the private block (door, owner, phone, keys, note).
+- Home shows 4 designs one under the other – A Classic row, B Wide photo, C Price first, D Ticket – each with soft shadow, icons, no WhatsApp/arrow; each opens its own property page design (A icon tiles · B tabs "Customers see / Only you" · C rent card + grouped sections · D grey page with grouped rows).
+- Visit fee: type any amount ₹0–500; 0 = free visit (no payment step).
+```
+AGENT RECORD – Change 60
+id: CHG-060
+date: 2026-11-02
+branch: staging (never main)
+files: lib/src/tk2/tk2_designs.dart (new), tk2_store.dart (society, locality, door, ownerName, ownerPhone, keys, note, publicTitle, fullAddress, feeText, maxVisitFee), tk2_listing.dart (form; old detail removed), tk2_customer.dart (public fields, free visit), tk2_app.dart (/p/:id?d=), tk2_widgets.dart, test/tk2/tk2_test.dart
+verification: flutter analyze clean; test/tk2 8/8 (incl. door/owner never in share text or customer view; all 4 pages open)
+```

@@ -48,6 +48,17 @@ void main() {
       expect(b.shareText(b.listings.single), contains('https://trustkeyper.com/v/'));
     });
 
+    test('share text hides door and owner; fee 0 means free', () async {
+      final store = Tk2Store.forTest();
+      await store.load();
+      final text = store.shareText(Tk2Listing.example);
+      expect(text, contains('Sri Sai Residency'));
+      expect(text, isNot(contains('Flat 402')));
+      expect(text, isNot(contains('90000')));
+      expect(Tk2Listing.example.copyWith(visitFee: 0).feeText, 'Free');
+      expect(store.shareText(Tk2Listing.example.copyWith(visitFee: 0)), contains('(free)'));
+    });
+
     test('money in Indian style', () {
       expect(Tk2Store.money(150), '₹150');
       expect(Tk2Store.money(32000), '₹32,000');
@@ -70,16 +81,22 @@ void main() {
 
     expect(find.text('Namaste, Suresh'), findsOneWidget);
     expect(find.text('Add property'), findsOneWidget);
-    expect(find.text('Example'), findsOneWidget);
-    expect(find.text('2 BHK · Flat 402, Madhapur'), findsOneWidget);
+    expect(find.text('Example'), findsNWidgets(4));
+    // 4 designs of the same example; the door number never shows on cards.
+    expect(find.text('2 BHK · Sri Sai Residency'), findsNWidgets(3));
+    expect(find.textContaining('Flat 402'), findsNothing);
     expect(find.text('₹32,000 + ₹3,000 maintenance'), findsOneWidget);
-    expect(find.textContaining('Family only · No pets'), findsOneWidget);
 
-    await tester.tap(find.text('2 BHK · Flat 402, Madhapur'));
+    await tester.tap(find.text('2 BHK · Sri Sai Residency').first);
+    await tester.pumpAndSettle();
+    // Broker-only block is on the page, with the banner.
+    await tester.scrollUntilVisible(find.text('Complete address and details'), 300, scrollable: find.byType(Scrollable).first);
+    expect(find.textContaining('Flat 402'), findsOneWidget);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Customer view'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Customer view ·'), findsOneWidget);
+    expect(find.textContaining('Flat 402'), findsNothing);
     await tester.tap(find.text('Book a visit · ₹150'));
     await tester.pumpAndSettle();
 
@@ -136,5 +153,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.brokerName, 'Suresh Kumar');
     expect(find.text('Namaste, Suresh'), findsOneWidget);
+  });
+
+  testWidgets('all 4 property page designs open, each with the private block', (tester) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final store = Tk2Store.forTest();
+    await store.load();
+    await store.setBroker('Suresh', '+91 9876543210');
+    for (final d in ['a', 'b', 'c', 'd']) {
+      final router = buildTk2Router(store)..go('/p/sample?d=$d');
+      await tester.pumpWidget(MaterialApp.router(key: ValueKey(d), routerConfig: router));
+      await tester.pumpAndSettle();
+      if (d == 'b') {
+        await tester.tap(find.text('Only you'));
+        await tester.pumpAndSettle();
+      }
+      await tester.scrollUntilVisible(find.text('Complete address and details'), 300, scrollable: find.byType(Scrollable).first);
+      expect(find.text('Complete address and details'), findsOneWidget, reason: 'design $d');
+    }
   });
 }

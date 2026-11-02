@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/widgets/primary_button.dart';
+import 'tk2_designs.dart';
 import 'tk2_store.dart';
 import 'tk2_widgets.dart';
 
@@ -25,7 +26,15 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   late final rent = TextEditingController(text: (start?.rent ?? 0) > 0 ? '${start!.rent}' : '');
   late final deposit = TextEditingController(text: (start?.deposit ?? 0) > 0 ? '${start!.deposit}' : '');
   late String availableFrom = start?.availableFrom ?? '';
-  late int fee = start?.visitFee ?? 150;
+  late final fee = TextEditingController(text: '${start?.visitFee ?? 150}');
+  late final society = TextEditingController(text: start?.society ?? '');
+  late final locality = TextEditingController(text: start?.locality ?? '');
+  late final door = TextEditingController(text: start?.door ?? '');
+  late final ownerName = TextEditingController(text: start?.ownerName ?? '');
+  late final ownerPhone = TextEditingController(text: start?.ownerPhone ?? '');
+  late final note = TextEditingController(text: start?.note ?? '');
+  late String keys = start?.keys ?? '';
+  String? feeError;
   late final maintenance = TextEditingController(text: (start?.maintenance ?? 0) > 0 ? '${start!.maintenance}' : '');
   late bool included = start?.maintenanceIncluded ?? true;
   late String tenants = start?.tenants ?? 'Anyone';
@@ -39,6 +48,9 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
     rent.dispose();
     deposit.dispose();
     maintenance.dispose();
+    for (final c in [fee, society, locality, door, ownerName, ownerPhone, note]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -73,12 +85,20 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   Future<void> _save() async {
     final l = start;
     if (l == null) return;
+    if (society.text.trim().isEmpty && locality.text.trim().isEmpty) {
+      setState(() => error = 'Type the society or the area');
+      return;
+    }
     if (_num(rent) <= 0) {
       setState(() => error = 'Type the monthly rent');
       return;
     }
+    if (_num(fee) > Tk2Listing.maxVisitFee) {
+      setState(() => feeError = 'Visit fee can be up to ₹${Tk2Listing.maxVisitFee}');
+      return;
+    }
     setState(() => saving = true);
-    await widget.store.saveListing(l.copyWith(rent: _num(rent), deposit: _num(deposit), availableFrom: availableFrom, photos: photos, visitFee: fee, maintenance: included ? 0 : _num(maintenance), maintenanceIncluded: included, tenants: tenants, pets: pets));
+    await widget.store.saveListing(l.copyWith(rent: _num(rent), deposit: _num(deposit), availableFrom: availableFrom, photos: photos, visitFee: _num(fee), society: society.text.trim(), locality: locality.text.trim(), door: door.text.trim(), ownerName: ownerName.text.trim(), ownerPhone: ownerPhone.text.trim(), keys: keys, note: note.text.trim(), maintenance: included ? 0 : _num(maintenance), maintenanceIncluded: included, tenants: tenants, pets: pets));
     if (!mounted) return;
     if (widget.isNew) {
       context.go('/home');
@@ -99,7 +119,12 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
         padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
         children: [
           Tk2Appear(child: Tk2Title(widget.isNew ? 'Rent and details' : 'Edit rent and details', subtitle: l.name)),
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
+          _label('Customers see'),
+          _text(society, 'Society / building name', Icons.apartment_outlined),
+          const SizedBox(height: 12),
+          _text(locality, 'Area, city', Icons.place_outlined),
+          const SizedBox(height: 16),
           Tk2Appear(
             index: 1,
             child: Row(
@@ -163,17 +188,19 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
               children: [
                 const Text('Visit fee', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading)),
                 const SizedBox(height: 4),
-                const Text('The customer pays this to book. You get it after the visit. If the visit does not happen, they get it back.', style: TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted)),
+                const Text('The customer pays this to book. You get it after the visit. If the visit does not happen, they get it back. Leave 0 for free.', style: TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted)),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    for (final f in const [100, 150, 200]) ...[
-                      Expanded(
-                        child: _feeChip(f),
-                      ),
-                      if (f != 200) const SizedBox(width: 10),
-                    ],
-                  ],
+                TextField(
+                  controller: fee,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
+                  onChanged: (_) => setState(() => feeError = _num(fee) > Tk2Listing.maxVisitFee ? 'Visit fee can be up to ₹${Tk2Listing.maxVisitFee}' : null),
+                  decoration: InputDecoration(
+                    labelText: 'Visit fee',
+                    prefixText: '₹ ',
+                    helperText: _num(fee) == 0 ? 'Free visit – customers book without paying' : 'Up to ₹${Tk2Listing.maxVisitFee}. Type 0 for a free visit.',
+                    errorText: feeError,
+                  ),
                 ),
               ],
             ),
@@ -240,6 +267,26 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
               ],
             ),
           ),
+          const SizedBox(height: 28),
+          const Tk2PrivateBanner(),
+          const SizedBox(height: 14),
+          _text(door, 'Flat / door number', Icons.door_front_door_outlined),
+          const SizedBox(height: 12),
+          _text(ownerName, 'Owner name', Icons.person_outline),
+          const SizedBox(height: 12),
+          _text(ownerPhone, 'Owner phone', Icons.call_outlined, phone: true),
+          const SizedBox(height: 16),
+          _label('Keys'),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final k in Tk2Listing.keyChoices)
+                ChoiceChip(label: Text(k), selected: keys == k, onSelected: (_) => setState(() => keys = keys == k ? '' : k)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _text(note, 'Note for yourself', Icons.sticky_note_2_outlined),
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -256,6 +303,14 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
     child: Text(t, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
   );
 
+  Widget _text(TextEditingController c, String label, IconData icon, {bool phone = false}) => TextField(
+    controller: c,
+    keyboardType: phone ? TextInputType.phone : TextInputType.text,
+    textCapitalization: phone ? TextCapitalization.none : TextCapitalization.words,
+    onChanged: (_) => setState(() => error = null),
+    decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
+  );
+
   Widget _moneyField(TextEditingController c, String label, {bool autofocus = false}) => TextField(
     controller: c,
     autofocus: autofocus,
@@ -264,26 +319,6 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
     onChanged: (_) => setState(() => error = null),
     decoration: InputDecoration(labelText: label, prefixText: '₹ '),
   );
-
-  Widget _feeChip(int f) {
-    final on = fee == f;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      height: 52,
-      decoration: BoxDecoration(
-        color: on ? AppColors.primary : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: on ? AppColors.primary : AppColors.border, width: 1.5),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => setState(() => fee = f),
-        child: Center(
-          child: Text(Tk2Store.money(f), style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: on ? Colors.white : AppColors.heading)),
-        ),
-      ),
-    );
-  }
 
   Widget _row({required IconData icon, required String title, required String value, required VoidCallback onTap}) => Material(
     color: Colors.white,
@@ -315,267 +350,6 @@ class Tk2Missing extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(),
     body: const Center(child: Text('This property is not here any more.', style: TextStyle(fontSize: 16, color: AppColors.muted))),
-  );
-}
-
-/// One property, full view for the broker.
-class Tk2PropertyDetail extends StatefulWidget {
-  const Tk2PropertyDetail({required this.store, required this.id, super.key});
-  final Tk2Store store;
-  final String id;
-
-  @override
-  State<Tk2PropertyDetail> createState() => _Tk2PropertyDetailState();
-}
-
-class _Tk2PropertyDetailState extends State<Tk2PropertyDetail> {
-  int page = 0;
-
-  Future<void> _remove(Tk2Listing l) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (d) => AlertDialog(
-        title: const Text('Remove this property?'),
-        content: Text('${l.name} will be removed from your list.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Keep')),
-          TextButton(onPressed: () => Navigator.pop(d, true), style: TextButton.styleFrom(foregroundColor: AppColors.error), child: const Text('Remove')),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    await widget.store.removeListing(l.id);
-    if (mounted) context.pop();
-  }
-
-  @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: widget.store,
-    builder: (context, _) {
-      final store = widget.store;
-      final l = store.listing(widget.id);
-      if (l == null) return const Tk2Missing();
-      final p = l.property;
-      final visits = store.visitsFor(l.id);
-      final photoCount = l.photos.isEmpty ? 1 : l.photos.length;
-      final things = [for (final e in p.inventory.entries) if (e.value > 0) '${e.value} ${e.key}${e.value == 1 ? '' : 's'}'];
-      final facts = <(IconData, String, String)>[
-        (Icons.bed_outlined, 'Rooms', p.rooms),
-        (Icons.chair_outlined, 'Furnishing', l.furnishingText),
-        if (p.sizeSqFt != null) (Icons.square_foot, 'Size', '${p.sizeSqFt!.toStringAsFixed(0)} sft'),
-        if (p.floor > 0) (Icons.layers_outlined, 'Floor', p.totalFloors > 0 ? '${p.floor} of ${p.totalFloors}' : '${p.floor}'),
-        if ((p.facing ?? '').isNotEmpty) (Icons.explore_outlined, 'Facing', p.facing!),
-        if (p.carParking + p.bikeParking > 0) (Icons.local_parking, 'Parking', [if (p.carParking > 0) '${p.carParking} car', if (p.bikeParking > 0) '${p.bikeParking} bike'].join(' · ')),
-        (Icons.event_outlined, 'Available', l.availableFrom.isEmpty ? 'Now' : tk2Date(l.availableFrom)),
-        (Icons.people_outline, 'For', l.tenants == 'Anyone' ? 'Family or bachelors' : l.tenants),
-        (Icons.pets_outlined, 'Pets', l.pets ? 'Allowed' : 'Not allowed'),
-      ];
-      return Scaffold(
-        backgroundColor: Colors.white,
-        body: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              pinned: true,
-              expandedHeight: 300,
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              leading: Padding(
-                padding: const EdgeInsets.all(6),
-                child: CircleAvatar(backgroundColor: Colors.white, child: BackButton(color: AppColors.heading, onPressed: () => context.canPop() ? context.pop() : context.go('/home'))),
-              ),
-              actions: [
-                if (!l.sample)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: CircleAvatar(
-                      backgroundColor: Colors.white,
-                      child: PopupMenuButton<String>(
-                        icon: const Icon(Icons.more_horiz, color: AppColors.heading),
-                        onSelected: (v) => switch (v) {
-                          'facts' => context.push('/edit/${l.id}'),
-                          'rent' => context.push('/listing/${l.id}'),
-                          _ => _remove(l),
-                        },
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(value: 'rent', child: Text('Edit rent and photos')),
-                          PopupMenuItem(value: 'facts', child: Text('Edit house details')),
-                          PopupMenuItem(value: 'remove', child: Text('Remove property', style: TextStyle(color: AppColors.error))),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-              flexibleSpace: FlexibleSpaceBar(
-                background: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Hero(
-                      tag: 'photo-${l.id}',
-                      child: PageView.builder(
-                        itemCount: photoCount,
-                        onPageChanged: (i) => setState(() => page = i),
-                        itemBuilder: (context, i) => Tk2Photo(listing: l, index: i, height: 340, radius: 0),
-                      ),
-                    ),
-                    if (photoCount > 1)
-                      Positioned(
-                        bottom: 14,
-                        left: 0,
-                        right: 0,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            for (var i = 0; i < photoCount; i++)
-                              AnimatedContainer(
-                                duration: const Duration(milliseconds: 220),
-                                margin: const EdgeInsets.symmetric(horizontal: 3),
-                                width: i == page ? 18 : 7,
-                                height: 7,
-                                decoration: BoxDecoration(color: i == page ? Colors.white : Colors.white70, borderRadius: BorderRadius.circular(4)),
-                              ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-              sliver: SliverList.list(
-                children: [
-                  if (l.sample) const Tk2Appear(child: Align(alignment: Alignment.centerLeft, child: Tk2Pill('Example property', kind: 'info'))),
-                  if (l.sample) const SizedBox(height: 10),
-                  Tk2Appear(child: Tk2Title(l.name, subtitle: p.address.trim().isEmpty || p.address.trim() == l.name ? null : p.address)),
-                  const SizedBox(height: 16),
-                  Tk2Appear(
-                    index: 1,
-                    child: Row(
-                      children: [
-                        _money(l.hasRent ? Tk2Store.money(l.rent) : '—', l.maintenanceIncluded || l.maintenance == 0 ? 'Rent incl. maint.' : '+ ${Tk2Store.money(l.maintenance)} maint.'),
-                        const SizedBox(width: 10),
-                        _money(l.deposit > 0 ? Tk2Store.money(l.deposit) : '—', 'Deposit'),
-                        const SizedBox(width: 10),
-                        _money(Tk2Store.money(l.visitFee), 'Visit fee'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Tk2Appear(
-                    index: 2,
-                    child: Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [for (final f in facts) _fact(f.$1, f.$2, f.$3)],
-                    ),
-                  ),
-                  if (things.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    const Text('What is in the house', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading)),
-                    const SizedBox(height: 10),
-                    Wrap(spacing: 6, runSpacing: 6, children: [for (final t in things) Tk2Pill(t)]),
-                  ],
-                  const SizedBox(height: 28),
-                  Row(
-                    children: [
-                      const Expanded(child: Text('Visits', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading))),
-                      if (visits.isNotEmpty) Text('${visits.length}', style: const TextStyle(color: AppColors.muted)),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  if (visits.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(16)),
-                      child: Text(
-                        l.sample ? 'Try it: open Customer view and book a visit as a customer.' : 'No visits yet. Share this property and customers can book.',
-                        style: const TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted),
-                      ),
-                    )
-                  else
-                    for (final v in visits) Padding(padding: const EdgeInsets.only(bottom: 10), child: Tk2VisitRow(visit: v, store: store)),
-                ],
-              ),
-            ),
-          ],
-        ),
-        bottomNavigationBar: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 54,
-                    child: OutlinedButton.icon(
-                      onPressed: () => context.push('/customer/${l.id}'),
-                      icon: const Icon(Icons.visibility_outlined, size: 20),
-                      label: const Text('Customer view'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primaryDark,
-                        side: const BorderSide(color: AppColors.border),
-                        shape: const StadiumBorder(),
-                        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: SizedBox(
-                    height: 54,
-                    child: FilledButton.icon(
-                      onPressed: () => showTk2Share(context, store, l),
-                      icon: tk2WhatsAppLogo(size: 20),
-                      label: const Text('Share'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: const StadiumBorder(),
-                        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    },
-  );
-
-  Widget _money(String value, String label) => Expanded(
-    child: Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
-      decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(16)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.heading)),
-          const SizedBox(height: 2),
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
-        ],
-      ),
-    ),
-  );
-
-  Widget _fact(IconData icon, String label, String value) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 18, color: AppColors.primaryDark),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-            Text(value, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.heading)),
-          ],
-        ),
-      ],
-    ),
   );
 }
 

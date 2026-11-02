@@ -60,7 +60,7 @@ class Tk2CustomerPage extends StatelessWidget {
         children: [
           Tk2Appear(child: _Gallery(listing: l)),
           const SizedBox(height: 18),
-          Tk2Appear(index: 1, child: Tk2Title(l.name, subtitle: p.address.trim().isEmpty || p.address.trim() == l.name ? null : p.address)),
+          Tk2Appear(index: 1, child: Tk2Title(l.publicTitle, subtitle: l.area.isEmpty ? null : l.area)),
           const SizedBox(height: 14),
           Tk2Appear(
             index: 2,
@@ -106,7 +106,7 @@ class Tk2CustomerPage extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Book a visit for ${Tk2Store.money(l.visitFee)}. TrustKeeper keeps it safe and gives it to the broker only after your visit. If the visit does not happen, you get it back.',
+                      l.visitFee == 0 ? 'Booking a visit is free. Pick a time and the broker will call you.' : 'Book a visit for ${Tk2Store.money(l.visitFee)}. TrustKeeper keeps it safe and gives it to the broker only after your visit. If the visit does not happen, you get it back.',
                       style: const TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.primaryDark),
                     ),
                   ),
@@ -137,7 +137,7 @@ class Tk2CustomerPage extends StatelessWidget {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-          child: PrimaryButton(label: 'Book a visit · ${Tk2Store.money(l.visitFee)}', onPressed: () => context.push('/customer/${l.id}/book')),
+          child: PrimaryButton(label: 'Book a visit · ${l.feeText}', onPressed: () => context.push('/customer/${l.id}/book')),
         ),
       ),
     );
@@ -209,7 +209,7 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
     if (name.text.trim().length < 2) return setState(() => error = 'Type your name');
     if (digits.length != 10) return setState(() => error = 'Type your 10 digit phone number');
     FocusScope.of(context).unfocus();
-    final paid = await showModalBottomSheet<bool>(
+    final paid = l.visitFee == 0 ? true : await showModalBottomSheet<bool>(
       context: context,
       showDragHandle: true,
       backgroundColor: Colors.white,
@@ -223,7 +223,7 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
               const Text('Pay visit fee', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
               const SizedBox(height: 16),
               _line('Visit', '${tk2Day(day!)}, ${tk2Time(DateTime(2000, 1, 1, hour!))}'),
-              _line('Property', l.name),
+              _line('Property', l.publicTitle),
               _line('Fee', Tk2Store.money(l.visitFee), bold: true),
               const SizedBox(height: 12),
               Container(
@@ -271,7 +271,7 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         children: [
-          Tk2Appear(child: Tk2Title('Book a visit', subtitle: l.name)),
+          Tk2Appear(child: Tk2Title('Book a visit', subtitle: l.publicTitle)),
           const SizedBox(height: 24),
           const Text('Day', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading)),
           const SizedBox(height: 10),
@@ -365,7 +365,7 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-          child: PrimaryButton(label: 'Pay ${Tk2Store.money(l.visitFee)} and book', loading: paying, onPressed: paying ? null : () => _pay(l)),
+          child: PrimaryButton(label: l.visitFee == 0 ? 'Book visit' : 'Pay ${Tk2Store.money(l.visitFee)} and book', loading: paying, onPressed: paying ? null : () => _pay(l)),
         ),
       ),
     );
@@ -413,7 +413,7 @@ class Tk2Booked extends StatelessWidget {
             const SizedBox(height: 6),
             Tk2Appear(
               index: 1,
-              child: Text('${l?.name ?? 'Property'}\n${tk2Day(at)}, ${tk2Time(at)}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16.5, height: 24 / 16.5, color: AppColors.muted)),
+              child: Text('${l?.publicTitle ?? 'Property'}\n${tk2Day(at)}, ${tk2Time(at)}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16.5, height: 24 / 16.5, color: AppColors.muted)),
             ),
             const SizedBox(height: 28),
             Tk2Appear(
@@ -435,7 +435,9 @@ class Tk2Booked extends StatelessWidget {
             const SizedBox(height: 18),
             Tk2Appear(
               index: 3,
-              child: Column(
+              child: v.fee == 0
+                  ? _step(Icons.call_outlined, 'The broker will call you before the visit.')
+                  : Column(
                 children: [
                   _step(Icons.lock_outline, '${Tk2Store.money(v.fee)} is kept safe with TrustKeeper.'),
                   _step(Icons.handshake_outlined, 'After the visit, the broker gets it.'),

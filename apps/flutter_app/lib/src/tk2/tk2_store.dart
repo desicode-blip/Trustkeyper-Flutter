@@ -27,7 +27,41 @@ class Tk2Listing {
     this.maintenanceIncluded = true,
     this.tenants = 'Anyone',
     this.pets = true,
+    this.society = '',
+    this.locality = '',
+    this.door = '',
+    this.ownerName = '',
+    this.ownerPhone = '',
+    this.keys = '',
+    this.note = '',
   });
+
+  // Shown to customers.
+  final String society;
+  final String locality;
+
+  // Broker only – never in the shared message or customer page.
+  final String door;
+  final String ownerName;
+  final String ownerPhone;
+
+  /// With me · With owner · With security · Lockbox
+  final String keys;
+  final String note;
+
+  static const maxVisitFee = 500;
+  static const keyChoices = ['With me', 'With owner', 'With security', 'Lockbox'];
+
+  /// What customers see as the title: "2 BHK · Sri Sai Residency".
+  String get publicTitle => [property.rooms, if (society.trim().isNotEmpty) society.trim() else if (locality.trim().isNotEmpty) locality.trim()].join(' · ');
+
+  /// "Madhapur, Hyderabad" style area line (no door number).
+  String get area => locality.trim();
+
+  /// Full address for the broker: door + saved address.
+  String get fullAddress => [if (door.trim().isNotEmpty) door.trim(), if (society.trim().isNotEmpty) society.trim(), if (property.address.trim().isNotEmpty) property.address.trim()].join(', ');
+
+  String get feeText => visitFee == 0 ? 'Free' : Tk2Store.money(visitFee);
 
   /// Monthly maintenance; 0 with [maintenanceIncluded] = included in rent.
   final int maintenance;
@@ -69,6 +103,13 @@ class Tk2Listing {
     bool? maintenanceIncluded,
     String? tenants,
     bool? pets,
+    String? society,
+    String? locality,
+    String? door,
+    String? ownerName,
+    String? ownerPhone,
+    String? keys,
+    String? note,
   }) => Tk2Listing(
     id: id,
     property: property ?? this.property,
@@ -83,6 +124,13 @@ class Tk2Listing {
     maintenanceIncluded: maintenanceIncluded ?? this.maintenanceIncluded,
     tenants: tenants ?? this.tenants,
     pets: pets ?? this.pets,
+    society: society ?? this.society,
+    locality: locality ?? this.locality,
+    door: door ?? this.door,
+    ownerName: ownerName ?? this.ownerName,
+    ownerPhone: ownerPhone ?? this.ownerPhone,
+    keys: keys ?? this.keys,
+    note: note ?? this.note,
   );
 
   Map<String, Object?> toJson() => {
@@ -98,6 +146,13 @@ class Tk2Listing {
     'maintenanceIncluded': maintenanceIncluded,
     'tenants': tenants,
     'pets': pets,
+    'society': society,
+    'locality': locality,
+    'door': door,
+    'ownerName': ownerName,
+    'ownerPhone': ownerPhone,
+    'keys': keys,
+    'note': note,
   };
 
   factory Tk2Listing.fromJson(Map<String, dynamic> json) => Tk2Listing(
@@ -116,6 +171,13 @@ class Tk2Listing {
     maintenanceIncluded: json['maintenanceIncluded'] as bool? ?? true,
     tenants: json['tenants'] as String? ?? 'Anyone',
     pets: json['pets'] as bool? ?? true,
+    society: json['society'] as String? ?? '',
+    locality: json['locality'] as String? ?? '',
+    door: json['door'] as String? ?? '',
+    ownerName: json['ownerName'] as String? ?? '',
+    ownerPhone: json['ownerPhone'] as String? ?? '',
+    keys: json['keys'] as String? ?? '',
+    note: json['note'] as String? ?? '',
   );
 
   /// Rent line for cards: "₹32,000 incl. maintenance" or "₹32,000 + ₹3,000 maintenance".
@@ -147,6 +209,13 @@ class Tk2Listing {
     maintenanceIncluded: false,
     tenants: 'Family',
     pets: false,
+    society: 'Sri Sai Residency',
+    locality: 'Madhapur, Hyderabad',
+    door: 'Flat 402, 4th floor',
+    ownerName: 'Owner (example)',
+    ownerPhone: '+91 90000 00000',
+    keys: 'With security',
+    note: 'Call the owner a day before visits.',
     property: BrokerProperty(
       id: 'sample',
       name: 'Flat 402, Madhapur',
@@ -420,14 +489,14 @@ class Tk2Store extends ChangeNotifier {
       if (p.sizeSqFt != null) '${p.sizeSqFt!.toStringAsFixed(0)} sft',
     ].join(' · ');
     return [
-      '🏠 ${l.name}',
-      if (p.address.trim().isNotEmpty && p.address.trim() != l.name) p.address.trim(),
+      '🏠 ${l.publicTitle}',
+      if (l.area.isNotEmpty) '📍 ${l.area}',
       facts,
       if (l.hasRent) 'Rent ${l.rentLine}${l.deposit > 0 ? ' · Deposit ${money(l.deposit)}' : ''}',
       l.rules,
       'Available ${l.availableFrom.isEmpty ? 'now' : 'from ${l.availableFrom}'}',
       '',
-      'See photos and book a visit (${money(l.visitFee)}, refunded if the visit does not happen):',
+      l.visitFee == 0 ? 'See photos and book a visit (free):' : 'See photos and book a visit (${money(l.visitFee)}, refunded if the visit does not happen):',
       shareLink(l),
       if (brokerName.isNotEmpty) '',
       if (brokerName.isNotEmpty) '– $brokerName${brokerPhone.isNotEmpty ? ', $brokerPhone' : ''}',

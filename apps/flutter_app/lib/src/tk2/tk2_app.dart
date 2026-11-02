@@ -12,10 +12,10 @@ import '../features/broker/data/broker_repository.dart';
 import '../features/broker/presentation/approved_broker_home.dart';
 import '../features/broker/presentation/broker_property_screen.dart';
 import 'tk2_customer.dart';
+import 'tk2_designs.dart';
 import 'tk2_listing.dart';
 import 'tk2_store.dart';
 import 'tk2_visits.dart';
-import 'tk2_widgets.dart';
 
 /// TrustKeeper 2: the main app's splash, welcome carousel, login look and
 /// broker home, with a property list, one-tap share and paid visits.
@@ -93,7 +93,10 @@ GoRouter buildTk2Router(Tk2Store store) => GoRouter(
       path: '/listing/:id',
       builder: (context, state) => Tk2ListingForm(store: store, id: state.pathParameters['id']!, isNew: state.uri.queryParameters['new'] == '1'),
     ),
-    GoRoute(path: '/p/:id', builder: (context, state) => Tk2PropertyDetail(store: store, id: state.pathParameters['id']!)),
+    GoRoute(
+      path: '/p/:id',
+      builder: (context, state) => Tk2DesignDetail(store: store, id: state.pathParameters['id']!, design: state.uri.queryParameters['d'] ?? 'a'),
+    ),
     GoRoute(path: '/customer/:id', builder: (context, state) => Tk2CustomerPage(store: store, id: state.pathParameters['id']!)),
     GoRoute(path: '/customer/:id/book', builder: (context, state) => Tk2BookVisit(store: store, id: state.pathParameters['id']!)),
     GoRoute(path: '/booked/:visitId', builder: (context, state) => Tk2Booked(store: store, visitId: state.pathParameters['visitId']!)),
@@ -289,17 +292,9 @@ class _Tk2HomeState extends State<Tk2Home> {
           const SizedBox(height: 4),
           const Text('Add your first property and this example goes away.', style: TextStyle(fontSize: 14.5, height: 20 / 14.5, color: AppColors.muted)),
         ],
-        const SizedBox(height: 12),
-        for (final l in store.shown) ...[
-          Tk2PropertyCard(
-            key: ValueKey(l.id),
-            listing: l,
-            visits: store.visitsFor(l.id).where((v) => v.upcoming).length,
-            onOpen: () => context.push('/p/${l.id}'),
-            onShare: () => showTk2Share(context, store, l),
-          ),
-          const SizedBox(height: 10),
-        ],
+        const SizedBox(height: 2),
+        const Text('4 designs below, one under the other. Tap any to see its page.', style: TextStyle(fontSize: 14, color: AppColors.muted)),
+        Tk2DesignShowcase(store: store),
       ],
     );
   }
