@@ -114,17 +114,31 @@ class Tk2Listing {
       ? 15
       : 0;
 
-  /// Visit days: 'all' · 'weekdays' (Mon–Fri) · 'weekends' (Sat, Sun).
+  /// Visit days: 'all', or the days picked as weekday numbers "1,3,5" (1 = Mon … 7 = Sun).
+  /// Older saves 'weekdays' / 'weekends' still read correctly.
   final String visitDays;
 
-  bool dayOpen(DateTime d) {
-    final weekend = d.weekday == DateTime.saturday || d.weekday == DateTime.sunday;
-    return switch (visitDays) {
-      'weekdays' => !weekend,
-      'weekends' => weekend,
-      _ => true,
-    };
+  static const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  static Set<int> visitDaySet(String saved) => switch (saved.trim()) {
+    '' || 'all' => {1, 2, 3, 4, 5, 6, 7},
+    'weekdays' => {1, 2, 3, 4, 5},
+    'weekends' => {6, 7},
+    final s => {for (final p in s.split(',')) ?int.tryParse(p.trim())}.where((d) => d >= 1 && d <= 7).toSet(),
+  };
+
+  /// Saved form: 'all' when every day is picked.
+  static String visitDayText(Set<int> days) => days.length == 7 ? 'all' : (days.toList()..sort()).join(',');
+
+  /// Tap a day card. "Every day" (0) picks or clears all; picking all 7 = Every day.
+  static Set<int> toggleVisitDay(Set<int> now, int day) {
+    if (day == 0) return now.length == 7 ? <int>{} : {1, 2, 3, 4, 5, 6, 7};
+    final next = {...now};
+    if (!next.remove(day)) next.add(day);
+    return next;
   }
+
+  bool dayOpen(DateTime d) => visitDaySet(visitDays).contains(d.weekday);
 
   /// Who can rent, ticked boxes. "Anyone" = all of them.
   static const tenantTypes = ['Family', 'Bachelor male', 'Bachelor female', 'Companies'];

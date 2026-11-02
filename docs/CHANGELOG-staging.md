@@ -1251,3 +1251,18 @@ hosting notes: Claude links need --no-web-resources-cdn, no .bin/NOTICES files, 
 verification: flutter analyze clean; test/tk2 22/22; email_auth_test 22/22; widget_test 17/17; broker_property_test passes; web app clicked through (tenant to "Your details", owner to "Your house") in headless Chromium and checked live in Chrome; broker home Design B + Send sheet checked in a web build
 open: broker's "Send link to owner" still uses the main-app flow (does not send the web owner invite yet); WhatsApp/SMS/OTP/payments are demo
 ```
+
+## Change 76 – Visit days chips; owner Keys step; customer page copy
+Date: 2026-11-02 · Status: web app live (same link); broker app code synced to the Mac, not yet built
+- Visit times (broker + owner): "Days for visits" = chips Every day, Mon … Sun. Pick any number; all seven ticks Every day and vice versa; none = red "Pick at least one day". Old saves (weekdays/weekends) still read.
+- Owner web: "Papers" step replaced by **Keys**: Me (bottom sheet "How do we get the keys?"), Another property broker (name + number), Security (name + number + note), Someone else (name + number + note). Papers asked later, when a tenant blocks.
+- Customer page: "In the house" list removed. Visit-fee notice rewritten (held by TrustKeyper; full refund if broker/owner doesn't turn up; cancel within 5 min = refund minus 2% platform fee; after 5 min or 15+ min late = no refund). "What happens next" now: Book a visit → Visit → Pay token (house hidden from others) → Agreement made → Sign → Pay (security deposit, brokerage if any, 1 month rent) and collect keys.
+```
+AGENT RECORD – Change 76
+id: CHG-076
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/{tk2_store,tk2_listing,tk2_customer}.dart, apps/flutter_app/lib/src/tkweb/{tkweb_owner,tkweb_tenant}.dart, apps/flutter_app/test/tk2/tk2_test.dart, docs/TRUSTKEEPER2-JOURNEYS.md, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 23/23; web app clicked through in headless Chromium (visit-day chips, Keys + Me sheet + Security fields, customer page notice and steps)
+open: broker's "Send link to owner" still uses the main-app flow; WhatsApp/SMS/OTP/payments demo
+```

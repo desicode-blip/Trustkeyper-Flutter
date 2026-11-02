@@ -35,9 +35,11 @@ class _PreviewBanner extends StatelessWidget {
 
 /// The booking promise shown to customers.
 String tk2VisitNotice(int fee) =>
-    'Book a visit for ${Tk2Store.money(fee)}. TrustKeyper keeps it safe and pays the broker only after your visit. '
-    'If the broker or owner is not available, you get it all back. '
-    'You can cancel within 5 minutes of booking (2% is kept). After that, and if you are more than 15 minutes late, it is not refunded.';
+    'Book a visit for ${Tk2Store.money(fee)}. TrustKeyper holds your money and pays the broker only after your visit. '
+    'If the broker or owner does not turn up, you get the full amount back.\n\n'
+    'Cancel within 5 minutes of booking and you get it back, minus a 2% platform fee. '
+    'You can still cancel after 5 minutes, but there is no refund. '
+    'There is also no refund if you are more than 15 minutes late.';
 
 /// What happens after the visit, in order. Customers see it before booking.
 class Tk2NextSteps extends StatelessWidget {
@@ -47,11 +49,12 @@ class Tk2NextSteps extends StatelessWidget {
   final int done;
 
   static const steps = [
+    ('Book a visit', 'Pick a day and time that suits you.'),
     ('Visit the house', 'See it with the broker.'),
-    ('Pay a token amount', 'This blocks the house for you.'),
+    ('Pay a token to block it', 'Liked it? Once the token is paid, we stop showing the house to others.'),
     ('Rent agreement is made', 'We draft it for you and the owner.'),
     ('Sign the agreement', 'Online, from your phone.'),
-    ('Pay and get the keys', 'Deposit, rent and key handover happen together.'),
+    ('Pay and collect the keys', 'Security deposit, brokerage fee (if any) and 1 month\'s rent.'),
   ];
 
   @override
@@ -126,11 +129,6 @@ class Tk2CustomerPage extends StatelessWidget {
         body: const Center(child: Text('This property is no longer listed.')),
       );
     }
-    final p = l.property;
-    final things = [
-      for (final e in p.inventory.entries)
-        if (e.value > 0) '${e.value} ${e.key}${e.value == 1 ? '' : 's'}',
-    ];
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -152,18 +150,6 @@ class Tk2CustomerPage extends StatelessWidget {
             child: Tk2DesignCard(design: 'e', listing: l, onOpen: () {}),
           ),
           Tk2Appear(index: 2, child: Tk2FactsGroup(items: tk2FactRows(l))),
-          if (things.isNotEmpty) ...[
-            const SizedBox(height: 22),
-            const Text(
-              'In the house',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              things.join(' · '),
-              style: const TextStyle(fontSize: 15, height: 22 / 15, color: AppColors.body),
-            ),
-          ],
           const SizedBox(height: 22),
           Tk2Appear(
             index: 4,

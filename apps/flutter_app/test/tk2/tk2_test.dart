@@ -180,6 +180,18 @@ void main() {
       expect(PhoneCountry.format('+44', '7700900123'), '+44 7700900123');
     });
 
+    test('visit days: Every day <-> all seven; any days can be picked; old saves still read', () {
+      expect(Tk2Listing.toggleVisitDay({1, 2, 3, 4, 5, 6, 7}, 0), isEmpty);
+      expect(Tk2Listing.toggleVisitDay(<int>{}, 0), {1, 2, 3, 4, 5, 6, 7});
+      final six = Tk2Listing.toggleVisitDay({1, 2, 3, 4, 5, 6, 7}, 3);
+      expect(Tk2Listing.visitDayText(six), '1,2,4,5,6,7');
+      expect(Tk2Listing.visitDayText(Tk2Listing.toggleVisitDay(six, 3)), 'all');
+      expect(Tk2Listing.visitDaySet('weekends'), {6, 7});
+      final l = Tk2Listing.example.copyWith(visitDays: '2,4');
+      expect(l.dayOpen(DateTime(2026, 11, 3)), isTrue); // Tuesday
+      expect(l.dayOpen(DateTime(2026, 11, 4)), isFalse); // Wednesday
+    });
+
     test('card heading is never empty (old properties without society)', () {
       final old = Tk2Listing(id: 'x', property: BrokerProperty(id: 'x', name: 'Green Villa', address: '', rooms: '2.5 BHK', floor: 1, totalFloors: 2, furnishing: 'Semi'));
       // Never the broker's own label ("Green Villa"); falls back to rooms.

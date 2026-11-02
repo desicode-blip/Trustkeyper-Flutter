@@ -385,7 +385,7 @@ class _TkwStepState extends State<TkwStep> {
     const SizedBox(height: 18),
     OnbCard(child: Column(children: [OnbKeyValue('House', l.publicTitle), OnbKeyValue('Token amount', Tk2Store.money(tkwToken), last: true)])),
     const SizedBox(height: 16),
-    const Tk2NextSteps(done: 1),
+    const Tk2NextSteps(done: 2),
     const SizedBox(height: 12),
     const OnbBanner('Demo build: test payment. No money moves.', kind: 'wait', icon: Icons.science_outlined),
   ];

@@ -49,7 +49,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   // Who pays the broker (Owner · Tenant · Both · None) and how much each.
   late String payer = start?.brokeragePayer ?? 'None';
   late final ownerFee = TextEditingController(text: (start?.ownerBrokerage ?? 0) > 0 ? '${start!.ownerBrokerage}' : '');
-  late String visitDays = start?.visitDays ?? 'all';
+  late Set<int> visitDays = Tk2Listing.visitDaySet(start?.visitDays ?? 'all');
   int step = 0;
   static const _all = {'rent': 'Rent details', 'times': 'Visit times', 'fee': 'Visit fee', 'photos': 'Photos', 'private': 'Only for you'};
   late final List<String> _keys = widget.ownerMode ? const ['rent', 'times', 'photos'] : _all.keys.toList();
@@ -112,6 +112,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
       if (k == 'rent' && _num(rent) <= 0) 'rent',
       if (k == 'rent' && !included && _num(maintenance) <= 0) 'maintenance',
       if (k == 'rent' && who.isEmpty) 'who',
+      if (k == 'times' && visitDays.isEmpty) 'days',
       if (k == 'fee' && _num(fee) > Tk2Listing.maxVisitFee) 'fee',
       if (k == 'private' && (payer == 'Owner' || payer == 'Both') && _num(ownerFee) <= 0) 'ownerFee',
       if (k == 'private' && (payer == 'Tenant' || payer == 'Both') && _num(brokerage) <= 0) 'tenantFee',
@@ -165,7 +166,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
         brokerageDays: Tk2Listing.daysFor(_num(rent), _tenantFee),
         brokeragePayer: payer,
         ownerBrokerage: _ownerFee,
-        visitDays: visitDays,
+        visitDays: Tk2Listing.visitDayText(visitDays),
         visitFrom: visitFrom,
         visitTo: visitTo,
         availableFrom: availableFrom,
@@ -305,13 +306,32 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
 
   List<Widget> _visitStep() => [
     _label('Days for visits'),
-    Wrap(
-      spacing: 8,
-      children: [
-        for (final d in const {'all': 'Every day', 'weekdays': 'Mon – Fri', 'weekends': 'Sat, Sun'}.entries)
-          ChoiceChip(label: Text(d.value), selected: visitDays == d.key, onSelected: (_) => setState(() => visitDays = d.key)),
-      ],
+    // Every day first, then each day; pick any. All 7 picked = Every day.
+    AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: EdgeInsets.all(missing.contains('days') ? 12 : 0),
+      decoration: BoxDecoration(
+        color: missing.contains('days') ? AppColors.errorSoft : Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: missing.contains('days') ? AppColors.error : Colors.transparent, width: 1.4),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (var d = 0; d <= 7; d++)
+            FilterChip(
+              label: Text(d == 0 ? 'Every day' : Tk2Listing.dayNames[d - 1]),
+              selected: d == 0 ? visitDays.length == 7 : visitDays.contains(d),
+              onSelected: (_) => setState(() {
+                visitDays = Tk2Listing.toggleVisitDay(visitDays, d);
+                missing.remove('days');
+              }),
+            ),
+        ],
+      ),
     ),
+    if (missing.contains('days')) _needed('Pick at least one day'),
     const SizedBox(height: 20),
     _label('Times for visits'),
     Row(

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/widgets/primary_button.dart';
@@ -67,10 +66,10 @@ class TkwOwnerInvite extends StatelessWidget {
           (Icons.home_work_outlined, 'About the house', 'Address, rooms, size, furnishing'),
           (Icons.currency_rupee, 'Rent and who can rent', 'Rent, deposit, tenants, pets'),
           (Icons.event_available_outlined, 'Visits and photos', 'When people can come and see it'),
-          (Icons.description_outlined, 'Papers', 'Aadhaar, old agreement, bank, keys'),
+          (Icons.key_outlined, 'Keys', 'Who has them, for visits'),
         ]) ...[OnbRow(icon: icon, title: title, subtitle: sub, chevron: false), const SizedBox(height: 10)],
         const SizedBox(height: 4),
-        const OnbBanner('Your flat number, phone and papers are only for your broker and TrustKeyper. Tenants never see them.', kind: 'ok', icon: Icons.lock_outline),
+        const OnbBanner('Your flat number, phone and key details are only for your broker and TrustKeyper. Tenants never see them.', kind: 'ok', icon: Icons.lock_outline),
       ],
     ),
   );
@@ -104,7 +103,7 @@ class _TkwOwnerCountState extends State<TkwOwnerCount> {
           heading: 'Your house',
           doneLabel: 'Next: rent',
           onSelected: (BrokerProperty p) {
-            final answers = TkwSession.instance.owner(p.id)
+            TkwSession.instance.owner(p.id)
               ..['owners'] = owners
               ..['ownerIsMe'] = me;
             TkwSession.instance.save();
@@ -115,7 +114,7 @@ class _TkwOwnerCountState extends State<TkwOwnerCount> {
                   id: p.id,
                   isNew: true,
                   ownerMode: true,
-                  onDone: () => Navigator.of(context).push(_route(TkwOwnerPapers(houseId: p.id, owners: answers['owners'] as int, brokerName: widget.brokerName))),
+                  onDone: () => Navigator.of(context).push(_route(TkwOwnerKeys(houseId: p.id, brokerName: widget.brokerName))),
                 ),
               ),
             );
@@ -258,134 +257,223 @@ class _TkwOwnerCountState extends State<TkwOwnerCount> {
   );
 }
 
-/// Papers in the agreed order: Aadhaar of every owner → old/current agreement → bank → keys.
-class TkwOwnerPapers extends StatefulWidget {
-  const TkwOwnerPapers({required this.houseId, required this.owners, required this.brokerName, super.key});
+/// Keys: who has them, and how we get them when a visit is booked.
+/// (Papers are asked later, when a tenant blocks the house.)
+class TkwOwnerKeys extends StatefulWidget {
+  const TkwOwnerKeys({required this.houseId, required this.brokerName, super.key});
   final String houseId;
-  final int owners;
   final String brokerName;
 
   @override
-  State<TkwOwnerPapers> createState() => _TkwOwnerPapersState();
+  State<TkwOwnerKeys> createState() => _TkwOwnerKeysState();
 }
 
-class _TkwOwnerPapersState extends State<TkwOwnerPapers> {
+class _TkwOwnerKeysState extends State<TkwOwnerKeys> {
+  static const choices = ['Me', 'Another broker', 'Security', 'Someone else'];
   late final Map<String, dynamic> a = TkwSession.instance.owner(widget.houseId);
-  final keyName = TextEditingController();
-  final keyPhone = TextEditingController();
+  late String? who = a['keys'] as String?;
+  late final name = TextEditingController(text: a['keyName'] as String? ?? '');
+  late final phone = TextEditingController(text: a['keyPhone'] as String? ?? '');
+  late final note = TextEditingController(text: a['keyNote'] as String? ?? '');
+  String dial = '+91';
   final Set<String> bad = {};
 
   @override
   void dispose() {
-    keyName.dispose();
-    keyPhone.dispose();
+    for (final c in [name, phone, note]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
-  Future<void> _upload(String k) async {
-    try {
-      final f = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
-      if (f == null) return;
-      a[k] = true;
-      bad.remove(k);
-      await TkwSession.instance.save();
-      if (mounted) setState(() {});
-    } catch (_) {}
+  bool get _needsPerson => who != null && who != 'Me';
+
+  /// "Me": ask how we collect the keys for a visit.
+  Future<void> _askHowFromMe() async {
+    final draft = TextEditingController(text: note.text);
+    final saved = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      builder: (sheet) => Padding(
+        padding: EdgeInsets.fromLTRB(24, 0, 24, 16 + MediaQuery.of(sheet).viewInsets.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'How do we get the keys?',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'When a visit is booked, how should the broker collect the keys from you?',
+              style: TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted),
+            ),
+            const SizedBox(height: 16),
+            OnbTextField(label: 'For example: call me 1 hour before, I live nearby', controller: draft, maxLines: 3, capitalization: TextCapitalization.sentences),
+            const SizedBox(height: 16),
+            PrimaryButton(label: 'Save', onPressed: () => Navigator.pop(sheet, draft.text.trim())),
+          ],
+        ),
+      ),
+    );
+    if (saved == null || !mounted) return;
+    setState(() {
+      note.text = saved;
+      bad.remove('note');
+    });
+  }
+
+  void _pick(String c) {
+    setState(() {
+      who = c;
+      bad.clear();
+    });
+    if (c == 'Me' && note.text.trim().isEmpty) _askHowFromMe();
   }
 
   void _send() {
+    final digits = phone.text.replaceAll(RegExp(r'\D'), '');
     bad
       ..clear()
       ..addAll({
-        for (var i = 0; i < widget.owners; i++)
-          if (a['aadhaar$i'] != true) 'aadhaar$i',
-        if (a['bank'] != true) 'bank',
-        if (a['keys'] == null) 'keys',
-        if (a['keys'] == 'Someone else' && keyName.text.trim().length < 2) 'keyName',
-        if (a['keys'] == 'Someone else' && keyPhone.text.replaceAll(RegExp(r'\D'), '').length < 6) 'keyPhone',
+        if (who == null) 'who',
+        if (who == 'Me' && note.text.trim().isEmpty) 'note',
+        if (_needsPerson && name.text.trim().length < 2) 'name',
+        if (_needsPerson && !PhoneCountry.valid(dial, digits)) 'phone',
       });
     if (bad.isNotEmpty) return setState(() {});
-    a['keyName'] = keyName.text.trim();
-    a['keyPhone'] = keyPhone.text.trim();
+    a
+      ..['keys'] = who
+      ..['keyName'] = _needsPerson ? name.text.trim() : ''
+      ..['keyPhone'] = _needsPerson ? PhoneCountry.format(dial, digits) : ''
+      ..['keyNote'] = note.text.trim();
     TkwSession.instance.save();
     Navigator.of(context).push(_route(TkwOwnerDone(brokerName: widget.brokerName)));
   }
 
-  Widget _row(String k, String title, String sub) {
-    final has = a[k] == true;
-    final need = bad.contains(k);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: OnbRow(
-        icon: has ? Icons.check : Icons.upload_file_outlined,
-        title: title,
-        subtitle: has
-            ? 'Added · tap to change'
-            : need
-            ? 'Add this to continue'
-            : sub,
-        tone: has
-            ? 'ok'
-            : need
-            ? 'need'
-            : 'info',
-        onTap: () => _upload(k),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) => OnbPage(
-    title: 'Papers',
-    subtitle: 'Only your broker and TrustKeyper see these.',
+    title: 'Keys',
+    subtitle: 'Who has the keys? We need them when someone visits.',
     onBack: () => Navigator.of(context).maybePop(),
     footer: [PrimaryButton(label: 'Send to ${widget.brokerName.isEmpty ? 'broker' : widget.brokerName.split(' ').first}', icon: Icons.chevron_right, onPressed: _send)],
     children: [
-      for (var i = 0; i < widget.owners; i++) _row('aadhaar$i', widget.owners == 1 ? 'Aadhaar card' : 'Aadhaar · owner ${i + 1}', 'Front and back'),
-      _row('oldAgreement', 'Old or current rent agreement', 'Only if someone rented it before'),
-      _row('bank', 'Bank for the rent', 'A cancelled cheque is best'),
-      const SizedBox(height: 10),
       AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.all(bad.contains('keys') ? 12 : 0),
+        padding: EdgeInsets.all(bad.contains('who') ? 12 : 0),
         decoration: BoxDecoration(
-          color: bad.contains('keys') ? AppColors.errorSoft : Colors.transparent,
+          color: bad.contains('who') ? AppColors.errorSoft : Colors.transparent,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: bad.contains('keys') ? AppColors.error : Colors.transparent, width: 1.4),
+          border: Border.all(color: bad.contains('who') ? AppColors.error : Colors.transparent, width: 1.4),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Who has the keys?',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final k in const ['Me', 'The broker', 'Security', 'Someone else'])
-                  ChoiceChip(
-                    label: Text(k),
-                    selected: a['keys'] == k,
-                    onSelected: (_) => setState(() {
-                      a['keys'] = k;
-                      bad.remove('keys');
-                    }),
+            for (final c in choices)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Material(
+                  color: who == c ? AppColors.primarySoft : Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: who == c ? AppColors.primary : AppColors.border, width: who == c ? 1.6 : 1),
                   ),
-              ],
-            ),
-            if (bad.contains('keys')) ...[const SizedBox(height: 8), const Text('Choose who has the keys', style: TextStyle(fontSize: 14.5, color: AppColors.error))],
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => _pick(c),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      child: Row(
+                        children: [
+                          Icon(switch (c) {
+                            'Me' => Icons.person_outline,
+                            'Another broker' => Icons.handshake_outlined,
+                            'Security' => Icons.shield_outlined,
+                            _ => Icons.people_outline,
+                          }, color: AppColors.primaryDark),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              c,
+                              style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w600, color: AppColors.heading),
+                            ),
+                          ),
+                          AnimatedOpacity(
+                            opacity: who == c ? 1 : 0,
+                            duration: const Duration(milliseconds: 150),
+                            child: const Icon(Icons.check_circle, color: AppColors.primary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (bad.contains('who')) const Text('Choose who has the keys', style: TextStyle(fontSize: 14.5, color: AppColors.error)),
           ],
         ),
       ),
-      if (a['keys'] == 'Someone else') ...[
-        const SizedBox(height: 14),
-        OnbTextField(label: 'Their name', controller: keyName, capitalization: TextCapitalization.words, error: bad.contains('keyName') ? 'Type their name' : null),
-        const SizedBox(height: 12),
-        OnbTextField(label: 'Their phone', controller: keyPhone, keyboard: TextInputType.phone, error: bad.contains('keyPhone') ? 'Type their phone number' : null),
-      ],
+      AnimatedSize(
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (who == 'Me') ...[
+              const SizedBox(height: 6),
+              OnbRow(
+                icon: note.text.trim().isEmpty ? Icons.edit_note : Icons.check,
+                title: 'How we get the keys from you',
+                subtitle: note.text.trim().isEmpty ? (bad.contains('note') ? 'Tell us how to collect them' : 'Tap to tell us') : note.text.trim(),
+                tone: note.text.trim().isNotEmpty
+                    ? 'ok'
+                    : bad.contains('note')
+                    ? 'need'
+                    : 'info',
+                onTap: _askHowFromMe,
+              ),
+            ],
+            if (_needsPerson) ...[
+              const SizedBox(height: 8),
+              Text(switch (who) {
+                'Another broker' => 'The other broker',
+                'Security' => 'The security guard',
+                _ => 'The person with the keys',
+              }, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading)),
+              const SizedBox(height: 10),
+              OnbTextField(
+                label: 'Name',
+                controller: name,
+                capitalization: TextCapitalization.words,
+                error: bad.contains('name') ? 'Type their name' : null,
+                onChanged: (_) => setState(() => bad.remove('name')),
+              ),
+              const SizedBox(height: 12),
+              ApprovedPhoneField(
+                controller: phone,
+                dialCode: dial,
+                onDialCodeChanged: (c) => setState(() => dial = c),
+                error: bad.contains('phone') ? (dial == '+91' ? 'Enter a valid 10-digit mobile number' : 'Enter a valid phone number') : null,
+              ),
+              if (who == 'Security' || who == 'Someone else') ...[
+                const SizedBox(height: 12),
+                OnbTextField(
+                  label: who == 'Security' ? 'How to collect the keys from security (optional)' : 'Anything we should know (optional)',
+                  controller: note,
+                  maxLines: 3,
+                  capitalization: TextCapitalization.sentences,
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
+      const SizedBox(height: 16),
+      const OnbBanner('Papers like Aadhaar and bank details are asked later, only when a tenant blocks your house.', kind: 'info', icon: Icons.description_outlined),
     ],
   );
 }

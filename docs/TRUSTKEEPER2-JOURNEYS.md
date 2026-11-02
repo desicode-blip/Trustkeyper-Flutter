@@ -22,7 +22,7 @@ The web app is Flutter web and reuses the apps' own screens and design system: t
    The address is asked in parts: flat/house no. (private), society, area, city.
 4. Then 5 short steps:
    - **Rent details**: rent + maintenance (included/extra → amount) · security deposit · who can rent (tick boxes: Anyone, Family, Bachelor male, Bachelor female, Companies) · pets · property available from (calendar, today pre-selected).
-   - **Visit times**: days (every day / Mon–Fri / Sat–Sun), times (7 am – 11 pm range).
+   - **Visit times**: days (Every day + Mon–Sun chips, any mix; all seven = Every day), times (7 am – 11 pm range).
    - **Visit fee** (₹0–500).
    - **Photos** (up to 10, 3 per row; ★ or drag to set the cover; can skip). Every photo carries a light TrustKeeper watermark.
    - **Only for you** (green, never shared): owner name and phone, keys, note, and **brokerage**: who pays (Owner / Tenant / Both / None) and how much each. Only the tenant's part is shown to tenants.
@@ -31,7 +31,7 @@ The web app is Flutter web and reuses the apps' own screens and design system: t
 
 ## 2. Tenant (web, from the property link)
 
-1. Opens the link: photos, rent card, facts, visit-fee rules, "What happens next". **No login.**
+1. Opens the link: photos, rent card, facts, visit-fee rules, "What happens next" (book → visit → token blocks it, house hidden from others → agreement → sign → pay deposit, brokerage if any, 1 month rent → keys). No "In the house" list (brokers don't fill it at this stage). **No login.**
 2. **Book a visit**: picks a day and hour. Days/hours outside the broker's visit times are greyed. Many people can book the same hour.
 3. Signs up: name + mobile (any country code) → 6-digit OTP.
 4. Pays the visit fee → **Visit booked**: 4-digit visit code, **Add to Google Calendar**, reminder call 1 hour before (to tenant and broker).
@@ -46,7 +46,7 @@ The web app is Flutter web and reuses the apps' own screens and design system: t
 
 1. Opens the invite: "Your broker asked you to add your house". What we ask, and a privacy note.
 2. Signs up: name + **phone or email** (sliding switch; any country code) → 6-digit OTP.
-3. How many owners + are you one of them → the same house steps the broker uses (address in parts, size, facing, parking, rooms, floors, furnishing) → rent details, visit times, photos (owner mode: no visit fee, no brokerage) → papers: Aadhaar of every owner, old/current agreement (optional), bank (cancelled cheque), who has the keys.
+3. How many owners + are you one of them → the same house steps the broker uses (address in parts, size, facing, parking, rooms, floors, furnishing) → rent details, visit times, photos (owner mode: no visit fee, no brokerage) → **Keys**: who has them – Me (sheet: how the broker collects keys when a visit is booked), Another property broker (name + number), Security (name + number + optional note), Someone else (name + number + optional note). Papers (Aadhaar, bank, old agreement) are asked later, only when a tenant blocks the house.
 4. Owners are **not** asked brokerage (broker sets it).
 5. Done: broker can share the house; WhatsApp updates on bookings.
 
