@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/theme/app_colors.dart';
+import '../core/routing/app_router.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/approved_navigation.dart';
 import '../core/widgets/primary_button.dart';
 import '../features/account/presentation/account_screens.dart';
 import '../features/auth/presentation/approved_auth_widgets.dart';
 import '../features/auth/presentation/auth_screens.dart';
+import '../features/broker/data/agreement_progress_repository.dart';
 import '../features/broker/data/broker_repository.dart';
+import '../features/broker/presentation/broker_draft_cards.dart';
 import '../features/broker/presentation/approved_broker_home.dart';
 import '../features/broker/presentation/broker_property_screen.dart';
 import 'tk2_customer.dart';
@@ -69,11 +72,15 @@ GoRouter buildTk2Router(Tk2Store store) => GoRouter(
       ),
     ),
     GoRoute(path: '/home', builder: (context, state) => Tk2Shell(store: store)),
-    GoRoute(
-      path: '/add',
-      builder: (context, state) => BrokerPropertyScreen(
+    // Same "Onboard property" journey as the main app. "Add manually" saves
+    // into TrustKeeper 2 and then asks rent and details.
+    GoRoute(path: '/add', redirect: (context, state) => '/broker/property'),
+    GoRoute(path: '/broker', redirect: (context, state) => '/home'),
+    // Rent agreements are not in TrustKeeper 2 yet.
+    GoRoute(path: '/broker/start', redirect: (context, state) => '/home'),
+    ...brokerPropertyRoutes(
+      manual: (context, state) => BrokerPropertyScreen(
         repository: Tk2PropertyRepository(store),
-        startNew: true,
         showStepLabel: false,
         askThings: false,
         doneLabel: 'Next: rent',
@@ -254,6 +261,8 @@ class _Tk2HomeState extends State<Tk2Home> {
       approvalPending: false,
       onOpenProfile: widget.onOpenProfile,
       showBankPrompt: false,
+      // Onboarding in progress (owner link sent, papers, agreement) – same panel as the main app.
+      savedDrafts: BrokerDraftSection(repository: _NoAgreementDrafts()),
       trailing: Badge(
         isLabelVisible: upcoming > 0,
         label: Text('$upcoming'),
@@ -300,4 +309,17 @@ class _Tk2HomeState extends State<Tk2Home> {
       ],
     );
   }
+}
+
+/// TrustKeeper 2 has no saved rent-agreement drafts yet; only property
+/// onboarding shows in the "Continue" panel.
+class _NoAgreementDrafts implements AgreementProgressRepository {
+  @override
+  Stream<List<AgreementProgress>> watch() => Stream.value(const []);
+  @override
+  Future<AgreementProgress> load(String id) => Future.error(StateError('No drafts in TrustKeeper 2'));
+  @override
+  Future<int> save(AgreementProgress progress) async => 0;
+  @override
+  Future<void> remove(String id, int version) async {}
 }

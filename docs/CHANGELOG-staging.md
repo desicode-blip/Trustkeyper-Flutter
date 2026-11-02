@@ -1084,3 +1084,16 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/tk2/tk2_designs.dart (tk2Designs ['e','b'], tk2CardHeading, tk2PublicAddress, _SwipePhotos, B card), apps/flutter_app/lib/src/tk2/tk2_app.dart (intro line), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 11/11 (new: address drops house numbers; heading never uses the broker's label)
 ```
+
+## Change 66 – TrustKeeper 2: Add property = the main app's "Onboard property" journey
+Date: 2026-11-02 · Status: code complete; synced to the Mac, not yet built
+Add property now opens the exact main-app journey: Onboard property → Send link to owner (owner link, papers, questions, agreement, signing) or Add manually. Add manually saves into TrustKeeper 2, skips "Things in the house", then asks rent and details. Home shows the same "Continue" panel as the main app for properties being onboarded. "Go to home" lands on TK2 home; "Make rent agreement" goes home (not in TK2 yet).
+Main app: the Onboard property routes moved into `brokerPropertyRoutes()` in app_router.dart (same screens, now shared); no behaviour change.
+```
+AGENT RECORD – Change 66
+id: CHG-066
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/core/routing/app_router.dart (brokerPropertyRoutes, dart format), apps/flutter_app/lib/src/tk2/tk2_app.dart (routes, redirects /add /broker /broker/start, BrokerDraftSection with _NoAgreementDrafts), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 11/11; property_onboarding + route tests 33/33
+```

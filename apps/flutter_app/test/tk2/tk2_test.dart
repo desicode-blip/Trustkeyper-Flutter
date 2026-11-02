@@ -195,17 +195,27 @@ void main() {
     }
   });
 
-  testWidgets('add property skips "Things in the house" and saves after rooms', (tester) async {
-    tester.view.physicalSize = const Size(1170, 2532);
+  testWidgets('Add property opens the main app Onboard property journey', (tester) async {
+    tester.view.physicalSize = const Size(1800, 2532); // test font is wider than Roboto
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({});
     final store = Tk2Store.forTest();
     await store.load();
     await store.setBroker('Suresh', '+91 9876543210');
-    final router = buildTk2Router(store)..go('/add');
+    final router = buildTk2Router(store)..go('/home');
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Add property'));
+    await tester.pumpAndSettle();
+    expect(find.text('Onboard property'), findsOneWidget);
+    expect(find.text('Send link to owner'), findsOneWidget);
+    await tester.tap(find.text('Add manually'));
+    await tester.pumpAndSettle();
     expect(find.text('Things in the house. Tap + or −.'), findsNothing);
-    expect(find.text('Things in the house'), findsNothing);
+    // "Go to home" from the journey lands on TrustKeeper 2 home.
+    router.go('/broker');
+    await tester.pumpAndSettle();
+    expect(find.text('Namaste, Suresh'), findsOneWidget);
   });
 }
