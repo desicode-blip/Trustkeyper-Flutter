@@ -33,14 +33,6 @@ class _PreviewBanner extends StatelessWidget {
   );
 }
 
-/// The booking promise shown to customers.
-String tk2VisitNotice(int fee) =>
-    'Book a visit for ${Tk2Store.money(fee)}. TrustKeyper holds your money and pays the broker only after your visit. '
-    'If the broker or owner does not turn up, you get the full amount back.\n\n'
-    'Cancel within 5 minutes of booking and you get it back, minus a 2% platform fee. '
-    'You can still cancel after 5 minutes, but there is no refund. '
-    'There is also no refund if you are more than 15 minutes late.';
-
 /// What happens after the visit, in order. Customers see it before booking.
 class Tk2NextSteps extends StatelessWidget {
   const Tk2NextSteps({this.done = 0, super.key});
@@ -151,27 +143,6 @@ class Tk2CustomerPage extends StatelessWidget {
           ),
           Tk2Appear(index: 2, child: Tk2FactsGroup(items: tk2FactRows(l))),
           const SizedBox(height: 22),
-          Tk2Appear(
-            index: 4,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(18)),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.verified_user_outlined, color: AppColors.primaryDark),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      l.visitFee == 0 ? 'Booking a visit is free. Pick a time and the broker will call you.' : tk2VisitNotice(l.visitFee),
-                      style: const TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.primaryDark),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
           const Tk2NextSteps(),
           if (store.brokerName.isNotEmpty) ...[
             const SizedBox(height: 18),

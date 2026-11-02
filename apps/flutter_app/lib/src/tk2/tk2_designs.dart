@@ -380,9 +380,12 @@ class Tk2DesignCard extends StatelessWidget {
                           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
                         ),
                       ),
+                      const SizedBox(height: 2),
+                      // Centred under the rent; the amount and "maint." on their own lines.
                       Text(
-                        l.maintenanceIncluded || l.maintenance == 0 ? 'incl. maint.' : '+ ${Tk2Store.money(l.maintenance)} maint.',
-                        style: const TextStyle(fontSize: 11.5, color: AppColors.primaryDark),
+                        l.maintenanceIncluded || l.maintenance == 0 ? 'incl. maint.' : '+ ${Tk2Store.money(l.maintenance)}\nmaint.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 11.5, height: 15 / 11.5, color: AppColors.primaryDark),
                       ),
                     ],
                   ),

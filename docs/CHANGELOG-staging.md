@@ -1315,3 +1315,16 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/tk2/{tk2_send,tk2_designs,tk2_store}.dart (contacts carry email; sendListing email/byEmail), apps/flutter_app/test/tk2/tk2_test.dart, docs/TRUSTKEEPER2-JOURNEYS.md, docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 25/25; broker app web build checked in headless Chromium (Share button, Recent/Add new, Add new page, checkboxes, email field)
 ```
+
+## Change 80 – Property page: visit-fee message removed; Design E rent block centred
+Date: 2026-11-02 · Status: web app live (same link); broker app code synced to the Mac, not yet built
+- Customer property page: the blue "Book a visit for ₹150…" message is removed (the fee and rules still show on the Pay and book screen).
+- Design E ticket: "+ ₹3,000 / maint." now centred under the rent, on two lines, like "2 BHK" and the rent above it.
+```
+AGENT RECORD – Change 80
+id: CHG-080
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/{tk2_customer,tk2_designs}.dart (tk2VisitNotice removed), docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 25/25; property page checked in headless Chromium
+```
