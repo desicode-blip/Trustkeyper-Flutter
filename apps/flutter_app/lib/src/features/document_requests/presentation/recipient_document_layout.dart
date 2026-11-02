@@ -32,6 +32,8 @@ class RecipientDocumentLayout extends StatefulWidget {
     this.linkedInDetails,
     this.onLinkedIn,
     this.onCancelSelection,
+    this.initiallyEntered = false,
+    this.onExit,
     super.key,
   });
   final DocumentRequestInfo? info;
@@ -45,6 +47,13 @@ class RecipientDocumentLayout extends StatefulWidget {
   final Map<String, dynamic>? linkedInDetails;
   final Future<void> Function(Map<String, dynamic>)? onLinkedIn;
   final VoidCallback? onCancelSelection;
+
+  /// Open straight on the documents list (the person is already signed in,
+  /// e.g. the TrustKeeper 2 web app after blocking a house).
+  final bool initiallyEntered;
+
+  /// Back from the documents list leaves this page (shown instead of the logo).
+  final VoidCallback? onExit;
   final Future<void> Function() onRequestOtp,
       onVerify,
       onReload,
@@ -59,7 +68,7 @@ class RecipientDocumentLayout extends StatefulWidget {
 }
 
 class _RecipientDocumentLayoutState extends State<RecipientDocumentLayout> {
-  bool entered = false;
+  late bool entered = widget.initiallyEntered;
   RequestedPaper? editing;
   String? bankMethod;
   bool get verified => widget.info?.verified == true;
@@ -134,13 +143,13 @@ class _RecipientDocumentLayoutState extends State<RecipientDocumentLayout> {
     ),
     child: Row(
       children: [
-        if (editing != null)
+        if (editing != null || widget.onExit != null)
           SizedBox(
             width: 44,
             height: 36,
             child: IconButton.outlined(
-              onPressed: widget.busy ? null : _back,
-              tooltip: 'Back to documents',
+              onPressed: widget.busy ? null : (editing != null ? _back : widget.onExit),
+              tooltip: editing != null ? 'Back to documents' : 'Back',
               icon: const Icon(Icons.chevron_left),
             ),
           )

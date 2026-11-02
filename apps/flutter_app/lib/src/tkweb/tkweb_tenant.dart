@@ -1,12 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/widgets/primary_button.dart';
+import '../features/broker/data/private_documents.dart';
 import '../features/broker/presentation/onboarding_widgets.dart';
+import '../features/broker/presentation/private_documents_screen.dart';
+import '../features/document_requests/data/document_request_repository.dart';
+import '../features/document_requests/presentation/recipient_document_layout.dart';
 import '../tk2/tk2_customer.dart';
 import '../tk2/tk2_designs.dart';
 import '../tk2/tk2_store.dart';
@@ -15,7 +18,7 @@ import 'tkweb_auth.dart';
 import 'tkweb_session.dart';
 
 /// Tenant journey on the web, in order. Index = step number in the session.
-const tkwTenantSteps = ['visit', 'block', 'details', 'owner', 'agreement', 'sign', 'pay', 'keys', 'home'];
+const tkwTenantSteps = ['visit', 'block', 'docs', 'details', 'owner', 'agreement', 'sign', 'pay', 'keys', 'home'];
 
 /// Token amount that blocks a house.
 const tkwToken = 15000;
@@ -182,7 +185,6 @@ class TkwStep extends StatefulWidget {
 class _TkwStepState extends State<TkwStep> {
   final s = TkwSession.instance;
   late final Map<String, dynamic> trip = s.trip(widget.listingId);
-  late final fullName = TextEditingController(text: trip['fullName'] as String? ?? s.name);
   late final email = TextEditingController(text: trip['email'] as String? ?? '');
   late final address = TextEditingController(text: trip['address'] as String? ?? '');
   late final work = TextEditingController(text: trip['work'] as String? ?? '');
@@ -190,7 +192,6 @@ class _TkwStepState extends State<TkwStep> {
   final sign = TextEditingController();
   final Set<String> bad = {};
   bool busy = false;
-  Timer? ticker;
 
   String get key => tkwTenantSteps[widget.index];
   bool get done => (trip['step'] as int? ?? 0) > widget.index;
@@ -199,13 +200,11 @@ class _TkwStepState extends State<TkwStep> {
   @override
   void initState() {
     super.initState();
-    if (key == 'visit') ticker = Timer.periodic(const Duration(seconds: 1), (_) => mounted ? setState(() {}) : null);
   }
 
   @override
   void dispose() {
-    ticker?.cancel();
-    for (final c in [fullName, email, address, work, people, sign]) {
+    for (final c in [email, address, work, people, sign]) {
       c.dispose();
     }
     super.dispose();
@@ -224,20 +223,9 @@ class _TkwStepState extends State<TkwStep> {
     if (key == 'details') {
       bad
         ..clear()
-        ..addAll({
-          if (fullName.text.trim().length < 3) 'fullName',
-          if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$').hasMatch(email.text.trim())) 'email',
-          if (address.text.trim().length < 8) 'address',
-          if (trip['aadhaar'] != true) 'aadhaar',
-        });
+        ..addAll({if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$').hasMatch(email.text.trim())) 'email', if (address.text.trim().length < 8) 'address'});
       if (bad.isNotEmpty) return setState(() {});
-      trip.addAll({
-        'fullName': fullName.text.trim(),
-        'email': email.text.trim(),
-        'address': address.text.trim(),
-        'work': work.text.trim(),
-        'people': people.text.trim(),
-      });
+      trip.addAll({'email': email.text.trim(), 'address': address.text.trim(), 'work': work.text.trim(), 'people': people.text.trim()});
     }
     if (key == 'sign' && sign.text.trim().length < 3) return setState(() => bad.add('sign'));
     if (key == 'home') {
@@ -276,17 +264,6 @@ class _TkwStepState extends State<TkwStep> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _upload(String what) async {
-    try {
-      final file = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
-      if (file == null) return;
-      trip[what] = true;
-      bad.remove(what);
-      await s.save();
-      if (mounted) setState(() {});
-    } catch (_) {}
-  }
-
   Uri _calendar(DateTime at) {
     String f(DateTime d) => '${d.toUtc().toIso8601String().replaceAll(RegExp(r'[-:]'), '').split('.').first}Z';
     return Uri.https('calendar.google.com', '/calendar/render', {
@@ -302,10 +279,22 @@ class _TkwStepState extends State<TkwStep> {
 
   @override
   Widget build(BuildContext context) {
+    if (key == 'docs') {
+      return TkwTenantDocs(
+        listing: l,
+        trip: trip,
+        onExit: () => Navigator.of(context).maybePop(),
+        onSent: () async {
+          trip['step'] = widget.index + 1;
+          await s.save();
+          if (mounted) _goNext();
+        },
+      );
+    }
     final (title, action, children) = switch (key) {
       'visit' => _visitStep(),
       'block' => ('Block this house', 'Pay ${Tk2Store.money(tkwToken)} and block', _blockStep()),
-      'details' => ('Your details', 'Send my details', _detailsStep()),
+      'details' => ('Your details for rental agreement', 'Send my details', _detailsStep()),
       'owner' => ('Owner details', 'Demo: owner shared details', _ownerStep()),
       'agreement' => ('Rent agreement', 'Demo: broker approved', _agreementStep(final_: false)),
       'sign' => ('Sign the agreement', 'Sign', _signStep()),
@@ -315,7 +304,8 @@ class _TkwStepState extends State<TkwStep> {
     };
     return OnbPage(
       title: title,
-      subtitle: key == 'visit' || key == 'home' ? l.publicTitle : 'Step ${widget.index} of ${tkwTenantSteps.length - 2} · ${l.publicTitle}',
+      step: key == 'visit' || key == 'home' ? null : 'Step ${widget.index} of ${tkwTenantSteps.length - 2}',
+      subtitle: l.publicTitle,
       onBack: () => Navigator.of(context).maybePop(),
       footer: [
         if (action.isNotEmpty) PrimaryButton(label: done ? 'Continue' : action, icon: Icons.chevron_right, loading: busy, onPressed: busy ? null : _complete),
@@ -356,7 +346,6 @@ class _TkwStepState extends State<TkwStep> {
       );
     }
     final at = DateTime.fromMillisecondsSinceEpoch(v.at);
-    final left = Tk2Visit.cancelWindow.inSeconds - DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(trip['bookedAt'] as int? ?? 0)).inSeconds;
     final store = Tk2Store.instance;
     final address = tk2PublicAddress(l);
     return (
@@ -490,13 +479,22 @@ class _TkwStepState extends State<TkwStep> {
         _rule(Icons.badge_outlined, 'Gated society? The broker sends your gate pass on WhatsApp before the visit.'),
         _rule(Icons.directions_walk, 'Please be on time. We wait 15 minutes.'),
         if (!done) ...[
-          const SizedBox(height: 6),
-          Center(
-            child: TextButton.icon(
+          const SizedBox(height: 8),
+          // Small and out of the way: bottom right, under "Good to know".
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton(
               onPressed: _cancelVisit,
-              style: TextButton.styleFrom(foregroundColor: AppColors.error),
-              icon: const Icon(Icons.close, size: 18),
-              label: Text(left > 0 ? 'Cancel visit · ${left ~/ 60}:${(left % 60).toString().padLeft(2, '0')} left for a refund' : 'Cancel visit'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.error,
+                side: const BorderSide(color: AppColors.border),
+                shape: const StadiumBorder(),
+                minimumSize: const Size(0, 34),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                visualDensity: VisualDensity.compact,
+                textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              child: const Text('Cancel visit'),
             ),
           ),
           const SizedBox(height: 10),
@@ -572,21 +570,13 @@ class _TkwStepState extends State<TkwStep> {
   ];
 
   List<Widget> _detailsStep() => [
-    const OnbBanner('House blocked for you', kind: 'ok', icon: Icons.lock_outline),
+    const OnbBanner('Documents received', kind: 'ok', icon: Icons.check_circle_outline),
     const SizedBox(height: 16),
     const Text(
-      'For the rent agreement. The owner is asked for theirs at the same time.',
+      'A few more details for the agreement. The owner is asked for theirs at the same time.',
       style: TextStyle(fontSize: 15.5, height: 22 / 15.5, color: AppColors.muted),
     ),
-    const SizedBox(height: 8),
-    OnbTextField(
-      label: 'Full name (as on Aadhaar) *',
-      controller: fullName,
-      capitalization: TextCapitalization.words,
-      error: bad.contains('fullName') ? 'Type your full name' : null,
-      onChanged: (_) => setState(() => bad.remove('fullName')),
-    ),
-    const SizedBox(height: 12),
+    const SizedBox(height: 16),
     OnbTextField(
       label: 'Email *',
       controller: email,
@@ -607,28 +597,7 @@ class _TkwStepState extends State<TkwStep> {
     OnbTextField(label: 'Work: company or what you do', controller: work, capitalization: TextCapitalization.words),
     const SizedBox(height: 12),
     OnbTextField(label: 'How many people will live here', controller: people, keyboard: TextInputType.number),
-    const SizedBox(height: 16),
-    _uploadRow('aadhaar', 'Aadhaar card', 'Front and back', need: bad.contains('aadhaar')),
   ];
-
-  Widget _uploadRow(String k, String title, String sub, {bool need = false}) {
-    final has = trip[k] == true;
-    return OnbRow(
-      icon: has ? Icons.check : Icons.upload_file_outlined,
-      title: title,
-      subtitle: has
-          ? 'Added · tap to change'
-          : need
-          ? 'Add this to continue'
-          : sub,
-      tone: has
-          ? 'ok'
-          : need
-          ? 'need'
-          : 'info',
-      onTap: () => _upload(k),
-    );
-  }
 
   List<Widget> _ownerStep() => [
     const OnbCentered(
@@ -849,4 +818,103 @@ class TkwNotLiked extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Documents for the rent agreement: the main app's tenant document screen
+/// (Aadhaar front and back, PAN, bank, LinkedIn), already signed in.
+/// Demo build: files stay on this device; the backend uploads them later.
+class TkwTenantDocs extends StatefulWidget {
+  const TkwTenantDocs({required this.listing, required this.trip, required this.onExit, required this.onSent, super.key});
+  final Tk2Listing listing;
+  final Map<String, dynamic> trip;
+  final VoidCallback onExit;
+  final Future<void> Function() onSent;
+
+  @override
+  State<TkwTenantDocs> createState() => _TkwTenantDocsState();
+}
+
+class _TkwTenantDocsState extends State<TkwTenantDocs> {
+  final files = <DocumentKind, DocumentFile>{};
+  final code = TextEditingController();
+  Map<String, dynamic>? bank;
+  Map<String, dynamic>? linkedIn;
+  bool busy = false;
+
+  @override
+  void dispose() {
+    code.dispose();
+    super.dispose();
+  }
+
+  DocumentRequestInfo get _info {
+    final session = TkwSession.instance;
+    final store = Tk2Store.instance;
+    return DocumentRequestInfo({
+      'requestId': 'tkw-${widget.listing.id}',
+      'type': RequestedPaper.all.name,
+      'status': 'requested',
+      'phone': session.contact,
+      'partyName': session.name,
+      'brokerName': store.brokerName.isEmpty ? 'Your broker' : store.brokerName,
+      'address': widget.listing.publicTitle,
+      'role': 'tenant',
+      'verified': true,
+      'version': 1,
+      'expiresAtMs': DateTime.now().add(const Duration(days: 7)).millisecondsSinceEpoch,
+    });
+  }
+
+  Future<void> _pick(DocumentKind kind, bool camera) async {
+    final file = await pickPrivateDocument(camera: camera);
+    if (file == null || !mounted) return;
+    // Photos get the main app's review step; PDFs go straight in.
+    final ok = file.contentType == 'application/pdf' || await reviewPrivateDocument(context, file, upload: true, selectionOnly: true);
+    if (ok && mounted) {
+      setState(() {
+        files[kind] = file;
+        if (kind == DocumentKind.bankProof) bank = null;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => RecipientDocumentLayout(
+    info: _info,
+    loading: false,
+    busy: busy,
+    progress: null,
+    error: null,
+    otpSent: false,
+    cooldown: 0,
+    code: code,
+    files: files,
+    bankDetails: bank,
+    linkedInDetails: linkedIn,
+    initiallyEntered: true,
+    onExit: widget.onExit,
+    onRequestOtp: () async {},
+    onVerify: () async {},
+    onReload: () async {},
+    onSignOut: () async => widget.onExit(),
+    onSubmit: () async {
+      setState(() => busy = true);
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+      widget.trip['docs'] = true;
+      if (!mounted) return;
+      setState(() => busy = false);
+      await widget.onSent();
+    },
+    onPick: _pick,
+    onRemove: (kind) async => setState(() => files.remove(kind)),
+    onView: (kind) async {
+      final file = files[kind];
+      if (file != null) await reviewPrivateDocument(context, file, upload: false);
+    },
+    onBank: (value) => setState(() {
+      bank = value;
+      files.remove(DocumentKind.bankProof);
+    }),
+    onLinkedIn: (value) async => setState(() => linkedIn = value),
+  );
 }

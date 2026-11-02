@@ -263,8 +263,8 @@ void main() {
     expect(find.text('Namaste, Suresh'), findsOneWidget);
     expect(find.text('Add property'), findsOneWidget);
     // Only designs E and B on home; door number never on cards.
-    expect(find.text('Sri Sai Residency'), findsNWidgets(2)); // E and B show the society
-    expect(find.text('2 BHK · ₹32,000 + ₹3,000 maintenance'), findsOneWidget); // B title
+    expect(find.text('Sri Sai Residency'), findsOneWidget); // E heading; B shows the address only (no repeat)
+    expect(find.textContaining('₹32,000/month\u00A0 +\u00A0maintenance', findRichText: true), findsOneWidget); // B title
     expect(find.text('Sri Sai Residency, Madhapur, Hyderabad'), findsNWidgets(2)); // address line on both
     expect(find.textContaining('Flat 402'), findsNothing);
     expect(find.text('Example'), findsNothing);

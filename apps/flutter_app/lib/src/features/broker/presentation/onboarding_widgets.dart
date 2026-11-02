@@ -28,8 +28,13 @@ class OnbPage extends StatelessWidget {
     this.showBack = true,
     this.showCall = false,
     this.topBanner,
+    this.step,
     super.key,
   });
+
+  /// Small "Step 2 of 7" pill before the subtitle, so the step reads apart
+  /// from the subtitle text.
+  final String? step;
 
   /// A strip above the heading, for example "Editing agreement".
   final Widget? topBanner;
@@ -89,19 +94,43 @@ class OnbPage extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (subtitle != null)
+                if (subtitle != null || step != null)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        subtitle!,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          height: 23 / 16,
-                          color: AppColors.muted,
-                        ),
-                      ),
+                    child: Row(
+                      children: [
+                        if (step != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySoft,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              step!,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primaryDark,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+                        if (subtitle != null)
+                          Expanded(
+                            child: Text(
+                              subtitle!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                height: 23 / 16,
+                                color: AppColors.muted,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
               ],

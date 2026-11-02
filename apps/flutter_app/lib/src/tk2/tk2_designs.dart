@@ -143,6 +143,36 @@ Widget tk2Glyph(IconData icon, {required double size, required Color color}) => 
       )
     : Icon(icon, size: size, color: color);
 
+/// Design B first line: "2 BHK  ·  ₹32,000/month" with maintenance after it
+/// in a lighter, smaller style ("+ maintenance" or "(maintenance included)").
+Widget _rentHeading(Tk2Listing l) {
+  const strong = TextStyle(fontSize: 16.5, height: 22 / 16.5, fontWeight: FontWeight.w700, color: AppColors.heading);
+  const light = TextStyle(fontSize: 13.5, fontWeight: FontWeight.w400, color: AppColors.muted);
+  final extra = !(l.maintenanceIncluded || l.maintenance == 0);
+  return Text.rich(
+    TextSpan(
+      style: strong,
+      children: [
+        TextSpan(text: l.property.rooms),
+        const TextSpan(text: '   ·   ', style: TextStyle(color: AppColors.muted)),
+        if (!l.hasRent)
+          const TextSpan(text: 'Add rent')
+        else ...[
+          TextSpan(text: Tk2Store.money(l.rent)),
+          const TextSpan(
+            text: '/month\u00A0',
+            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: AppColors.body),
+          ),
+          TextSpan(text: extra ? ' +\u00A0maintenance' : ' (maintenance\u00A0included)', style: light),
+          if (l.rentNegotiable) const TextSpan(text: '\u00A0·\u00A0negotiable', style: light),
+        ],
+      ],
+    ),
+    maxLines: 2,
+    overflow: TextOverflow.ellipsis,
+  );
+}
+
 Widget _iconText(IconData icon, String text, {Color color = AppColors.muted, double size = 13.5, int lines = 1}) => Row(
   mainAxisSize: MainAxisSize.min,
   crossAxisAlignment: lines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
@@ -222,11 +252,13 @@ class Tk2DesignCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Text(
-                            '${l.property.rooms} · ${l.rentLine}',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 16, height: 21 / 16, fontWeight: FontWeight.w600, color: AppColors.heading),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _rentHeading(l),
+                              const SizedBox(height: 3),
+                              _address(l),
+                            ],
                           ),
                         ),
                         // Secondary "Share": quiet outline, right of the heading.
@@ -251,17 +283,8 @@ class Tk2DesignCard extends StatelessWidget {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    // Same details as Design E: heading, address, then the facts in two columns.
-                    Text(
-                      tk2CardHeading(l),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.body),
-                    ),
-                    const SizedBox(height: 2),
-                    _address(l),
                     const SizedBox(height: 10),
+                    // Facts in two columns, same as Design E.
                     Builder(
                       builder: (context) {
                         final factsB = tk2Facts(l, outlined: true);

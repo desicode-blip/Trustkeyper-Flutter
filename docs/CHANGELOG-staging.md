@@ -1328,3 +1328,20 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/tk2/{tk2_customer,tk2_designs}.dart (tk2VisitNotice removed), docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 25/25; property page checked in headless Chromium
 ```
+
+## Change 81 – Design B heading; tenant documents (main app flow); details; cancel button
+Date: 2026-11-02 · Status: web app live (same link); broker app code synced to the Mac, not yet built
+- Design B card: first line "2 BHK  ·  ₹32,000/month" with wider space around the dot; maintenance after it in small grey – "+ maintenance" or "(maintenance included)" (and "· negotiable"). The bold society line is gone; the address sits right under the heading.
+- Tenant Your visit: "Cancel visit" is a small outline button on the right under Good to know; no countdown.
+- Tenant after blocking: new **Documents** step first, using the main app's tenant document screen as is (`RecipientDocumentLayout`: Aadhaar front/back, PAN, bank account or cheque, LinkedIn optional, review, "Submit to <broker>"). Two optional params added to that shared widget, defaults unchanged: `initiallyEntered` (open on the list when already signed in) and `onExit` (back button instead of the logo).
+- Then **Your details for rental agreement**: email *, current address *, work, people. Full name and the Aadhaar row removed (name comes from Aadhaar).
+- Step label is now a small pill ("Step 2 of 8") before the house name: new optional `step` on `OnbPage` (shared; other screens unchanged).
+```
+AGENT RECORD – Change 81
+id: CHG-081
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/tk2_designs.dart (_rentHeading), apps/flutter_app/lib/src/tkweb/tkweb_tenant.dart (docs step + TkwTenantDocs, details, cancel button, step pill), apps/flutter_app/lib/src/features/document_requests/presentation/recipient_document_layout.dart (initiallyEntered, onExit), apps/flutter_app/lib/src/features/broker/presentation/onboarding_widgets.dart (OnbPage.step), apps/flutter_app/test/tk2/tk2_test.dart, docs/TRUSTKEEPER2-JOURNEYS.md, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 25/25; document_request_test, recipient_auth_recovery_test, ui_test_app_test pass; document_request_visual_test fails only because ../../output/ui-audit is missing here (writes screenshots), unrelated. Web: visit → liked → block → Documents → Aadhaar screen checked in headless Chromium; broker Design B checked in a web build.
+backend: TkwTenantDocs keeps files on the device today – connect it to the real document request (same gateway the main app uses).
+```
