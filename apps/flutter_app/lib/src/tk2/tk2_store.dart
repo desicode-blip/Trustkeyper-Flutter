@@ -33,6 +33,7 @@ class Tk2Listing {
     this.sample = false,
     this.maintenance = 0,
     this.maintenanceIncluded = true,
+    this.rentNegotiable = false,
     this.tenants = 'Anyone',
     this.pets = true,
     this.society = '',
@@ -86,6 +87,9 @@ class Tk2Listing {
   /// Monthly maintenance; 0 with [maintenanceIncluded] = included in rent.
   final int maintenance;
   final bool maintenanceIncluded;
+
+  /// Broker ticked "Rent is negotiable" (shown to customers).
+  final bool rentNegotiable;
 
   /// Family · Bachelors · Anyone
   final String tenants;
@@ -232,6 +236,7 @@ class Tk2Listing {
     int? visitFee,
     int? maintenance,
     bool? maintenanceIncluded,
+    bool? rentNegotiable,
     String? tenants,
     bool? pets,
     String? society,
@@ -260,6 +265,7 @@ class Tk2Listing {
     sample: sample,
     maintenance: maintenance ?? this.maintenance,
     maintenanceIncluded: maintenanceIncluded ?? this.maintenanceIncluded,
+    rentNegotiable: rentNegotiable ?? this.rentNegotiable,
     tenants: tenants ?? this.tenants,
     pets: pets ?? this.pets,
     society: society ?? this.society,
@@ -289,6 +295,7 @@ class Tk2Listing {
     'createdAt': createdAt,
     'maintenance': maintenance,
     'maintenanceIncluded': maintenanceIncluded,
+    'rentNegotiable': rentNegotiable,
     'tenants': tenants,
     'pets': pets,
     'society': society,
@@ -321,6 +328,7 @@ class Tk2Listing {
     createdAt: (json['createdAt'] as num?)?.toInt() ?? 0,
     maintenance: (json['maintenance'] as num?)?.toInt() ?? 0,
     maintenanceIncluded: json['maintenanceIncluded'] as bool? ?? true,
+    rentNegotiable: json['rentNegotiable'] as bool? ?? false,
     tenants: json['tenants'] as String? ?? 'Anyone',
     pets: json['pets'] as bool? ?? true,
     society: json['society'] as String? ?? '',
@@ -336,8 +344,8 @@ class Tk2Listing {
   String get rentLine {
     if (!hasRent) return 'Add rent';
     final r = Tk2Store.money(rent);
-    if (maintenanceIncluded || maintenance == 0) return '$r incl. maintenance';
-    return '$r + ${Tk2Store.money(maintenance)} maintenance';
+    final line = maintenanceIncluded || maintenance == 0 ? '$r incl. maintenance' : '$r + ${Tk2Store.money(maintenance)} maintenance';
+    return rentNegotiable ? '$line · negotiable' : line;
   }
 
   /// Furnishing as people say it.
@@ -396,7 +404,8 @@ abstract final class VisitStatus {
   /// Customer cancelled within 5 minutes of booking (98% back).
   static const customerCancelled = 'customerCancelled';
 
-  /// Customer cancelled after 5 minutes: no refund, broker gets half (like a no-show).
+  /// Customer cancelled after 5 minutes: no refund. The broker was told in
+  /// advance, so he gets nothing; TrustKeyper keeps the fee.
   static const customerCancelledLate = 'customerCancelledLate';
 }
 
@@ -434,10 +443,11 @@ class Tk2Visit {
 
   bool get upcoming => status == VisitStatus.booked;
 
-  /// held · released · half (customer did not come) · refunded
+  /// held · released · half (customer did not come) · refunded · kept (late cancel)
   String get feeStatus => switch (status) {
     VisitStatus.done => 'released',
-    VisitStatus.noShow || VisitStatus.customerCancelledLate => 'half',
+    VisitStatus.noShow => 'half',
+    VisitStatus.customerCancelledLate => 'kept',
     VisitStatus.cancelled || VisitStatus.customerCancelled => 'refunded',
     _ => 'held',
   };
@@ -445,12 +455,12 @@ class Tk2Visit {
   /// What the broker gets: all after the visit, half if the customer did not come.
   int get brokerShare => switch (status) {
     VisitStatus.done => fee,
-    VisitStatus.noShow || VisitStatus.customerCancelledLate => fee ~/ 2,
+    VisitStatus.noShow => fee ~/ 2,
     _ => 0,
   };
 
   /// What goes back to the customer: all if the broker cancels; 98% if the
-  /// customer cancels within 5 minutes; nothing if they did not come.
+  /// customer cancels within 5 minutes; nothing if they cancel later or did not come.
   int get customerRefund => switch (status) {
     VisitStatus.cancelled => fee,
     VisitStatus.customerCancelled => Tk2Visit.refundAfterFee(fee),
@@ -737,7 +747,7 @@ class Tk2Store extends ChangeNotifier {
   }
 
   /// Customer cancels any time before the visit is done. Within 5 minutes of
-  /// booking they get 98% back; after that nothing (broker gets half).
+  /// booking they get 98% back; after that nothing (TrustKeyper keeps it).
   Future<bool> customerCancel(String visitId, {DateTime? now}) async {
     final at = _visits.indexWhere((v) => v.id == visitId);
     if (at < 0 || !_visits[at].upcoming) return false;

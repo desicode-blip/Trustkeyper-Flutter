@@ -267,11 +267,8 @@ class _VisitSheetState extends State<_VisitSheet> {
               child: switch (v.feeStatus) {
                 'released' => Tk2Pill('${Tk2Store.money(v.fee)} is yours', kind: 'ok', icon: Icons.check),
                 'refunded' => Tk2Pill('${Tk2Store.money(v.customerRefund)} refunded to customer'),
-                'half' => Tk2Pill(
-                  '${Tk2Store.money(v.brokerShare)} is yours · ${v.status == VisitStatus.noShow ? 'did not come' : 'customer cancelled'}',
-                  kind: 'ok',
-                  icon: Icons.check,
-                ),
+                'half' => Tk2Pill('${Tk2Store.money(v.brokerShare)} is yours · did not come', kind: 'ok', icon: Icons.check),
+                'kept' => const Tk2Pill('Customer cancelled'),
                 _ => Tk2Pill('${Tk2Store.money(v.fee)} held · yours after the visit', kind: 'wait', icon: Icons.lock_clock_outlined),
               },
             ),

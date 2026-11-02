@@ -110,6 +110,15 @@ void main() {
       expect(Tk2Listing.fromJson(l.toJson()).visitDays, 'weekends');
     });
 
+    test('rent negotiable: off by default, shown on the rent line, travels in the link', () {
+      final l = Tk2Listing.example;
+      expect(l.rentNegotiable, isFalse);
+      final n = l.copyWith(rentNegotiable: true);
+      expect(n.rentLine, endsWith('· negotiable'));
+      expect(Tk2Listing.fromJson(n.toJson()).rentNegotiable, isTrue);
+      expect(tk2ListingFromPublic(tk2PublicPayload(n, 'S').cast<String, dynamic>()).rentNegotiable, isTrue);
+    });
+
     test('property link carries only public details', () {
       final l = Tk2Listing.example;
       final link = tk2PropertyLink(l, 'Suresh');
@@ -131,9 +140,10 @@ void main() {
       expect(v.withStatus(VisitStatus.customerCancelled).customerRefund, 147);
       expect(v.inRefundWindow(now.add(const Duration(minutes: 4))), isTrue);
       expect(v.inRefundWindow(now.add(const Duration(minutes: 6))), isFalse);
-      // Late cancel: no refund, broker gets half.
+      // Late cancel: no refund; broker was told in advance, so nothing for him either.
       expect(v.withStatus(VisitStatus.customerCancelledLate).customerRefund, 0);
-      expect(v.withStatus(VisitStatus.customerCancelledLate).brokerShare, 75);
+      expect(v.withStatus(VisitStatus.customerCancelledLate).brokerShare, 0);
+      expect(v.withStatus(VisitStatus.customerCancelledLate).feeStatus, 'kept');
     });
 
     test('customer can cancel late (no refund); gate pass is saved', () async {

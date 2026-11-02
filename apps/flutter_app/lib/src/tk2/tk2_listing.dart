@@ -44,6 +44,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   String? feeError;
   late final maintenance = TextEditingController(text: (start?.maintenance ?? 0) > 0 ? '${start!.maintenance}' : '');
   late bool included = start?.maintenanceIncluded ?? true;
+  late bool negotiable = start?.rentNegotiable ?? false;
   late Set<String> who = Tk2Listing.tenantSet(start?.tenants ?? 'Anyone');
   // none · 15 · 30 · amount
   // Who pays the broker (Owner · Tenant · Both · None) and how much each.
@@ -183,6 +184,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
         note: note.text.trim(),
         maintenance: included ? 0 : _num(maintenance),
         maintenanceIncluded: included,
+        rentNegotiable: negotiable,
         tenants: Tk2Listing.tenantText(who),
         pets: pets,
       ),
@@ -286,6 +288,14 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
       ],
     ),
     if (missing.contains('rent')) _needed('Type the monthly rent'),
+    CheckboxListTile(
+      value: negotiable,
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      controlAffinity: ListTileControlAffinity.leading,
+      title: const Text('Rent is negotiable', style: TextStyle(fontSize: 16, color: AppColors.heading)),
+      onChanged: (v) => setState(() => negotiable = v ?? false),
+    ),
     if (!included) ...[const SizedBox(height: 12), _moneyField(maintenance, 'Maintenance / month', bad: missing.contains('maintenance'))],
     if (missing.contains('maintenance')) _needed('Type the maintenance amount'),
     const SizedBox(height: 12),
@@ -672,7 +682,7 @@ class Tk2VisitRow extends StatelessWidget {
       VisitStatus.done => ('${Tk2Store.money(v.fee)} yours', 'ok'),
       VisitStatus.cancelled => ('Cancelled · refunded', 'mute'),
       VisitStatus.customerCancelled => ('Customer cancelled', 'mute'),
-      VisitStatus.customerCancelledLate => ('Customer cancelled · ${Tk2Store.money(v.brokerShare)} yours', 'ok'),
+      VisitStatus.customerCancelledLate => ('Customer cancelled', 'mute'),
       VisitStatus.noShow => ('Did not come · ${Tk2Store.money(v.brokerShare)} yours', 'ok'),
       _ when v.gatePass.isEmpty => ('${Tk2Store.money(v.fee)} held · add gate pass', 'wait'),
       _ => ('${Tk2Store.money(v.fee)} held', 'wait'),

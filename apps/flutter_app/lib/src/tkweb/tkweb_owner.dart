@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/widgets/primary_button.dart';
@@ -9,6 +11,7 @@ import '../features/broker/presentation/onboarding_widgets.dart';
 import '../tk2/tk2_listing.dart';
 import '../tk2/tk2_store.dart';
 import 'tkweb_auth.dart';
+import 'tkweb_close.dart';
 import 'tkweb_session.dart';
 
 Route<void> _route(Widget page) => MaterialPageRoute<void>(builder: (_) => page);
@@ -56,7 +59,11 @@ class TkwOwnerInvite extends StatelessWidget {
                 text: brokerName.isEmpty ? 'Your broker' : brokerName,
                 style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.heading),
               ),
-              TextSpan(text: houseName.isEmpty ? ' asked you to add your house on TrustKeyper. It takes about 5 minutes.' : ' asked you to add $houseName on TrustKeyper. It takes about 5 minutes.'),
+              TextSpan(
+                text: houseName.isEmpty
+                    ? ' asked you to add your house on TrustKeyper. It takes about 5 minutes.'
+                    : ' asked you to add $houseName on TrustKeyper. It takes about 5 minutes.',
+              ),
             ],
           ),
           style: const TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted),
@@ -69,7 +76,11 @@ class TkwOwnerInvite extends StatelessWidget {
           (Icons.key_outlined, 'Keys', 'Who has them, for visits'),
         ]) ...[OnbRow(icon: icon, title: title, subtitle: sub, chevron: false), const SizedBox(height: 10)],
         const SizedBox(height: 4),
-        const OnbBanner('Your flat number, phone and key details are only for your broker and TrustKeyper. Tenants never see them.', kind: 'ok', icon: Icons.lock_outline),
+        const OnbBanner(
+          'Your flat number, phone and key details are only for your broker and TrustKeyper. Tenants never see them.',
+          kind: 'ok',
+          icon: Icons.lock_outline,
+        ),
       ],
     ),
   );
@@ -149,7 +160,7 @@ class _TkwOwnerCountState extends State<TkwOwnerCount> {
       ),
       const SizedBox(height: 6),
       const Center(
-        child: Text('Everyone whose name is on the house papers.', style: TextStyle(fontSize: 15, color: AppColors.muted)),
+        child: Text('Everyone whose name is on the house documents.', style: TextStyle(fontSize: 15, color: AppColors.muted)),
       ),
       const SizedBox(height: 18),
       Row(
@@ -258,7 +269,7 @@ class _TkwOwnerCountState extends State<TkwOwnerCount> {
 }
 
 /// Keys: who has them, and how we get them when a visit is booked.
-/// (Papers are asked later, when a tenant blocks the house.)
+/// (Documents are asked later, when a tenant blocks the house.)
 class TkwOwnerKeys extends StatefulWidget {
   const TkwOwnerKeys({required this.houseId, required this.brokerName, super.key});
   final String houseId;
@@ -269,9 +280,17 @@ class TkwOwnerKeys extends StatefulWidget {
 }
 
 class _TkwOwnerKeysState extends State<TkwOwnerKeys> {
-  static const choices = ['Me', 'Another broker', 'Security', 'Someone else'];
+  static const choices = [
+    ('Me', 'tk2-key-me'),
+    ('Another property broker', 'tk2-key-broker'),
+    ('Security', 'tk2-key-security'),
+    ('Someone else', 'tk2-key-other'),
+  ];
   late final Map<String, dynamic> a = TkwSession.instance.owner(widget.houseId);
-  late String? who = a['keys'] as String?;
+  late String? who = switch (a['keys'] as String?) {
+    'Another broker' => 'Another property broker',
+    final v => v,
+  };
   late final name = TextEditingController(text: a['keyName'] as String? ?? '');
   late final phone = TextEditingController(text: a['keyPhone'] as String? ?? '');
   late final note = TextEditingController(text: a['keyNote'] as String? ?? '');
@@ -288,51 +307,10 @@ class _TkwOwnerKeysState extends State<TkwOwnerKeys> {
 
   bool get _needsPerson => who != null && who != 'Me';
 
-  /// "Me": ask how we collect the keys for a visit.
-  Future<void> _askHowFromMe() async {
-    final draft = TextEditingController(text: note.text);
-    final saved = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      builder: (sheet) => Padding(
-        padding: EdgeInsets.fromLTRB(24, 0, 24, 16 + MediaQuery.of(sheet).viewInsets.bottom),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'How do we get the keys?',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'When a visit is booked, how should the broker collect the keys from you?',
-              style: TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted),
-            ),
-            const SizedBox(height: 16),
-            OnbTextField(label: 'For example: call me 1 hour before, I live nearby', controller: draft, maxLines: 3, capitalization: TextCapitalization.sentences),
-            const SizedBox(height: 16),
-            PrimaryButton(label: 'Save', onPressed: () => Navigator.pop(sheet, draft.text.trim())),
-          ],
-        ),
-      ),
-    );
-    if (saved == null || !mounted) return;
-    setState(() {
-      note.text = saved;
-      bad.remove('note');
-    });
-  }
-
-  void _pick(String c) {
-    setState(() {
-      who = c;
-      bad.clear();
-    });
-    if (c == 'Me' && note.text.trim().isEmpty) _askHowFromMe();
-  }
+  void _pick(String c) => setState(() {
+    who = c;
+    bad.clear();
+  });
 
   void _send() {
     final digits = phone.text.replaceAll(RegExp(r'\D'), '');
@@ -351,7 +329,107 @@ class _TkwOwnerKeysState extends State<TkwOwnerKeys> {
       ..['keyPhone'] = _needsPerson ? PhoneCountry.format(dial, digits) : ''
       ..['keyNote'] = note.text.trim();
     TkwSession.instance.save();
-    Navigator.of(context).push(_route(TkwOwnerDone(brokerName: widget.brokerName)));
+    Navigator.of(context).push(_route(TkwOwnerDone(houseId: widget.houseId, brokerName: widget.brokerName)));
+  }
+
+  /// Fields for the picked option, shown inside its own card.
+  List<Widget> _details(String c) => switch (c) {
+    'Me' => [
+      OnbTextField(
+        label: 'How do we collect the keys?',
+        controller: note,
+        maxLines: 3,
+        capitalization: TextCapitalization.sentences,
+        error: bad.contains('note') ? 'Tell us how to collect the keys' : null,
+        onChanged: (_) => setState(() => bad.remove('note')),
+      ),
+      const SizedBox(height: 6),
+      const Text('When a visit is booked. For example: call me 1 hour before, I live nearby.', style: TextStyle(fontSize: 13.5, color: AppColors.muted)),
+    ],
+    _ => [
+      OnbTextField(
+        label: switch (c) {
+          'Another property broker' => "Broker's name",
+          'Security' => "Security guard's name",
+          _ => 'Their name',
+        },
+        controller: name,
+        capitalization: TextCapitalization.words,
+        error: bad.contains('name') ? 'Type their name' : null,
+        onChanged: (_) => setState(() => bad.remove('name')),
+      ),
+      const SizedBox(height: 12),
+      ApprovedPhoneField(
+        controller: phone,
+        dialCode: dial,
+        onDialCodeChanged: (d) => setState(() => dial = d),
+        error: bad.contains('phone') ? (dial == '+91' ? 'Enter a valid 10-digit mobile number' : 'Enter a valid phone number') : null,
+      ),
+      if (c == 'Security' || c == 'Someone else') ...[
+        const SizedBox(height: 12),
+        OnbTextField(label: 'How to collect the keys (optional)', controller: note, maxLines: 3, capitalization: TextCapitalization.sentences),
+      ],
+    ],
+  };
+
+  Widget _option(String c, String svg) {
+    final on = who == c;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: on ? AppColors.primarySoft : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: on ? AppColors.primary : AppColors.border, width: on ? 1.6 : 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => _pick(c),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
+                  children: [
+                    SvgPicture.asset(
+                      'assets/design/$svg.svg',
+                      width: 24,
+                      height: 24,
+                      colorFilter: const ColorFilter.mode(AppColors.primaryDark, BlendMode.srcIn),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        c,
+                        style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w600, color: AppColors.heading),
+                      ),
+                    ),
+                    AnimatedOpacity(
+                      opacity: on ? 1 : 0,
+                      duration: const Duration(milliseconds: 150),
+                      child: const Icon(Icons.check_circle, color: AppColors.primary),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: on
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: _details(c)),
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -359,7 +437,9 @@ class _TkwOwnerKeysState extends State<TkwOwnerKeys> {
     title: 'Keys',
     subtitle: 'Who has the keys? We need them when someone visits.',
     onBack: () => Navigator.of(context).maybePop(),
-    footer: [PrimaryButton(label: 'Send to ${widget.brokerName.isEmpty ? 'broker' : widget.brokerName.split(' ').first}', icon: Icons.chevron_right, onPressed: _send)],
+    footer: [
+      PrimaryButton(label: 'Send to ${widget.brokerName.isEmpty ? 'broker' : widget.brokerName.split(' ').first}', icon: Icons.chevron_right, onPressed: _send),
+    ],
     children: [
       AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -370,132 +450,166 @@ class _TkwOwnerKeysState extends State<TkwOwnerKeys> {
           border: Border.all(color: bad.contains('who') ? AppColors.error : Colors.transparent, width: 1.4),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final c in choices)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Material(
-                  color: who == c ? AppColors.primarySoft : Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: who == c ? AppColors.primary : AppColors.border, width: who == c ? 1.6 : 1),
-                  ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () => _pick(c),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      child: Row(
-                        children: [
-                          Icon(switch (c) {
-                            'Me' => Icons.person_outline,
-                            'Another broker' => Icons.handshake_outlined,
-                            'Security' => Icons.shield_outlined,
-                            _ => Icons.people_outline,
-                          }, color: AppColors.primaryDark),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              c,
-                              style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w600, color: AppColors.heading),
-                            ),
-                          ),
-                          AnimatedOpacity(
-                            opacity: who == c ? 1 : 0,
-                            duration: const Duration(milliseconds: 150),
-                            child: const Icon(Icons.check_circle, color: AppColors.primary),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            for (final (c, svg) in choices) _option(c, svg),
             if (bad.contains('who')) const Text('Choose who has the keys', style: TextStyle(fontSize: 14.5, color: AppColors.error)),
           ],
         ),
       ),
-      AnimatedSize(
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
-        alignment: Alignment.topCenter,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (who == 'Me') ...[
-              const SizedBox(height: 6),
-              OnbRow(
-                icon: note.text.trim().isEmpty ? Icons.edit_note : Icons.check,
-                title: 'How we get the keys from you',
-                subtitle: note.text.trim().isEmpty ? (bad.contains('note') ? 'Tell us how to collect them' : 'Tap to tell us') : note.text.trim(),
-                tone: note.text.trim().isNotEmpty
-                    ? 'ok'
-                    : bad.contains('note')
-                    ? 'need'
-                    : 'info',
-                onTap: _askHowFromMe,
-              ),
-            ],
-            if (_needsPerson) ...[
-              const SizedBox(height: 8),
-              Text(switch (who) {
-                'Another broker' => 'The other broker',
-                'Security' => 'The security guard',
-                _ => 'The person with the keys',
-              }, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading)),
-              const SizedBox(height: 10),
-              OnbTextField(
-                label: 'Name',
-                controller: name,
-                capitalization: TextCapitalization.words,
-                error: bad.contains('name') ? 'Type their name' : null,
-                onChanged: (_) => setState(() => bad.remove('name')),
-              ),
-              const SizedBox(height: 12),
-              ApprovedPhoneField(
-                controller: phone,
-                dialCode: dial,
-                onDialCodeChanged: (c) => setState(() => dial = c),
-                error: bad.contains('phone') ? (dial == '+91' ? 'Enter a valid 10-digit mobile number' : 'Enter a valid phone number') : null,
-              ),
-              if (who == 'Security' || who == 'Someone else') ...[
-                const SizedBox(height: 12),
-                OnbTextField(
-                  label: who == 'Security' ? 'How to collect the keys from security (optional)' : 'Anything we should know (optional)',
-                  controller: note,
-                  maxLines: 3,
-                  capitalization: TextCapitalization.sentences,
-                ),
-              ],
-            ],
-          ],
-        ),
+      const SizedBox(height: 6),
+      const OnbBanner(
+        'Documents like Aadhaar and bank details are asked later, only when a tenant blocks your house.',
+        kind: 'info',
+        icon: Icons.description_outlined,
       ),
-      const SizedBox(height: 16),
-      const OnbBanner('Papers like Aadhaar and bank details are asked later, only when a tenant blocks your house.', kind: 'info', icon: Icons.description_outlined),
     ],
   );
 }
 
-class TkwOwnerDone extends StatelessWidget {
-  const TkwOwnerDone({required this.brokerName, super.key});
+/// Owner is done. "Done" closes the tab; documents can be added now if they like.
+class TkwOwnerDone extends StatefulWidget {
+  const TkwOwnerDone({required this.houseId, required this.brokerName, super.key});
+  final String houseId;
   final String brokerName;
 
   @override
-  Widget build(BuildContext context) => OnbPage(
-    title: 'All done',
-    showBack: false,
-    footer: [OnbSecondaryButton(label: 'Back to start', onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst))],
-    children: [
-      OnbCentered(
-        icon: Icons.check,
-        kind: 'ok',
-        title: 'Thank you, ${TkwSession.instance.name.split(' ').first}!',
-        message: '${brokerName.isEmpty ? 'Your broker' : brokerName} can now share your house with tenants. We message you on WhatsApp when someone books a visit.',
+  State<TkwOwnerDone> createState() => _TkwOwnerDoneState();
+}
+
+class _TkwOwnerDoneState extends State<TkwOwnerDone> {
+  bool closeTried = false;
+
+  Map<String, dynamic> get a => TkwSession.instance.owner(widget.houseId);
+
+  Future<void> _done() async {
+    tkwCloseTab();
+    // Browsers only close tabs a script opened; otherwise say it is safe to close.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (mounted) setState(() => closeTried = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final docs = a['docsSent'] == true;
+    return OnbPage(
+      title: 'All done',
+      showBack: false,
+      footer: [
+        PrimaryButton(label: 'Done', onPressed: _done),
+        if (!docs) ...[
+          const SizedBox(height: 10),
+          OnbSecondaryButton(
+            label: 'Upload documents now',
+            onPressed: () async {
+              await Navigator.of(context).push(_route(TkwOwnerDocs(houseId: widget.houseId, brokerName: widget.brokerName)));
+              if (mounted) setState(() {});
+            },
+          ),
+        ],
+      ],
+      children: [
+        OnbCentered(
+          icon: Icons.check,
+          kind: 'ok',
+          title: 'Thank you, ${TkwSession.instance.name.split(' ').first}!',
+          message:
+              '${widget.brokerName.isEmpty ? 'Your broker' : widget.brokerName} can now share your house with tenants. We message you on WhatsApp when someone books a visit.',
+        ),
+        const SizedBox(height: 24),
+        docs
+            ? const OnbBanner(
+                'Documents received. We use them to make the rent agreement when a tenant blocks your house.',
+                kind: 'ok',
+                icon: Icons.check_circle_outline,
+              )
+            : const OnbBanner(
+                'When a tenant blocks your house, we need a few documents for the rent agreement. Add them now to save time later, or we will ask then.',
+                kind: 'info',
+                icon: Icons.description_outlined,
+              ),
+        if (closeTried) ...[
+          const SizedBox(height: 12),
+          const OnbBanner('You are all set. You can close this tab now.', kind: 'ok', icon: Icons.check_circle_outline),
+        ],
+      ],
+    );
+  }
+}
+
+/// Documents for the rent agreement: Aadhaar of every owner, bank, old agreement.
+class TkwOwnerDocs extends StatefulWidget {
+  const TkwOwnerDocs({required this.houseId, required this.brokerName, super.key});
+  final String houseId;
+  final String brokerName;
+
+  @override
+  State<TkwOwnerDocs> createState() => _TkwOwnerDocsState();
+}
+
+class _TkwOwnerDocsState extends State<TkwOwnerDocs> {
+  late final Map<String, dynamic> a = TkwSession.instance.owner(widget.houseId);
+  late final int owners = (a['owners'] as int? ?? 1).clamp(1, 9);
+  final Set<String> bad = {};
+
+  Future<void> _upload(String k) async {
+    try {
+      final f = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
+      if (f == null) return;
+      a[k] = true;
+      bad.remove(k);
+      await TkwSession.instance.save();
+      if (mounted) setState(() {});
+    } catch (_) {}
+  }
+
+  void _send() {
+    bad
+      ..clear()
+      ..addAll({
+        for (var i = 0; i < owners; i++)
+          if (a['aadhaar$i'] != true) 'aadhaar$i',
+        if (a['bank'] != true) 'bank',
+      });
+    if (bad.isNotEmpty) return setState(() {});
+    a['docsSent'] = true;
+    TkwSession.instance.save();
+    Navigator.of(context).pop();
+  }
+
+  Widget _row(String k, String title, String sub) {
+    final has = a[k] == true;
+    final need = bad.contains(k);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: OnbRow(
+        icon: has ? Icons.check : Icons.upload_file_outlined,
+        title: title,
+        subtitle: has
+            ? 'Added · tap to change'
+            : need
+            ? 'Add this to continue'
+            : sub,
+        tone: has
+            ? 'ok'
+            : need
+            ? 'need'
+            : 'info',
+        onTap: () => _upload(k),
       ),
-      const SizedBox(height: 24),
-      const OnbBanner('When a tenant blocks your house, we ask for a few more details to make the rent agreement. You sign it online.', kind: 'info', icon: Icons.description_outlined),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => OnbPage(
+    title: 'Documents',
+    subtitle: 'For the rent agreement. Only your broker and TrustKeyper see these.',
+    onBack: () => Navigator.of(context).maybePop(),
+    footer: [PrimaryButton(label: 'Send documents', icon: Icons.chevron_right, onPressed: _send)],
+    children: [
+      for (var i = 0; i < owners; i++) _row('aadhaar$i', owners == 1 ? 'Aadhaar card' : 'Aadhaar card · owner ${i + 1}', 'Front and back'),
+      _row('bank', 'Bank details for the rent', 'A cancelled cheque or passbook page'),
+      _row('oldAgreement', 'Old or current rent agreement', 'Optional · only if it was rented before'),
     ],
   );
 }

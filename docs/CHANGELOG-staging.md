@@ -1285,3 +1285,19 @@ backend: reminder call 1 h before also reminds the broker about the gate pass + 
 verification: flutter analyze clean; test/tk2 24/24; web app clicked through in headless Chromium (book → Your visit → liked → Block; not liked → We told broker). Broker gate-pass sheet not yet seen on a device.
 open: tenant browsing the broker's other houses (later); money rule for late cancel (broker half) needs Aman's sign-off
 ```
+
+## Change 78 – Late cancel money; rent negotiable; Keys cards; owner documents
+Date: 2026-11-02 · Status: web app live (same link); broker app code synced to the Mac, not yet built
+- Money: tenant cancels after 5 minutes → no refund and the broker gets nothing (he was told in advance); TrustKeyper keeps it. No-show stays half to the broker. Broker sees "Customer cancelled".
+- Rent details (broker + owner): "Rent is negotiable" tick under rent, off by default. Shown on the rent line ("… · negotiable"), in the share text and in the property link (`rn`).
+- Owner Keys: same-weight line icons for all four (new SVGs `tk2-key-*`; Security had no icon). "Another property broker". The fields open inside the picked card (Me: how we collect the keys – required; broker: name + number; security / someone else: name + number + optional note). "Papers" → "Documents" everywhere.
+- Owner All done: primary "Done" (closes the tab; if the browser refuses, shows "You can close this tab now"), secondary "Upload documents now" → Documents (Aadhaar per owner, bank, old agreement optional; missing ones red) → back to All done with "Documents received".
+```
+AGENT RECORD – Change 78
+id: CHG-078
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/{tk2_store,tk2_link,tk2_listing,tk2_visits}.dart, apps/flutter_app/lib/src/tkweb/{tkweb_owner,tkweb_close,tkweb_close_stub,tkweb_close_web}.dart (close-tab helper, conditional import), apps/flutter_app/assets/design/tk2-key-{me,broker,security,other}.svg, apps/flutter_app/test/tk2/tk2_test.dart, docs/TRUSTKEEPER2-JOURNEYS.md, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 25/25; owner web flow clicked through in headless Chromium (rent negotiable, Keys cards incl. red check, All done, Documents with red checks)
+open: tenant browsing the broker's other houses (later)
+```
