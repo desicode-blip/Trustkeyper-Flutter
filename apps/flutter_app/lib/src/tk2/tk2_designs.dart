@@ -13,12 +13,13 @@ import 'tk2_widgets.dart';
 // the other on home so Aman can pick. A: Classic · B: Wide photo · C: Price
 // first · D: Ticket.
 
-const tk2Designs = ['a', 'b', 'c', 'd'];
+const tk2Designs = ['e', 'a', 'b', 'c', 'd'];
 const tk2DesignNames = {
   'a': 'A · Classic row',
   'b': 'B · Wide photo',
   'c': 'C · Price first',
   'd': 'D · Ticket',
+  'e': 'E · Ticket, refined',
 };
 
 final _shadow = [BoxShadow(color: AppColors.heading.withValues(alpha: 0.08), blurRadius: 22, offset: const Offset(0, 8))];
@@ -27,15 +28,15 @@ final _shadow = [BoxShadow(color: AppColors.heading.withValues(alpha: 0.08), blu
 List<(IconData, String)> tk2Facts(Tk2Listing l, {bool long = false}) {
   final p = l.property;
   return [
-    if (p.sizeSqFt != null) (Icons.square_foot, '${p.sizeSqFt!.toStringAsFixed(0)} sft'),
+    if (p.sizeSqFt != null) (Icons.square_foot_outlined, '${p.sizeSqFt!.toStringAsFixed(0)} sft'),
     (Icons.chair_outlined, l.furnishingText),
-    (Icons.people_outline, l.tenants == 'Anyone' ? 'Family or bachelors' : '${l.tenants} only'),
-    (l.pets ? Icons.pets : Icons.do_not_disturb_alt, l.pets ? 'Pets OK' : 'No pets'),
+    (Icons.group_outlined, l.tenants == 'Anyone' ? 'Family or bachelors' : '${l.tenants} only'),
+    (Icons.pets_outlined, l.pets ? 'Pets OK' : 'No pets'),
     (Icons.event_available_outlined, l.availableFrom.isEmpty ? 'Available now' : 'From ${tk2Date(l.availableFrom)}'),
     if (long && p.totalFloors > 0) (Icons.layers_outlined, 'Floor ${p.floor} of ${p.totalFloors}'),
     if (long && (p.facing ?? '').isNotEmpty) (Icons.explore_outlined, '${p.facing} facing'),
     if (long && p.carParking + p.bikeParking > 0)
-      (Icons.local_parking, [if (p.carParking > 0) '${p.carParking} car', if (p.bikeParking > 0) '${p.bikeParking} bike'].join(' · ')),
+      (Icons.local_parking_outlined, [if (p.carParking > 0) '${p.carParking} car', if (p.bikeParking > 0) '${p.bikeParking} bike'].join(' · ')),
   ];
 }
 
@@ -154,6 +155,63 @@ class Tk2DesignCard extends StatelessWidget {
                 const Divider(height: 1, color: AppColors.border),
                 const SizedBox(height: 10),
                 Wrap(spacing: 14, runSpacing: 6, children: [for (final f in facts) _iconText(f.$1, f.$2)]),
+              ],
+            ),
+          ),
+        );
+      case 'e':
+        final left = facts.where((f) => f.$1 != Icons.pets_outlined && f.$1 != Icons.event_available_outlined).toList();
+        final right = facts.where((f) => f.$1 == Icons.pets_outlined || f.$1 == Icons.event_available_outlined).toList();
+        Widget col(List<(IconData, String)> items) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [for (final f in items) Padding(padding: const EdgeInsets.only(bottom: 5), child: _iconText(f.$1, f.$2, size: 13))],
+        );
+        return _tappable(
+          onTap: onOpen,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 100,
+                  color: AppColors.primarySoft,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      FittedBox(child: Text(l.property.rooms, style: const TextStyle(fontSize: 24, height: 28 / 24, fontWeight: FontWeight.w800, color: AppColors.primaryDark))),
+                      const SizedBox(height: 6),
+                      FittedBox(child: Text(Tk2Store.money(l.rent), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.primaryDark))),
+                      Text(l.maintenanceIncluded || l.maintenance == 0 ? 'incl. maint.' : '+ ${Tk2Store.money(l.maintenance)} maint.', style: const TextStyle(fontSize: 11.5, color: AppColors.primaryDark)),
+                    ],
+                  ),
+                ),
+                CustomPaint(painter: _DashPainter(), child: const SizedBox(width: 1)),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l.society.isNotEmpty ? l.society : l.area, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
+                        if (l.society.isNotEmpty) _area(l, size: 13),
+                        if (visits > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Tk2Pill('$visits visit${visits == 1 ? '' : 's'} booked', kind: 'ok')),
+                        const SizedBox(height: 10),
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(flex: 11, child: col(left)),
+                              const VerticalDivider(width: 17, thickness: 1, color: Color(0xFFE9EDF3)),
+                              // Right column has room for more facts later.
+                              Expanded(flex: 10, child: col(right)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -366,13 +424,13 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
       final body = switch (widget.design) {
         'b' => _b(l),
         'c' => _c(l),
-        'd' => _d(l),
+        'd' || 'e' => _d(l),
         _ => _a(l),
       };
       return Scaffold(
-        backgroundColor: widget.design == 'd' ? AppColors.surfaceMuted : Colors.white,
+        backgroundColor: widget.design == 'd' || widget.design == 'e' ? AppColors.surfaceMuted : Colors.white,
         appBar: AppBar(
-          backgroundColor: widget.design == 'd' ? AppColors.surfaceMuted : Colors.white,
+          backgroundColor: widget.design == 'd' || widget.design == 'e' ? AppColors.surfaceMuted : Colors.white,
           surfaceTintColor: Colors.transparent,
           title: Text(tk2DesignNames[widget.design] ?? '', style: const TextStyle(fontSize: 14, color: AppColors.muted)),
           centerTitle: true,
@@ -498,15 +556,15 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
   List<(IconData, String, String)> _labelled(Tk2Listing l) {
     final p = l.property;
     return [
-      (Icons.currency_rupee, 'Rent', l.rentLine),
+      (Icons.currency_rupee_outlined, 'Rent', l.rentLine),
       if (l.deposit > 0) (Icons.savings_outlined, 'Deposit', Tk2Store.money(l.deposit)),
       (Icons.confirmation_number_outlined, 'Visit fee', l.feeText),
-      if (p.sizeSqFt != null) (Icons.square_foot, 'Size', '${p.sizeSqFt!.toStringAsFixed(0)} sft'),
+      if (p.sizeSqFt != null) (Icons.square_foot_outlined, 'Size', '${p.sizeSqFt!.toStringAsFixed(0)} sft'),
       (Icons.chair_outlined, 'Furnishing', l.furnishingText),
       if (p.totalFloors > 0) (Icons.layers_outlined, 'Floor', '${p.floor} of ${p.totalFloors}'),
       if ((p.facing ?? '').isNotEmpty) (Icons.explore_outlined, 'Facing', p.facing!),
-      (Icons.people_outline, 'Who can rent', l.tenants == 'Anyone' ? 'Family or bachelors' : l.tenants),
-      (Icons.pets, 'Pets', l.pets ? 'Allowed' : 'Not allowed'),
+      (Icons.group_outlined, 'Who can rent', l.tenants == 'Anyone' ? 'Family or bachelors' : l.tenants),
+      (Icons.pets_outlined, 'Pets', l.pets ? 'Allowed' : 'Not allowed'),
       (Icons.event_available_outlined, 'Available', l.availableFrom.isEmpty ? 'Now' : tk2Date(l.availableFrom)),
     ];
   }
@@ -646,7 +704,7 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
     );
     final items = _labelled(l);
     return [
-      Tk2DesignCard(design: 'd', listing: l, onOpen: () {}),
+      Tk2DesignCard(design: widget.design, listing: l, onOpen: () {}),
       const SizedBox(height: 12),
       SizedBox(
         height: 96,
@@ -684,7 +742,7 @@ class Tk2DesignShowcase extends StatelessWidget {
           children: [
             const HomeIcon('house', size: 18),
             const SizedBox(width: 8),
-            Text('Design ${tk2DesignNames[d]}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.muted)),
+            Flexible(child: Text('Design ${tk2DesignNames[d]}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.muted))),
           ],
         ),
         const SizedBox(height: 10),

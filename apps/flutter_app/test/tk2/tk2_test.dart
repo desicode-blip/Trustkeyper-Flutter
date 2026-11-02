@@ -87,6 +87,8 @@ void main() {
     expect(find.textContaining('Flat 402'), findsNothing);
     expect(find.text('₹32,000 + ₹3,000 maintenance'), findsOneWidget);
 
+    await tester.scrollUntilVisible(find.text('2 BHK · Sri Sai Residency').first, 300, scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('2 BHK · Sri Sai Residency').first);
     await tester.pumpAndSettle();
     // Broker-only block is on the page, with the banner.
@@ -162,7 +164,7 @@ void main() {
     final store = Tk2Store.forTest();
     await store.load();
     await store.setBroker('Suresh', '+91 9876543210');
-    for (final d in ['a', 'b', 'c', 'd']) {
+    for (final d in ['a', 'b', 'c', 'd', 'e']) {
       final router = buildTk2Router(store)..go('/p/sample?d=$d');
       await tester.pumpWidget(MaterialApp.router(key: ValueKey(d), routerConfig: router));
       await tester.pumpAndSettle();

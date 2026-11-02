@@ -1022,3 +1022,15 @@ branch: staging (never main)
 files: lib/src/tk2/tk2_designs.dart (new), tk2_store.dart (society, locality, door, ownerName, ownerPhone, keys, note, publicTitle, fullAddress, feeText, maxVisitFee), tk2_listing.dart (form; old detail removed), tk2_customer.dart (public fields, free visit), tk2_app.dart (/p/:id?d=), tk2_widgets.dart, test/tk2/tk2_test.dart
 verification: flutter analyze clean; test/tk2 8/8 (incl. door/owner never in share text or customer view; all 4 pages open)
 ```
+
+## Change 61 – TrustKeeper 2: Design E (refined Ticket) + one icon family
+Date: 2026-11-02 · Status: code complete; installed on Aman's iPhone
+Design E (shown first on home, D kept for comparison): left panel – **2 BHK** loudest, then rent, then maintenance; right – full society name (no Example pill, so it only cuts off at the card edge), area, then facts in two columns split by a light vertical line (left: sft, furnishing, who can rent; right: pets, available from, room for more later). E opens the D page. All TK2 icons now Material *outlined* (same stroke): square_foot_outlined, chair_outlined, group_outlined, pets_outlined, event_available_outlined, place_outlined, local_parking_outlined, currency_rupee_outlined.
+```
+AGENT RECORD – Change 61
+id: CHG-061
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/tk2_designs.dart, apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 8/8 (all 5 pages open)
+```
