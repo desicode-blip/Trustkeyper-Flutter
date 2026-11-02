@@ -33,7 +33,7 @@ List<(IconData, String)> tk2Facts(Tk2Listing l, {bool long = false, bool outline
   return [
     if (p.sizeSqFt != null) (ic(Icons.square_foot, Icons.square_foot_outlined), '${p.sizeSqFt!.toStringAsFixed(0)} sft'),
     (Icons.chair_outlined, l.furnishingText),
-    (ic(Icons.people_outline, Icons.group_outlined), l.tenants == 'Anyone' ? 'Family or bachelors' : '${l.tenants} only'),
+    (ic(Icons.people_outline, Icons.group_outlined), l.tenants == 'Anyone' ? 'Anyone can rent' : '${l.tenants} only'),
     (outlined ? Icons.pets_outlined : (l.pets ? Icons.pets : Icons.do_not_disturb_alt), l.pets ? 'Pets OK' : 'No pets'),
     (Icons.event_available_outlined, l.availableFrom.isEmpty ? 'Available now' : 'From ${tk2Date(l.availableFrom)}'),
     if (long && p.totalFloors > 0) (Icons.layers_outlined, 'Floor ${p.floor} of ${p.totalFloors}'),
@@ -459,7 +459,7 @@ List<(IconData, String, String)> tk2FactRows(Tk2Listing l, {bool line = true}) {
     (Icons.chair_outlined, 'Furnishing', l.furnishingText),
     if (p.totalFloors > 0) (Icons.layers_outlined, 'Floor', '${p.floor} of ${p.totalFloors}'),
     if ((p.facing ?? '').isNotEmpty) (Icons.explore_outlined, 'Facing', p.facing!),
-    (ic(Icons.people_outline, Icons.group_outlined), 'Who can rent', l.tenants == 'Anyone' ? 'Family or bachelors' : l.tenants),
+    (ic(Icons.people_outline, Icons.group_outlined), 'Who can rent', l.tenants == 'Anyone' ? 'Anyone can rent' : l.tenants),
     (ic(Icons.pets, Icons.pets_outlined), 'Pets', l.pets ? 'Allowed' : 'Not allowed'),
     (Icons.event_available_outlined, 'Available', l.availableFrom.isEmpty ? 'Now' : tk2Date(l.availableFrom)),
   ];

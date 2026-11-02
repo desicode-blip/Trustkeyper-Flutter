@@ -1161,3 +1161,24 @@ rules: same-hour bookings allowed (slots never close because of other bookings);
 open: Visits tab still refunds on "didn't come"/cancel – not yet matched to the new no-show rule (needs Aman's call)
 verification: flutter analyze clean; test/tk2 13/13 (new: visit hours); broker_property_test 5/5
 ```
+
+## Change 71 – TrustKeeper 2: "Rent and details" split into 4 steps (NoBroker-style), follow-up questions, what happens next
+Date: 2026-11-02 · Status: code complete; synced to the Mac, not yet built
+After the house details, the broker now goes through 4 short steps (one topic per screen, slide-in between steps, "Step N of 4" under the title, Back goes one step):
+1. Rent details – Society, Area · Rent + Maintenance (Included/Extra → amount) · Security deposit · Brokerage (No brokerage / 15 days rent / 1 month rent → shows the ₹ amount / Fixed amount → amount box) · Who can rent (tick boxes: Anyone, Family, Bachelor male, Bachelor female, Companies; Anyone ticked by default and ticks/unticks all) · Pets · Available (Now / From a date → date).
+2. Visits – Days (Every day / Mon–Fri / Sat, Sun), Times From/To, Visit fee.
+3. Photos – with "Skip for now".
+4. Only for you – green confidential card (door, owner, phone, keys, note) → Save property.
+Follow-up fields appear only for the answer that needs them (maintenance amount, brokerage amount, date). Missing answers turn red in place.
+Customers: Book a visit greys out days outside the broker's visit days. Customer page shows "What happens next": visit → token amount blocks the house → agreement drafted → agreement signed → payments and keys together.
+Display: "Anyone" now reads "Anyone can rent" (companies included).
+```
+AGENT RECORD – Change 71
+id: CHG-071
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/tk2_listing.dart (Tk2ListingForm: step 0..3, _check(step), _next/_back, PopScope, AnimatedSwitcher slide, _rentStep/_visitStep/_photoStep/_privateStep, _box, _pick), apps/flutter_app/lib/src/tk2/tk2_store.dart (Tk2Listing.brokerageDays, brokerageFor, visitDays, dayOpen, tenantTypes, tenantSet, toggleTenant, tenantText; tenants saved as 'Anyone' or comma list; old 'Bachelors' → both bachelor types), apps/flutter_app/lib/src/tk2/tk2_customer.dart (Tk2NextSteps; _slotGone uses dayOpen), apps/flutter_app/lib/src/tk2/tk2_designs.dart (text), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+rules: brokerage for days = rent × days ÷ 30, rounded; "Anyone" = all 4 types
+open: Send-link-to-owner path – owner answers papers in the main-app flow; rent/visits/photos for such houses still need a TK2 step for the broker (cards for link-added houses not shown yet)
+verification: flutter analyze clean; test/tk2 15/15 (new: who-can-rent ticks, brokerage from rent, visit days)
+```

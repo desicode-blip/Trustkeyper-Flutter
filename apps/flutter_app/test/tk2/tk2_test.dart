@@ -84,6 +84,27 @@ void main() {
       expect(Tk2Listing.fromJson(narrow.toJson()).visitFrom, 10);
     });
 
+    test('who can rent: Anyone ticks/unticks all; old values still load', () {
+      final all = {...Tk2Listing.tenantTypes};
+      expect(Tk2Listing.toggleTenant(all, 'Anyone'), isEmpty);
+      expect(Tk2Listing.toggleTenant(<String>{}, 'Anyone'), all);
+      final noCo = Tk2Listing.toggleTenant(all, 'Companies');
+      expect(Tk2Listing.tenantText(noCo), 'Family, Bachelor male, Bachelor female');
+      expect(Tk2Listing.tenantText(Tk2Listing.toggleTenant(noCo, 'Companies')), 'Anyone');
+      expect(Tk2Listing.tenantSet('Bachelors'), {'Bachelor male', 'Bachelor female'});
+      expect(Tk2Listing.tenantSet('Anyone'), all);
+    });
+
+    test('brokerage from rent; visit days', () {
+      expect(Tk2Listing.brokerageFor(30000, 30), 30000);
+      expect(Tk2Listing.brokerageFor(30000, 15), 15000);
+      final l = Tk2Listing.example.copyWith(brokerage: 15000, brokerageDays: 15, visitDays: 'weekends');
+      expect(l.brokerageText, '15 days rent · ₹15,000');
+      expect(l.dayOpen(DateTime(2026, 11, 7)), isTrue); // Saturday
+      expect(l.dayOpen(DateTime(2026, 11, 9)), isFalse); // Monday
+      expect(Tk2Listing.fromJson(l.toJson()).visitDays, 'weekends');
+    });
+
     test('card heading is never empty (old properties without society)', () {
       final old = Tk2Listing(id: 'x', property: BrokerProperty(id: 'x', name: 'Green Villa', address: '', rooms: '2.5 BHK', floor: 1, totalFloors: 2, furnishing: 'Semi'));
       // Never the broker's own label ("Green Villa"); falls back to rooms.

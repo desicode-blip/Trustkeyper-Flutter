@@ -19,6 +19,8 @@ class Tk2Listing {
     this.rent = 0,
     this.deposit = 0,
     this.brokerage = 0,
+    this.brokerageDays = 0,
+    this.visitDays = 'all',
     this.visitFrom = 7,
     this.visitTo = 23,
     this.availableFrom = '',
@@ -64,7 +66,13 @@ class Tk2Listing {
   /// Full address for the broker: door + saved address.
   String get fullAddress => [if (door.trim().isNotEmpty) door.trim(), if (society.trim().isNotEmpty) society.trim(), if (property.address.trim().isNotEmpty) property.address.trim()].join(', ');
 
-  String get brokerageText => brokerage == 0 ? 'No brokerage' : Tk2Store.money(brokerage);
+  String get brokerageText => brokerage == 0
+      ? 'No brokerage'
+      : brokerageDays == 15
+      ? '15 days rent · ${Tk2Store.money(brokerage)}'
+      : brokerageDays == 30
+      ? '1 month rent · ${Tk2Store.money(brokerage)}'
+      : Tk2Store.money(brokerage);
 
   String get feeText => visitFee == 0 ? 'Free' : Tk2Store.money(visitFee);
 
@@ -83,6 +91,56 @@ class Tk2Listing {
 
   /// Brokerage the broker charges the tenant, in ₹ (0 = no brokerage). Customers see it.
   final int brokerage;
+
+  /// Brokerage as part of rent: 15 = half month, 30 = one month; 0 = fixed amount (or none).
+  final int brokerageDays;
+
+  /// Brokerage for these days of rent, in ₹ (rent × days ÷ 30).
+  static int brokerageFor(int rent, int days) => (rent * days / 30).round();
+
+  /// Visit days: 'all' · 'weekdays' (Mon–Fri) · 'weekends' (Sat, Sun).
+  final String visitDays;
+
+  bool dayOpen(DateTime d) {
+    final weekend = d.weekday == DateTime.saturday || d.weekday == DateTime.sunday;
+    return switch (visitDays) {
+      'weekdays' => !weekend,
+      'weekends' => weekend,
+      _ => true,
+    };
+  }
+
+  /// Who can rent, ticked boxes. "Anyone" = all of them.
+  static const tenantTypes = ['Family', 'Bachelor male', 'Bachelor female', 'Companies'];
+
+  /// Ticked types from the saved text ('Anyone' or 'Family, Companies').
+  static Set<String> tenantSet(String saved) {
+    if (saved == 'Anyone' || saved.trim().isEmpty) return {...tenantTypes};
+    final out = <String>{};
+    for (final part in saved.split(',').map((e) => e.trim())) {
+      if (part == 'Bachelors') {
+        out.addAll(['Bachelor male', 'Bachelor female']);
+      } else if (tenantTypes.contains(part)) {
+        out.add(part);
+      }
+    }
+    return out.isEmpty ? {...tenantTypes} : out;
+  }
+
+  /// Tick or untick one box. 'Anyone' ticks or unticks all.
+  static Set<String> toggleTenant(Set<String> now, String box) {
+    if (box == 'Anyone') return now.length == tenantTypes.length ? <String>{} : {...tenantTypes};
+    final next = {...now};
+    if (!next.remove(box)) next.add(box);
+    return next;
+  }
+
+  static String tenantText(Set<String> set) => set.length == tenantTypes.length
+      ? 'Anyone'
+      : [
+          for (final t in tenantTypes)
+            if (set.contains(t)) t,
+        ].join(', ');
 
   /// Visit hours the broker/owner is fine with (24h clock, both included). Default 7 am – 11 pm.
   final int visitFrom;
@@ -115,6 +173,8 @@ class Tk2Listing {
     int? rent,
     int? deposit,
     int? brokerage,
+    int? brokerageDays,
+    String? visitDays,
     int? visitFrom,
     int? visitTo,
     String? availableFrom,
@@ -137,6 +197,8 @@ class Tk2Listing {
     rent: rent ?? this.rent,
     deposit: deposit ?? this.deposit,
     brokerage: brokerage ?? this.brokerage,
+    brokerageDays: brokerageDays ?? this.brokerageDays,
+    visitDays: visitDays ?? this.visitDays,
     visitFrom: visitFrom ?? this.visitFrom,
     visitTo: visitTo ?? this.visitTo,
     availableFrom: availableFrom ?? this.availableFrom,
@@ -163,6 +225,8 @@ class Tk2Listing {
     'rent': rent,
     'deposit': deposit,
     'brokerage': brokerage,
+    'brokerageDays': brokerageDays,
+    'visitDays': visitDays,
     'visitFrom': visitFrom,
     'visitTo': visitTo,
     'availableFrom': availableFrom,
@@ -184,17 +248,19 @@ class Tk2Listing {
 
   factory Tk2Listing.fromJson(Map<String, dynamic> json) => Tk2Listing(
     id: json['id'] as String? ?? '',
-    property: BrokerProperty.fromMap(
-      json['id'] as String? ?? '',
-      Map<String, dynamic>.from(json['property'] as Map? ?? const {}),
-    ),
+    property: BrokerProperty.fromMap(json['id'] as String? ?? '', Map<String, dynamic>.from(json['property'] as Map? ?? const {})),
     rent: (json['rent'] as num?)?.toInt() ?? 0,
     deposit: (json['deposit'] as num?)?.toInt() ?? 0,
     brokerage: (json['brokerage'] as num?)?.toInt() ?? 0,
+    brokerageDays: (json['brokerageDays'] as num?)?.toInt() ?? 0,
+    visitDays: json['visitDays'] as String? ?? 'all',
     visitFrom: (json['visitFrom'] as num?)?.toInt() ?? 7,
     visitTo: (json['visitTo'] as num?)?.toInt() ?? 23,
     availableFrom: json['availableFrom'] as String? ?? '',
-    photos: [for (final p in (json['photos'] as List? ?? const [])) if (p is String) p],
+    photos: [
+      for (final p in (json['photos'] as List? ?? const []))
+        if (p is String) p,
+    ],
     visitFee: (json['visitFee'] as num?)?.toInt() ?? 150,
     createdAt: (json['createdAt'] as num?)?.toInt() ?? 0,
     maintenance: (json['maintenance'] as num?)?.toInt() ?? 0,
@@ -226,7 +292,7 @@ class Tk2Listing {
   };
 
   /// Who can rent and pets, e.g. "Family · No pets".
-  String get rules => [if (tenants != 'Anyone') '$tenants only' else 'Family or bachelors', pets ? 'Pets OK' : 'No pets'].join(' · ');
+  String get rules => [if (tenants != 'Anyone') '$tenants only' else 'Anyone can rent', pets ? 'Pets OK' : 'No pets'].join(' · ');
 
   /// The example everyone sees first.
   static final example = Tk2Listing(
@@ -308,17 +374,8 @@ class Tk2Visit {
     _ => 'held',
   };
 
-  Tk2Visit withStatus(String next) => Tk2Visit(
-    id: id,
-    listingId: listingId,
-    customerName: customerName,
-    customerPhone: customerPhone,
-    at: at,
-    fee: fee,
-    code: code,
-    status: next,
-    createdAt: createdAt,
-  );
+  Tk2Visit withStatus(String next) =>
+      Tk2Visit(id: id, listingId: listingId, customerName: customerName, customerPhone: customerPhone, at: at, fee: fee, code: code, status: next, createdAt: createdAt);
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -398,10 +455,16 @@ class Tk2Store extends ChangeNotifier {
         brokerPhone = json['brokerPhone'] as String? ?? '';
         _listings
           ..clear()
-          ..addAll([for (final l in (json['listings'] as List? ?? const [])) if (l is Map) Tk2Listing.fromJson(Map<String, dynamic>.from(l))]);
+          ..addAll([
+            for (final l in (json['listings'] as List? ?? const []))
+              if (l is Map) Tk2Listing.fromJson(Map<String, dynamic>.from(l)),
+          ]);
         _visits
           ..clear()
-          ..addAll([for (final v in (json['visits'] as List? ?? const [])) if (v is Map) Tk2Visit.fromJson(Map<String, dynamic>.from(v))]);
+          ..addAll([
+            for (final v in (json['visits'] as List? ?? const []))
+              if (v is Map) Tk2Visit.fromJson(Map<String, dynamic>.from(v)),
+          ]);
       } catch (_) {
         // A broken save starts fresh rather than crashing the app.
       }
@@ -513,11 +576,7 @@ class Tk2Store extends ChangeNotifier {
   /// The share message the broker sends on WhatsApp.
   String shareText(Tk2Listing l) {
     final p = l.property;
-    final facts = [
-      p.rooms,
-      l.furnishingText,
-      if (p.sizeSqFt != null) '${p.sizeSqFt!.toStringAsFixed(0)} sft',
-    ].join(' · ');
+    final facts = [p.rooms, l.furnishingText, if (p.sizeSqFt != null) '${p.sizeSqFt!.toStringAsFixed(0)} sft'].join(' · ');
     return [
       '🏠 ${l.publicTitle}',
       if (l.area.isNotEmpty) '📍 ${l.area}',
@@ -557,8 +616,7 @@ class Tk2PropertyRepository implements BrokerPropertyRepository {
   final Tk2Store store;
 
   @override
-  Stream<List<BrokerProperty>> watchProperties() =>
-      Stream.value([for (final l in store.listings) l.property]);
+  Stream<List<BrokerProperty>> watchProperties() => Stream.value([for (final l in store.listings) l.property]);
 
   @override
   Future<BrokerProperty> save(BrokerProperty property) => store.saveProperty(property);

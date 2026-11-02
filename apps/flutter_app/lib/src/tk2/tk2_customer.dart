@@ -23,7 +23,9 @@ class _PreviewBanner extends StatelessWidget {
       children: [
         Icon(Icons.visibility_outlined, size: 16, color: Colors.white),
         SizedBox(width: 8),
-        Expanded(child: Text('Customer view · what your customer sees', style: TextStyle(fontSize: 13.5, color: Colors.white))),
+        Expanded(
+          child: Text('Customer view · what your customer sees', style: TextStyle(fontSize: 13.5, color: Colors.white)),
+        ),
       ],
     ),
   );
@@ -35,6 +37,65 @@ String tk2VisitNotice(int fee) =>
     'If the broker or owner is not available, you get it all back. '
     'We wait 15 minutes: if you are more than 15 minutes late, or the visit is cancelled from your side, the amount is not refunded.';
 
+/// What happens after the visit, in order. Customers see it before booking.
+class Tk2NextSteps extends StatelessWidget {
+  const Tk2NextSteps({super.key});
+
+  static const steps = [
+    ('Visit the house', 'See it with the broker.'),
+    ('Pay a token amount', 'This blocks the house for you.'),
+    ('Rent agreement is made', 'We draft it for you and the owner.'),
+    ('Sign the agreement', 'Online, from your phone.'),
+    ('Pay and get the keys', 'Deposit, rent and key handover happen together.'),
+  ];
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(18)),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'What happens next',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
+        ),
+        const SizedBox(height: 12),
+        for (var i = 0; i < steps.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 12,
+                  backgroundColor: AppColors.primarySoft,
+                  child: Text(
+                    '${i + 1}',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primaryDark),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        steps[i].$1,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.heading),
+                      ),
+                      Text(steps[i].$2, style: const TextStyle(fontSize: 14, color: AppColors.muted)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
 class Tk2CustomerPage extends StatelessWidget {
   const Tk2CustomerPage({required this.store, required this.id, super.key});
   final Tk2Store store;
@@ -43,15 +104,25 @@ class Tk2CustomerPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = store.listing(id);
-    if (l == null) return Scaffold(appBar: AppBar(), body: const Center(child: Text('This property is no longer listed.')));
+    if (l == null)
+      return Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: Text('This property is no longer listed.')),
+      );
     final p = l.property;
-    final things = [for (final e in p.inventory.entries) if (e.value > 0) '${e.value} ${e.key}${e.value == 1 ? '' : 's'}'];
+    final things = [
+      for (final e in p.inventory.entries)
+        if (e.value > 0) '${e.value} ${e.key}${e.value == 1 ? '' : 's'}',
+    ];
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
-        title: const Text('TrustKeeper', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.primaryDark)),
+        title: const Text(
+          'TrustKeeper',
+          style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.primaryDark),
+        ),
         centerTitle: true,
         bottom: const PreferredSize(preferredSize: Size.fromHeight(34), child: _PreviewBanner()),
       ),
@@ -61,13 +132,22 @@ class Tk2CustomerPage extends StatelessWidget {
           Tk2Appear(child: _Gallery(listing: l)),
           const SizedBox(height: 18),
           // Same layout the broker sees: ticket card, then the facts list.
-          Tk2Appear(index: 1, child: Tk2DesignCard(design: 'e', listing: l, onOpen: () {})),
+          Tk2Appear(
+            index: 1,
+            child: Tk2DesignCard(design: 'e', listing: l, onOpen: () {}),
+          ),
           Tk2Appear(index: 2, child: Tk2FactsGroup(items: tk2FactRows(l))),
           if (things.isNotEmpty) ...[
             const SizedBox(height: 22),
-            const Text('In the house', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading)),
+            const Text(
+              'In the house',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
+            ),
             const SizedBox(height: 8),
-            Text(things.join(' · '), style: const TextStyle(fontSize: 15, height: 22 / 15, color: AppColors.body)),
+            Text(
+              things.join(' · '),
+              style: const TextStyle(fontSize: 15, height: 22 / 15, color: AppColors.body),
+            ),
           ],
           const SizedBox(height: 22),
           Tk2Appear(
@@ -90,17 +170,29 @@ class Tk2CustomerPage extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 18),
+          const Tk2NextSteps(),
           if (store.brokerName.isNotEmpty) ...[
             const SizedBox(height: 18),
             Row(
               children: [
-                CircleAvatar(radius: 20, backgroundColor: AppColors.surfaceMuted, child: Text(tk2Initials(store.brokerName), style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primaryDark))),
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: AppColors.surfaceMuted,
+                  child: Text(
+                    tk2Initials(store.brokerName),
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primaryDark),
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(store.brokerName, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600, color: AppColors.heading)),
+                      Text(
+                        store.brokerName,
+                        style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600, color: AppColors.heading),
+                      ),
                       const Text('Broker · shows you the house', style: TextStyle(fontSize: 13.5, color: AppColors.muted)),
                     ],
                   ),
@@ -178,7 +270,8 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
   }
 
   // Closed: outside the broker's visit hours, or too soon today. Other bookings never close a slot.
-  bool _slotGone(DateTime d, int h) => !(widget.store.listing(widget.id)?.slotOpen(h) ?? true) || (DateUtils.isSameDay(d, DateTime.now()) && DateTime.now().hour >= h - 1);
+  bool _slotGone(DateTime d, int h) =>
+      !(widget.store.listing(widget.id)?.slotOpen(h) ?? true) || !(widget.store.listing(widget.id)?.dayOpen(d) ?? true) || (DateUtils.isSameDay(d, DateTime.now()) && DateTime.now().hour >= h - 1);
 
   Future<void> _pay(Tk2Listing l) async {
     final digits = phone.text.replaceAll(RegExp(r'\D'), '');
@@ -186,39 +279,49 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
     if (name.text.trim().length < 2) return setState(() => error = 'Type your name');
     if (digits.length != 10) return setState(() => error = 'Type your 10 digit phone number');
     FocusScope.of(context).unfocus();
-    final paid = l.visitFee == 0 ? true : await showModalBottomSheet<bool>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      builder: (sheet) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('Pay visit fee', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
-              const SizedBox(height: 16),
-              _line('Visit', '${tk2Day(day!)}, ${tk2Time(DateTime(2000, 1, 1, hour!))}'),
-              _line('Property', l.publicTitle),
-              _line('Fee', Tk2Store.money(l.visitFee), bold: true),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: AppColors.warningSoft, borderRadius: BorderRadius.circular(14)),
-                child: const Text('Test payment. No money moves in this build.', style: TextStyle(fontSize: 14, color: AppColors.warning)),
+    final paid = l.visitFee == 0
+        ? true
+        : await showModalBottomSheet<bool>(
+            context: context,
+            showDragHandle: true,
+            backgroundColor: Colors.white,
+            builder: (sheet) => SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Pay visit fee',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading),
+                    ),
+                    const SizedBox(height: 16),
+                    _line('Visit', '${tk2Day(day!)}, ${tk2Time(DateTime(2000, 1, 1, hour!))}'),
+                    _line('Property', l.publicTitle),
+                    _line('Fee', Tk2Store.money(l.visitFee), bold: true),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: AppColors.warningSoft, borderRadius: BorderRadius.circular(14)),
+                      child: const Text('Test payment. No money moves in this build.', style: TextStyle(fontSize: 14, color: AppColors.warning)),
+                    ),
+                    const SizedBox(height: 16),
+                    PrimaryButton(label: 'Pay ${Tk2Store.money(l.visitFee)}', onPressed: () => Navigator.pop(sheet, true)),
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
-              PrimaryButton(label: 'Pay ${Tk2Store.money(l.visitFee)}', onPressed: () => Navigator.pop(sheet, true)),
-            ],
-          ),
-        ),
-      ),
-    );
+            ),
+          );
     if (paid != true || !mounted) return;
     setState(() => paying = true);
     await Future<void>.delayed(const Duration(milliseconds: 700));
-    final visit = await widget.store.bookVisit(listingId: l.id, name: name.text, phone: '+91 $digits', at: day!.add(Duration(hours: hour!)));
+    final visit = await widget.store.bookVisit(
+      listingId: l.id,
+      name: name.text,
+      phone: '+91 $digits',
+      at: day!.add(Duration(hours: hour!)),
+    );
     if (!mounted) return;
     context.pushReplacement('/booked/${visit.id}');
   }
@@ -229,7 +332,15 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
       children: [
         Text(a, style: const TextStyle(fontSize: 15, color: AppColors.muted)),
         const SizedBox(width: 16),
-        Expanded(child: Text(b, textAlign: TextAlign.right, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: bold ? 18 : 15, fontWeight: bold ? FontWeight.w700 : FontWeight.w500, color: AppColors.heading))),
+        Expanded(
+          child: Text(
+            b,
+            textAlign: TextAlign.right,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: bold ? 18 : 15, fontWeight: bold ? FontWeight.w700 : FontWeight.w500, color: AppColors.heading),
+          ),
+        ),
       ],
     ),
   );
@@ -250,7 +361,10 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
         children: [
           Tk2Appear(child: Tk2Title('Book a visit', subtitle: l.publicTitle)),
           const SizedBox(height: 24),
-          const Text('Day', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading)),
+          const Text(
+            'Day',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
+          ),
           const SizedBox(height: 10),
           SizedBox(
             height: 76,
@@ -278,7 +392,10 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
                       children: [
                         Text(i == 0 ? 'Today' : const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d.weekday - 1], style: TextStyle(fontSize: 13, color: on ? Colors.white : AppColors.muted)),
                         const SizedBox(height: 2),
-                        Text('${d.day}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: on ? Colors.white : AppColors.heading)),
+                        Text(
+                          '${d.day}',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: on ? Colors.white : AppColors.heading),
+                        ),
                       ],
                     ),
                   ),
@@ -295,7 +412,10 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 22),
-                      const Text('Time', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading)),
+                      const Text(
+                        'Time',
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
+                      ),
                       const SizedBox(height: 10),
                       Wrap(
                         spacing: 8,
@@ -311,7 +431,12 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
                                 hour = h;
                                 error = null;
                               }),
-                              child: Center(child: Text(tk2Time(DateTime(2000, 1, 1, h)), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: hour == h ? Colors.white : AppColors.heading))),
+                              child: Center(
+                                child: Text(
+                                  tk2Time(DateTime(2000, 1, 1, h)),
+                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: hour == h ? Colors.white : AppColors.heading),
+                                ),
+                              ),
                             ),
                         ],
                       ),
@@ -333,10 +458,7 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
             onChanged: (_) => setState(() => error = null),
             decoration: const InputDecoration(labelText: 'Your phone', prefixText: '+91 ', helperText: 'The broker calls you on this number.'),
           ),
-          if (error != null) ...[
-            const SizedBox(height: 12),
-            Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 15)),
-          ],
+          if (error != null) ...[const SizedBox(height: 12), Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 15))],
           // Scrolls with the page, so the keyboard never hides it.
           const SizedBox(height: 24),
           PrimaryButton(label: l.visitFee == 0 ? 'Book visit' : 'Pay ${Tk2Store.money(l.visitFee)} and book', loading: paying, onPressed: paying ? null : () => _pay(l)),
@@ -384,11 +506,21 @@ class Tk2Booked extends StatelessWidget {
             const SizedBox(height: 40),
             const Center(child: Tk2SuccessTick()),
             const SizedBox(height: 24),
-            const Tk2Appear(child: Text('Visit booked!', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.heading))),
+            const Tk2Appear(
+              child: Text(
+                'Visit booked!',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.heading),
+              ),
+            ),
             const SizedBox(height: 6),
             Tk2Appear(
               index: 1,
-              child: Text('${l?.publicTitle ?? 'Property'}\n${tk2Day(at)}, ${tk2Time(at)}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16.5, height: 24 / 16.5, color: AppColors.muted)),
+              child: Text(
+                '${l?.publicTitle ?? 'Property'}\n${tk2Day(at)}, ${tk2Time(at)}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16.5, height: 24 / 16.5, color: AppColors.muted),
+              ),
             ),
             const SizedBox(height: 28),
             Tk2Appear(
@@ -400,7 +532,10 @@ class Tk2Booked extends StatelessWidget {
                   children: [
                     const Text('Your visit code', style: TextStyle(fontSize: 15, color: AppColors.primaryDark)),
                     const SizedBox(height: 6),
-                    Text(v.code.split('').join(' '), style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w800, letterSpacing: 4, color: AppColors.primaryDark)),
+                    Text(
+                      v.code.split('').join(' '),
+                      style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w800, letterSpacing: 4, color: AppColors.primaryDark),
+                    ),
                     const SizedBox(height: 6),
                     const Text('Tell this to the broker after you see the house.', style: TextStyle(fontSize: 14, color: AppColors.primaryDark)),
                   ],
@@ -413,12 +548,12 @@ class Tk2Booked extends StatelessWidget {
               child: v.fee == 0
                   ? _step(Icons.call_outlined, 'The broker will call you before the visit.')
                   : Column(
-                children: [
-                  _step(Icons.lock_outline, '${Tk2Store.money(v.fee)} is kept safe with TrustKeeper.'),
-                  _step(Icons.handshake_outlined, 'After the visit, the broker gets it.'),
-                  _step(Icons.replay, 'If the visit does not happen, you get it back.'),
-                ],
-              ),
+                      children: [
+                        _step(Icons.lock_outline, '${Tk2Store.money(v.fee)} is kept safe with TrustKeeper.'),
+                        _step(Icons.handshake_outlined, 'After the visit, the broker gets it.'),
+                        _step(Icons.replay, 'If the visit does not happen, you get it back.'),
+                      ],
+                    ),
             ),
           ],
         ),
@@ -438,7 +573,9 @@ class Tk2Booked extends StatelessWidget {
       children: [
         Icon(icon, size: 20, color: AppColors.success),
         const SizedBox(width: 12),
-        Expanded(child: Text(text, style: const TextStyle(fontSize: 15.5, color: AppColors.body))),
+        Expanded(
+          child: Text(text, style: const TextStyle(fontSize: 15.5, color: AppColors.body)),
+        ),
       ],
     ),
   );
