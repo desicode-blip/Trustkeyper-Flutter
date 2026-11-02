@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/widgets/primary_button.dart';
+import '../features/broker/presentation/onboarding_widgets.dart';
 import 'tk2_designs.dart';
 import 'tk2_store.dart';
 import 'tk2_widgets.dart';
@@ -72,13 +73,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   Future<void> _pickDate() async {
     final now = DateUtils.dateOnly(DateTime.now());
     final current = DateTime.tryParse(availableFrom) ?? now;
-    final d = await showDatePicker(
-      context: context,
-      initialDate: current.isBefore(now) ? now : current,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 330)),
-      helpText: 'Available from',
-    );
+    final d = await showDatePicker(context: context, initialDate: current.isBefore(now) ? now : current, firstDate: now, lastDate: now.add(const Duration(days: 330)), helpText: 'Available from');
     if (d != null) {
       setState(() => availableFrom = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
     }
@@ -100,7 +95,27 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
       return;
     }
     setState(() => saving = true);
-    await widget.store.saveListing(l.copyWith(rent: _num(rent), deposit: _num(deposit), brokerage: _num(brokerage), availableFrom: availableFrom, photos: photos, visitFee: _num(fee), society: society.text.trim(), locality: locality.text.trim(), door: door.text.trim(), ownerName: ownerName.text.trim(), ownerPhone: ownerPhone.text.trim(), keys: keys, note: note.text.trim(), maintenance: included ? 0 : _num(maintenance), maintenanceIncluded: included, tenants: tenants, pets: pets));
+    await widget.store.saveListing(
+      l.copyWith(
+        rent: _num(rent),
+        deposit: _num(deposit),
+        brokerage: _num(brokerage),
+        availableFrom: availableFrom,
+        photos: photos,
+        visitFee: _num(fee),
+        society: society.text.trim(),
+        locality: locality.text.trim(),
+        door: door.text.trim(),
+        ownerName: ownerName.text.trim(),
+        ownerPhone: ownerPhone.text.trim(),
+        keys: keys,
+        note: note.text.trim(),
+        maintenance: included ? 0 : _num(maintenance),
+        maintenanceIncluded: included,
+        tenants: tenants,
+        pets: pets,
+      ),
+    );
     if (!mounted) return;
     if (widget.isNew) {
       context.go('/home');
@@ -116,182 +131,206 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
     if (l == null) return const Tk2Missing();
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(backgroundColor: Colors.white, surfaceTintColor: Colors.white),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
-        children: [
-          Tk2Appear(child: Tk2Title(widget.isNew ? 'Rent and details' : 'Edit rent and details', subtitle: l.name)),
-          const SizedBox(height: 24),
-          _label('Customers see'),
-          _text(society, 'Society / building name', Icons.apartment_outlined),
-          const SizedBox(height: 12),
-          _text(locality, 'Area, city', Icons.place_outlined),
-          const SizedBox(height: 16),
-          Tk2Appear(
-            index: 1,
-            child: Row(
-              children: [
-                Expanded(child: _moneyField(rent, 'Rent / month', autofocus: widget.isNew && rent.text.isEmpty)),
-                const SizedBox(width: 12),
-                Expanded(child: _moneyField(deposit, 'Deposit')),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          _moneyField(brokerage, 'Brokerage'),
-          if (error != null) ...[
-            const SizedBox(height: 8),
-            Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 15)),
-          ],
-          const SizedBox(height: 18),
-          _label('Maintenance'),
-          Wrap(
-            spacing: 8,
-            children: [
-              ChoiceChip(label: const Text('Included in rent'), selected: included, onSelected: (_) => setState(() => included = true)),
-              ChoiceChip(label: const Text('Extra'), selected: !included, onSelected: (_) => setState(() => included = false)),
-            ],
-          ),
-          if (!included) ...[
-            const SizedBox(height: 12),
-            _moneyField(maintenance, 'Maintenance / month'),
-          ],
-          const SizedBox(height: 18),
-          _label('Who can rent'),
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final t in const ['Family', 'Bachelors', 'Anyone'])
-                ChoiceChip(label: Text(t), selected: tenants == t, onSelected: (_) => setState(() => tenants = t)),
-            ],
-          ),
-          const SizedBox(height: 18),
-          _label('Pets'),
-          Wrap(
-            spacing: 8,
-            children: [
-              ChoiceChip(label: const Text('Pets OK'), selected: pets, onSelected: (_) => setState(() => pets = true)),
-              ChoiceChip(label: const Text('No pets'), selected: !pets, onSelected: (_) => setState(() => pets = false)),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Tk2Appear(
-            index: 2,
-            child: _row(
-              icon: Icons.event_outlined,
-              title: 'Available from',
-              value: availableFrom.isEmpty ? 'Now' : tk2Date(availableFrom),
-              onTap: _pickDate,
-            ),
-          ),
-          const SizedBox(height: 26),
-          Tk2Appear(
-            index: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Visit fee', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading)),
-                const SizedBox(height: 4),
-                const Text('The customer pays this to book. You get it after the visit. If the visit does not happen, they get it back. Leave 0 for free.', style: TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted)),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: fee,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
-                  onChanged: (_) => setState(() => feeError = _num(fee) > Tk2Listing.maxVisitFee ? 'Visit fee can be up to ₹${Tk2Listing.maxVisitFee}' : null),
-                  decoration: InputDecoration(
-                    labelText: 'Visit fee',
-                    prefixText: '₹ ',
-                    helperText: _num(fee) == 0 ? 'Free visit – customers book without paying' : 'Up to ₹${Tk2Listing.maxVisitFee}. Type 0 for a free visit.',
-                    errorText: feeError,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 26),
-          Tk2Appear(
-            index: 4,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            OnbHeader(title: widget.isNew ? 'Rent and details' : 'Edit rent and details', subtitle: l.name, onBack: () => Navigator.of(context).maybePop()),
+            Expanded(
+              child: OnbShadowBody(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
                   children: [
-                    const Expanded(child: Text('Photos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading))),
-                    Text('${photos.length}/10', style: const TextStyle(color: AppColors.muted)),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                const Text('Good photos get more visits. Start with the living room.', style: TextStyle(fontSize: 15, color: AppColors.muted)),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 104,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      if (photos.length < 10)
-                        InkWell(
-                          borderRadius: BorderRadius.circular(18),
-                          onTap: _addPhotos,
-                          child: Container(
-                            width: 104,
-                            decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.primaryBorder)),
-                            child: const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                    _label('Customers see'),
+                    _text(society, 'Society / building name', Icons.apartment_outlined),
+                    const SizedBox(height: 12),
+                    _text(locality, 'Area, city', Icons.place_outlined),
+                    const SizedBox(height: 16),
+                    Tk2Appear(
+                      index: 1,
+                      child: Row(
+                        children: [
+                          Expanded(child: _moneyField(rent, 'Rent / month', autofocus: widget.isNew && rent.text.isEmpty)),
+                          const SizedBox(width: 12),
+                          Expanded(child: _moneyField(deposit, 'Deposit')),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _moneyField(brokerage, 'Brokerage'),
+                    if (error != null) ...[const SizedBox(height: 8), Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 15))],
+                    const SizedBox(height: 18),
+                    _label('Maintenance'),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        ChoiceChip(label: const Text('Included in rent'), selected: included, onSelected: (_) => setState(() => included = true)),
+                        ChoiceChip(label: const Text('Extra'), selected: !included, onSelected: (_) => setState(() => included = false)),
+                      ],
+                    ),
+                    if (!included) ...[const SizedBox(height: 12), _moneyField(maintenance, 'Maintenance / month')],
+                    const SizedBox(height: 18),
+                    _label('Who can rent'),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final t in const ['Family', 'Bachelors', 'Anyone']) ChoiceChip(label: Text(t), selected: tenants == t, onSelected: (_) => setState(() => tenants = t)),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    _label('Pets'),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        ChoiceChip(label: const Text('Pets OK'), selected: pets, onSelected: (_) => setState(() => pets = true)),
+                        ChoiceChip(label: const Text('No pets'), selected: !pets, onSelected: (_) => setState(() => pets = false)),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Tk2Appear(
+                      index: 2,
+                      child: _row(icon: Icons.event_outlined, title: 'Available from', value: availableFrom.isEmpty ? 'Now' : tk2Date(availableFrom), onTap: _pickDate),
+                    ),
+                    const SizedBox(height: 26),
+                    Tk2Appear(
+                      index: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Visit fee',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'The customer pays this to book. You get it after the visit. If the visit does not happen, they get it back. Leave 0 for free.',
+                            style: TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: fee,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
+                            onChanged: (_) => setState(() => feeError = _num(fee) > Tk2Listing.maxVisitFee ? 'Visit fee can be up to ₹${Tk2Listing.maxVisitFee}' : null),
+                            decoration: InputDecoration(
+                              labelText: 'Visit fee',
+                              prefixText: '₹ ',
+                              helperText: _num(fee) == 0 ? 'Free visit – customers book without paying' : 'Up to ₹${Tk2Listing.maxVisitFee}. Type 0 for a free visit.',
+                              errorText: feeError,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 26),
+                    Tk2Appear(
+                      index: 4,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  'Photos',
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading),
+                                ),
+                              ),
+                              Text('${photos.length}/10', style: const TextStyle(color: AppColors.muted)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          const Text('Good photos get more visits. Start with the living room.', style: TextStyle(fontSize: 15, color: AppColors.muted)),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 104,
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
                               children: [
-                                Icon(Icons.add_a_photo_outlined, color: AppColors.primaryDark),
-                                SizedBox(height: 6),
-                                Text('Add photos', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
+                                if (photos.length < 10)
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(18),
+                                    onTap: _addPhotos,
+                                    child: Container(
+                                      width: 104,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primarySoft,
+                                        borderRadius: BorderRadius.circular(18),
+                                        border: Border.all(color: AppColors.primaryBorder),
+                                      ),
+                                      child: const Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.add_a_photo_outlined, color: AppColors.primaryDark),
+                                          SizedBox(height: 6),
+                                          Text(
+                                            'Add photos',
+                                            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                for (var i = 0; i < photos.length; i++)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 10),
+                                    child: Stack(
+                                      children: [
+                                        SizedBox(
+                                          width: 104,
+                                          child: Tk2Photo(
+                                            listing: l.copyWith(photos: photos),
+                                            index: i,
+                                            height: 104,
+                                            radius: 18,
+                                          ),
+                                        ),
+                                        Positioned(
+                                          right: 4,
+                                          top: 4,
+                                          child: InkWell(
+                                            customBorder: const CircleBorder(),
+                                            onTap: () => setState(() => photos = [...photos]..removeAt(i)),
+                                            child: const CircleAvatar(
+                                              radius: 13,
+                                              backgroundColor: Color(0xCC172231),
+                                              child: Icon(Icons.close, size: 15, color: Colors.white),
+                                            ),
+                                          ),
+                                        ),
+                                        if (i == 0) const Positioned(left: 6, bottom: 6, child: Tk2Pill('Cover', kind: 'dark')),
+                                      ],
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
-                        ),
-                      for (var i = 0; i < photos.length; i++)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 10),
-                          child: Stack(
-                            children: [
-                              SizedBox(width: 104, child: Tk2Photo(listing: l.copyWith(photos: photos), index: i, height: 104, radius: 18)),
-                              Positioned(
-                                right: 4,
-                                top: 4,
-                                child: InkWell(
-                                  customBorder: const CircleBorder(),
-                                  onTap: () => setState(() => photos = [...photos]..removeAt(i)),
-                                  child: const CircleAvatar(radius: 13, backgroundColor: Color(0xCC172231), child: Icon(Icons.close, size: 15, color: Colors.white)),
-                                ),
-                              ),
-                              if (i == 0) const Positioned(left: 6, bottom: 6, child: Tk2Pill('Cover', kind: 'dark')),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    const Tk2PrivateBanner(),
+                    const SizedBox(height: 14),
+                    _text(door, 'Flat / door number', Icons.door_front_door_outlined),
+                    const SizedBox(height: 12),
+                    _text(ownerName, 'Owner name', Icons.person_outline),
+                    const SizedBox(height: 12),
+                    _text(ownerPhone, 'Owner phone', Icons.call_outlined, phone: true),
+                    const SizedBox(height: 16),
+                    _label('Keys'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [for (final k in Tk2Listing.keyChoices) ChoiceChip(label: Text(k), selected: keys == k, onSelected: (_) => setState(() => keys = keys == k ? '' : k))],
+                    ),
+                    const SizedBox(height: 16),
+                    _text(note, 'Note for yourself', Icons.sticky_note_2_outlined),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: 28),
-          const Tk2PrivateBanner(),
-          const SizedBox(height: 14),
-          _text(door, 'Flat / door number', Icons.door_front_door_outlined),
-          const SizedBox(height: 12),
-          _text(ownerName, 'Owner name', Icons.person_outline),
-          const SizedBox(height: 12),
-          _text(ownerPhone, 'Owner phone', Icons.call_outlined, phone: true),
-          const SizedBox(height: 16),
-          _label('Keys'),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final k in Tk2Listing.keyChoices)
-                ChoiceChip(label: Text(k), selected: keys == k, onSelected: (_) => setState(() => keys = keys == k ? '' : k)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _text(note, 'Note for yourself', Icons.sticky_note_2_outlined),
-        ],
+          ],
+        ),
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
@@ -304,7 +343,10 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
 
   Widget _label(String t) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
-    child: Text(t, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
+    child: Text(
+      t,
+      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading),
+    ),
   );
 
   Widget _text(TextEditingController c, String label, IconData icon, {bool phone = false}) => TextField(
@@ -326,7 +368,10 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
 
   Widget _row({required IconData icon, required String title, required String value, required VoidCallback onTap}) => Material(
     color: Colors.white,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: AppColors.border)),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+      side: const BorderSide(color: AppColors.border),
+    ),
     child: InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
@@ -336,8 +381,13 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
           children: [
             Icon(icon, color: AppColors.primaryDark),
             const SizedBox(width: 12),
-            Expanded(child: Text(title, style: const TextStyle(fontSize: 16, color: AppColors.heading))),
-            Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
+            Expanded(
+              child: Text(title, style: const TextStyle(fontSize: 16, color: AppColors.heading)),
+            ),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
+            ),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right, color: AppColors.muted),
           ],
@@ -353,7 +403,9 @@ class Tk2Missing extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(),
-    body: const Center(child: Text('This property is not here any more.', style: TextStyle(fontSize: 16, color: AppColors.muted))),
+    body: const Center(
+      child: Text('This property is not here any more.', style: TextStyle(fontSize: 16, color: AppColors.muted)),
+    ),
   );
 }
 
@@ -378,7 +430,10 @@ class Tk2VisitRow extends StatelessWidget {
     final property = showProperty ? store.listing(v.listingId)?.name : null;
     return Material(
       color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: AppColors.border)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: AppColors.border),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
@@ -392,7 +447,10 @@ class Tk2VisitRow extends StatelessWidget {
                 decoration: BoxDecoration(color: v.upcoming ? AppColors.primarySoft : AppColors.surfaceMuted, borderRadius: BorderRadius.circular(14)),
                 child: Column(
                   children: [
-                    Text('${at.day}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: v.upcoming ? AppColors.primaryDark : AppColors.muted)),
+                    Text(
+                      '${at.day}',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: v.upcoming ? AppColors.primaryDark : AppColors.muted),
+                    ),
                     Text(const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][at.month - 1], style: const TextStyle(fontSize: 12, color: AppColors.muted)),
                   ],
                 ),
@@ -402,7 +460,12 @@ class Tk2VisitRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(v.customerName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
+                    Text(
+                      v.customerName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading),
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       [tk2Day(at), tk2Time(at), ?property].join(' · '),
@@ -438,19 +501,22 @@ Future<void> showTk2Share(BuildContext context, Tk2Store store, Tk2Listing l) =>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Share this property', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading)),
+            const Text(
+              'Share this property',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading),
+            ),
             const SizedBox(height: 4),
             const Text('Customers open the link, see the house and book a visit.', style: TextStyle(fontSize: 15, color: AppColors.muted)),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: const Color(0xFFE7F8EF), borderRadius: BorderRadius.circular(16)),
-              child: Text(text, style: const TextStyle(fontSize: 14.5, height: 21 / 14.5, color: AppColors.body)),
+              child: Text(
+                text,
+                style: const TextStyle(fontSize: 14.5, height: 21 / 14.5, color: AppColors.body),
+              ),
             ),
-            if (l.sample) ...[
-              const SizedBox(height: 10),
-              const Text('This is the example. Add your own property to share real details.', style: TextStyle(fontSize: 14, color: AppColors.warning)),
-            ],
+            if (l.sample) ...[const SizedBox(height: 10), const Text('This is the example. Add your own property to share real details.', style: TextStyle(fontSize: 14, color: AppColors.warning))],
             const SizedBox(height: 18),
             SizedBox(
               height: 56,
@@ -469,7 +535,11 @@ Future<void> showTk2Share(BuildContext context, Tk2Store store, Tk2Listing l) =>
                 },
                 icon: tk2WhatsAppLogo(size: 22),
                 label: const Text('Share on WhatsApp'),
-                style: FilledButton.styleFrom(backgroundColor: tk2Green, shape: const StadiumBorder(), textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: tk2Green,
+                  shape: const StadiumBorder(),
+                  textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -486,7 +556,10 @@ Future<void> showTk2Share(BuildContext context, Tk2Store store, Tk2Listing l) =>
                 },
                 icon: const Icon(Icons.copy_rounded),
                 label: const Text('Copy message'),
-                style: TextButton.styleFrom(foregroundColor: AppColors.primaryDark, textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primaryDark,
+                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
               ),
             ),
             const SizedBox(height: 4),

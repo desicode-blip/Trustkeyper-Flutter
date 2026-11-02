@@ -1126,3 +1126,18 @@ files: apps/flutter_app/lib/src/tk2/tk2_store.dart (Tk2Listing.brokerage int ₹
 rules: brokerage is public (customers see it); 0 is never shown to customers
 verification: flutter analyze clean; test/tk2 12/12 (new: brokerage save/share)
 ```
+
+## Change 69 – One header style (fixed heading with soft shadow); Back goes one step
+Date: 2026-11-02 · Status: code complete; synced to the Mac, not yet built
+- "Add new property" (all its steps) now uses the same heading as Onboard property / Owner details: back button + title + subtitle fixed at the top, soft shadow, content scrolls under it, more space. The floating call button above the title is gone (no call/progress in onboarding headers). The main app's rent agreement journey keeps its step label, progress bar and call button, now inside the same fixed header.
+- TrustKeeper 2 "Rent and details" screen uses the same header (was a plain app bar + title).
+- Back fix: each Back goes exactly one screen back. Add manually → "How do you want to add the details?" → Back now returns to the Send link / Add manually choice (before, it jumped to the name). Send link → Owner details → Back returns to the choice (before, the choice was replaced and skipped).
+```
+AGENT RECORD – Change 69
+id: CHG-069
+date: 2026-11-02
+branch: staging (never main)
+files: apps/flutter_app/lib/src/features/broker/presentation/onboarding_widgets.dart (new OnbHeader, OnbShadowBody – same look as OnbPage), apps/flutter_app/lib/src/features/broker/presentation/broker_property_screen.dart (build uses OnbHeader/OnbShadowBody; _openChoice(); _back at stage 2 with askHowToAdd reopens choice; link path uses push, not pushReplacement; dart format), apps/flutter_app/lib/src/tk2/tk2_listing.dart (OnbHeader/OnbShadowBody; dart format -l 200), apps/flutter_app/test/tk2/tk2_test.dart (back-one-step check), docs/CHANGELOG-staging.md
+design rule: every flow screen uses the fixed heading with soft shadow (OnbPage, or OnbHeader + OnbShadowBody)
+verification: flutter analyze clean; test/tk2 12/12
+```

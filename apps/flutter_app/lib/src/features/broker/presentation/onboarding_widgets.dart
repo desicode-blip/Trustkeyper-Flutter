@@ -871,3 +871,77 @@ IconData paperIcon(String key) => switch (key) {
   PaperKeys.keys => Icons.key_outlined,
   _ => Icons.description_outlined,
 };
+
+/// The fixed heading used by [OnbPage] (back, title, subtitle), for screens
+/// that build their own body. Pair with [OnbShadowBody] so content slides
+/// under a soft shadow.
+class OnbHeader extends StatelessWidget {
+  const OnbHeader({required this.title, required this.onBack, this.subtitle, this.top, super.key});
+  final String title;
+  final String? subtitle;
+  final VoidCallback onBack;
+
+  /// Optional strip above the title row (e.g. step label and progress).
+  final Widget? top;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    color: Colors.white,
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (top != null) Padding(padding: const EdgeInsets.fromLTRB(24, 10, 24, 0), child: top),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 10, 24, 0),
+          child: Row(
+            children: [
+              ApprovedBackButton(onPressed: onBack),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(title, style: const TextStyle(fontSize: 26, height: 32 / 26, fontWeight: FontWeight.w700, color: AppColors.heading)),
+              ),
+            ],
+          ),
+        ),
+        if (subtitle != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+            child: Text(subtitle!, style: const TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted)),
+          ),
+      ],
+    ),
+  );
+}
+
+/// Scrolling body under [OnbHeader], with the same soft top shadow as [OnbPage].
+class OnbShadowBody extends StatelessWidget {
+  const OnbShadowBody({required this.child, super.key});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    children: [
+      Positioned.fill(child: child),
+      const Positioned(
+        top: 0,
+        left: 0,
+        right: 0,
+        child: IgnorePointer(
+          child: SizedBox(
+            height: 10,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x1F101828), Color(0x00101828)],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+}

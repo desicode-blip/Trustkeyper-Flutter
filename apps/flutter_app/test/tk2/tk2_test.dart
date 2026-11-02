@@ -229,6 +229,17 @@ void main() {
     await tester.tap(find.text('Add manually'));
     await tester.pumpAndSettle();
     expect(find.text('Onboard property'), findsNothing);
+    // Back goes one screen at a time: details way → choice → name.
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Onboard property'), findsOneWidget);
+    tester.state<NavigatorState>(find.byType(Navigator).last).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('Give it a name you will remember.'), findsOneWidget);
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add manually'));
+    await tester.pumpAndSettle();
     expect(find.text('Things in the house. Tap + or −.'), findsNothing);
     // "Go to home" from the journey lands on TrustKeeper 2 home.
     router.go('/broker');

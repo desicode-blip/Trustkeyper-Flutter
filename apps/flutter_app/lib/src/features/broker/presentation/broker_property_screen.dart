@@ -7,9 +7,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/primary_button.dart';
-import '../../auth/presentation/approved_auth_widgets.dart';
 import '../data/broker_property_repository.dart';
 import 'onboarding_start_screens.dart';
+import 'onboarding_widgets.dart';
 
 class BrokerPropertyScreen extends StatefulWidget {
   const BrokerPropertyScreen({
@@ -107,6 +107,12 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
       context.pop();
       return;
     }
+    // Came from the "Send link / Add manually" choice: Back reopens it.
+    if (stage == 2 && widget.askHowToAdd && selected == null) {
+      setState(() => stage = 1);
+      _openChoice();
+      return;
+    }
     if (stage > 0) {
       setState(() {
         // Editing skips "how to add details", so Back skips it too.
@@ -124,98 +130,92 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     }
   }
 
+  String get _title => stage == 0
+      ? 'Select the property'
+      : widget.initialProperty != null
+      ? 'Edit property'
+      : 'Add new property';
+
+  String get _subtitle => switch (stage) {
+    0 => 'Pick your property, or add a new one.',
+    1 => 'Give it a name you will remember.',
+    2 => 'How do you want to add the details?',
+    3 => 'Tell us about the property.',
+    4 => 'A few more details.',
+    5 => 'Things in the house. Tap + or −.',
+    _ => 'Check the details below.',
+  };
+
   @override
   Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Colors.white,
     body: SafeArea(
       child: Column(
         children: [
-          Expanded(
-            child: SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (widget.showStepLabel)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: const LinearProgressIndicator(
-                        value: .2,
-                        minHeight: 6,
-                        color: AppColors.primary,
-                        backgroundColor: AppColors.primaryBorder,
-                      ),
-                    ),
-                  const SizedBox(height: 12),
-                  Row(
+          OnbHeader(
+            title: _title,
+            subtitle: _subtitle,
+            onBack: _back,
+            // Rent agreement journey only: step, progress and call.
+            top: widget.showStepLabel
+                ? Column(
                     children: [
-                      Expanded(
-                        child: Text(
-                          !widget.showStepLabel
-                              ? ''
-                              : stage == 0
-                              ? 'Step 1 of 5 · House'
-                              : 'Step 1 of 5 · Property',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primaryDark,
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: const LinearProgressIndicator(
+                          value: .2,
+                          minHeight: 6,
+                          color: AppColors.primary,
+                          backgroundColor: AppColors.primaryBorder,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              stage == 0
+                                  ? 'Step 1 of 5 · House'
+                                  : 'Step 1 of 5 · Property',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primaryDark,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      _CircleAction(
-                        icon: 'call',
-                        label: 'Call us',
-                        onPressed: () =>
-                            launchUrl(Uri.parse('tel:+918088516875')),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      ApprovedBackButton(onPressed: _back),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Text(
-                          stage == 0
-                              ? 'Select the property'
-                              : widget.initialProperty != null
-                              ? 'Edit property'
-                              : 'Add new property',
-                          style: Theme.of(context).textTheme.displaySmall,
-                        ),
+                          _CircleAction(
+                            icon: 'call',
+                            label: 'Call us',
+                            onPressed: () =>
+                                launchUrl(Uri.parse('tel:+918088516875')),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
+                  )
+                : null,
+          ),
+          Expanded(
+            child: OnbShadowBody(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     switch (stage) {
-                      0 => 'Pick your property, or add a new one.',
-                      1 => 'Give it a name you will remember.',
-                      2 => 'How do you want to add the details?',
-                      3 => 'Tell us about the property.',
-                      4 => 'A few more details.',
-                      5 => 'Things in the house. Tap + or −.',
-                      _ => 'Check the details below.',
+                      0 => _picker(),
+                      1 => _nameField(),
+                      2 => _howToAdd(),
+                      3 => _addressFields(),
+                      4 => _roomFields(),
+                      5 => _inventoryFields(),
+                      _ => _summary(),
                     },
-                    style: const TextStyle(
-                      fontSize: 17,
-                      height: 24 / 17,
-                      color: AppColors.muted,
-                    ),
-                  ),
-                  SizedBox(height: stage == 5 || stage == 6 ? 24 : 28),
-                  switch (stage) {
-                    0 => _picker(),
-                    1 => _nameField(),
-                    2 => _howToAdd(),
-                    3 => _addressFields(),
-                    4 => _roomFields(),
-                    5 => _inventoryFields(),
-                    _ => _summary(),
-                  },
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1226,6 +1226,29 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     });
   }
 
+  /// "Send link to owner" or "Add manually". Each Back goes one screen back.
+  Future<void> _openChoice() async {
+    final label = name.text.trim();
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (choose) => OnboardChooseScreen(
+          onLink: () => Navigator.of(choose).push(
+            MaterialPageRoute<void>(
+              builder: (_) => OnboardNewScreen(label: label),
+            ),
+          ),
+          onManual: () {
+            Navigator.of(choose).pop();
+            setState(() {
+              stage = 2;
+              error = null;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
   Future<void> _next() async {
     if (stage == 1) {
       if (name.text.trim().length < 2) {
@@ -1233,21 +1256,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
         return;
       }
       if (widget.askHowToAdd && selected == null) {
-        final label = name.text.trim();
-        await Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (choose) => OnboardChooseScreen(
-            onLink: () => Navigator.of(choose).pushReplacement(
-              MaterialPageRoute<void>(builder: (_) => OnboardNewScreen(label: label)),
-            ),
-            onManual: () {
-              Navigator.of(choose).pop();
-              setState(() {
-                stage = 2;
-                error = null;
-              });
-            },
-          ),
-        ));
+        await _openChoice();
         return;
       }
       // Editing a saved property: no need to ask how to add details again.
