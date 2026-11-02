@@ -104,11 +104,12 @@ class Tk2CustomerPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = store.listing(id);
-    if (l == null)
+    if (l == null) {
       return Scaffold(
         appBar: AppBar(),
         body: const Center(child: Text('This property is no longer listed.')),
       );
+    }
     final p = l.property;
     final things = [
       for (final e in p.inventory.entries)
