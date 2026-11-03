@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../data/agreement_progress_repository.dart';
 import '../data/broker_repository.dart';
 import '../data/property_onboarding.dart';
+import 'onboarding_widgets.dart';
 
 String progressLabel(AgreementProgress progress) => switch (progress.stage) {
   'ownerCount' || 'owner' => 'Owner details',
@@ -262,82 +263,165 @@ class _BrokerDraftSectionState extends State<BrokerDraftSection> {
 
   static const _maxDraftRows = 2;
 
+  /// Every unfinished thing (houses being set up, saved agreements), the one
+  /// added or changed last first.
+  List<_Activity> _activities(BuildContext context, List<AgreementProgress> saved, List<PropertyOnboarding> houses) =>
+      [
+        for (final house in houses)
+          _Activity(
+            house.lastActivity,
+            (_) => _ContinueRow(
+              title: house.homeTitle,
+              subtitle: house.homeSubtitle,
+              icon: 'house',
+              warm: house.needYouCount > 0 || house.waitingChanges > 0,
+              onTap: () => context.push('/broker/onboarding/${house.id}'),
+            ),
+          ),
+        for (final progress in saved)
+          _Activity(
+            progress.updatedAt?.millisecondsSinceEpoch ?? 0,
+            (_) => _ContinueRow(
+              title: 'Complete rent agreement',
+              subtitle: progress.draft.propertyAddress.trim().isEmpty ? 'Unnamed property' : progress.draft.propertyAddress,
+              icon: 'agreement',
+              onTap: () => context.push('/broker/progress/${Uri.encodeComponent(progress.draft.id)}'),
+            ),
+          ),
+      ]..sort((a, b) => b.at.compareTo(a.at));
+
   Widget _panel(
     BuildContext context,
     List<AgreementProgress> saved,
     VoidCallback? onAddBank,
     List<PropertyOnboarding> houses,
-  ) => Container(
-    margin: const EdgeInsets.only(top: 28),
-    padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-    decoration: BoxDecoration(
-      color: AppColors.surfaceMuted,
-      borderRadius: BorderRadius.circular(28),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final house in houses)
-          if (house.agreementJustReady || house.underOwnerReview)
-            _AgreementNotice(
-              ready: house.agreementJustReady,
-              house: house.houseName,
-              owners: house.ownersFirst,
-              progress: '${house.yesCount} of ${house.ownerCount} said yes',
-              onTap: () => context.push('/broker/onboarding/${house.id}'),
-            ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(4, 0, 4, 14),
-          child: Text(
-            'Continue',
-            style: TextStyle(
-              fontSize: 18,
-              height: 24 / 18,
-              fontWeight: FontWeight.w500,
-              color: AppColors.heading,
-            ),
-          ),
-        ),
-        for (final house in houses.take(_maxDraftRows))
-          _ContinueRow(
-            title: house.homeTitle,
-            subtitle: house.homeSubtitle,
-            icon: 'house',
-            warm: house.needYouCount > 0 || house.waitingChanges > 0,
-            onTap: () => context.push('/broker/onboarding/${house.id}'),
-          ),
-        for (final progress in saved.take(_maxDraftRows))
-          _ContinueRow(
-            title: 'Complete rent agreement',
-            subtitle: progress.draft.propertyAddress.trim().isEmpty
-                ? 'Unnamed property'
-                : progress.draft.propertyAddress,
-            icon: 'agreement',
-            onTap: () => context.push(
-              '/broker/progress/${Uri.encodeComponent(progress.draft.id)}',
+  ) {
+    final all = _activities(context, saved, houses);
+    final more = all.length - _maxDraftRows;
+    return Container(
+      margin: const EdgeInsets.only(top: 28),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final house in houses)
+            if (house.agreementJustReady || house.underOwnerReview)
+              _AgreementNotice(
+                ready: house.agreementJustReady,
+                house: house.houseName,
+                owners: house.ownersFirst,
+                progress: '${house.yesCount} of ${house.ownerCount} said yes',
+                onTap: () => context.push('/broker/onboarding/${house.id}'),
+              ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 0, 4, 14),
+            child: Text(
+              'Continue',
+              style: TextStyle(
+                fontSize: 18,
+                height: 24 / 18,
+                fontWeight: FontWeight.w500,
+                color: AppColors.heading,
+              ),
             ),
           ),
-        if (onAddBank != null)
-          _ContinueRow(
-            title: 'Add your bank',
-            subtitle: 'So we can send your fees',
-            icon: 'bank',
-            warm: true,
-            trailingPlus: true,
-            onTap: onAddBank,
-          ),
-        if (saved.length > _maxDraftRows)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: () => context.push('/broker/unfinished'),
-              child: Text('See all ${saved.length} saved drafts'),
+          for (final item in all.take(_maxDraftRows)) item.row(context),
+          if (onAddBank != null)
+            _ContinueRow(
+              title: 'Add your bank',
+              subtitle: 'So we can send your fees',
+              icon: 'bank',
+              warm: true,
+              trailingPlus: true,
+              onTap: onAddBank,
             ),
-          )
-        else
-          const SizedBox(height: 8),
-      ],
-    ),
+          if (more > 0)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: const ValueKey('continue-view-all'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => _AllActivitiesScreen(
+                      read: () => _activities(context, saved, PropertyOnboardingStore.instance.open),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('View all'),
+                    const SizedBox(width: 8),
+                    // "+1", "+2"… in a small circle: how many are not shown here.
+                    Container(
+                      constraints: const BoxConstraints(minWidth: 24),
+                      height: 24,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(12)),
+                      child: Text(
+                        '+$more',
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.primaryDark),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _Activity {
+  const _Activity(this.at, this.row);
+  final int at;
+  final Widget Function(BuildContext) row;
+}
+
+/// "View all": every unfinished activity, numbered, newest first.
+class _AllActivitiesScreen extends StatelessWidget {
+  const _AllActivitiesScreen({required this.read});
+  final List<_Activity> Function() read;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: PropertyOnboardingStore.instance,
+    builder: (context, _) {
+      final all = read();
+      return OnbPage(
+        title: 'Continue',
+        subtitle: '${all.length} unfinished · newest first',
+        onBack: () => Navigator.of(context).maybePop(),
+        children: [
+          for (var i = 0; i < all.length; i++)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  margin: const EdgeInsets.only(top: 22, right: 10),
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(color: AppColors.primarySoft, shape: BoxShape.circle),
+                  child: Text(
+                    '${i + 1}',
+                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.primaryDark),
+                  ),
+                ),
+                Expanded(child: all[i].row(context)),
+              ],
+            ),
+        ],
+      );
+    },
   );
 }
 

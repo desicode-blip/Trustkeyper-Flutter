@@ -5,9 +5,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/widgets/primary_button.dart';
-import '../features/broker/presentation/approved_broker_home.dart';
 import 'tk2_listing.dart';
 import 'tk2_send.dart';
+import 'tk2_sort.dart';
+import 'tk2_status.dart';
 import 'tk2_store.dart';
 import 'tk2_widgets.dart';
 
@@ -15,8 +16,9 @@ import 'tk2_widgets.dart';
 // the other on home so Aman can pick. A: Classic · B: Wide photo · C: Price
 // first · D: Ticket.
 
+/// Design B is final for the home cards; E is kept for the customer page ticket.
 const tk2Designs = ['e', 'b'];
-const tk2DesignNames = {'a': 'A · Classic row', 'b': 'B · Wide photo', 'c': 'C · Price first', 'd': 'D · Ticket', 'e': 'E · Ticket, refined'};
+const tk2DesignNames = {'b': 'B · Wide photo', 'e': 'E · Ticket, refined'};
 
 final _shadow = [BoxShadow(color: AppColors.heading.withValues(alpha: 0.08), blurRadius: 22, offset: const Offset(0, 8))];
 
@@ -233,20 +235,6 @@ class Tk2DesignCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = listing;
-    final title = Text(
-      l.publicTitle,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: const TextStyle(fontSize: 16, height: 21 / 16, fontWeight: FontWeight.w600, color: AppColors.heading),
-    );
-    final rent = Text(
-      l.rentLine,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
-    );
-    final tags = [if (l.sample) const Flexible(child: Tk2Pill('Example', kind: 'info')), if (visits > 0) Flexible(child: Tk2Pill('$visits visit${visits == 1 ? '' : 's'}', kind: 'ok'))];
-    final facts = tk2Facts(l);
     switch (design) {
       case 'b':
         return _tappable(
@@ -327,65 +315,7 @@ class Tk2DesignCard extends StatelessWidget {
             ],
           ),
         );
-      case 'c':
-        return _tappable(
-          onTap: onOpen,
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(14)),
-                      child: Text(
-                        l.property.rooms.replaceAll(' ', '\n'),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12, height: 14 / 12, fontWeight: FontWeight.w700, color: AppColors.primaryDark),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [title, _area(l)]),
-                    ),
-                    ...tags,
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      Tk2Store.money(l.rent),
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.heading),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 3),
-                        child: Text(
-                          l.maintenanceIncluded || l.maintenance == 0 ? '/ month · incl. maintenance' : '/ month + ${Tk2Store.money(l.maintenance)} maint.',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13.5, color: AppColors.muted),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                const Divider(height: 1, color: AppColors.border),
-                const SizedBox(height: 10),
-                Wrap(spacing: 14, runSpacing: 6, children: [for (final f in facts) _iconText(f.$1, f.$2)]),
-              ],
-            ),
-          ),
-        );
-      case 'e':
+      default: // 'e' · Design E ticket (customer page; kept for reference)
         final factsE = tk2Facts(l, outlined: true);
         // Left: size, furnishing, who can rent. Right: pets, available from (room for more).
         final left = factsE.sublist(0, factsE.length - 2);
@@ -464,98 +394,6 @@ class Tk2DesignCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      case 'd':
-        return _tappable(
-          onTap: onOpen,
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  width: 104,
-                  color: AppColors.primarySoft,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        l.property.rooms,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
-                      ),
-                      const SizedBox(height: 4),
-                      FittedBox(
-                        child: Text(
-                          Tk2Store.money(l.rent),
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primaryDark),
-                        ),
-                      ),
-                      Text(l.maintenanceIncluded || l.maintenance == 0 ? 'incl. maint.' : '+ ${Tk2Store.money(l.maintenance)}', style: const TextStyle(fontSize: 12, color: AppColors.primaryDark)),
-                    ],
-                  ),
-                ),
-                CustomPaint(painter: _DashPainter(), child: const SizedBox(width: 1)),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                tk2CardHeading(l),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading),
-                              ),
-                            ),
-                            ...tags,
-                          ],
-                        ),
-                        _area(l),
-                        const SizedBox(height: 8),
-                        for (final f in facts.take(3)) Padding(padding: const EdgeInsets.only(bottom: 3), child: _iconText(f.$1, f.$2)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      default:
-        return _tappable(
-          onTap: onOpen,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(width: 84, height: 84, child: Tk2Photo(listing: l, height: 84, radius: 14, compact: true)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(child: title),
-                          ...tags,
-                        ],
-                      ),
-                      _area(l),
-                      const SizedBox(height: 4),
-                      rent,
-                      const SizedBox(height: 6),
-                      Wrap(spacing: 10, runSpacing: 4, children: [for (final f in facts) _iconText(f.$1, f.$2, size: 12.5)]),
-                    ],
                   ),
                 ),
               ],
@@ -780,18 +618,16 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
       final visits = store.visitsFor(l.id);
       final body = switch (widget.design) {
         'b' => _b(l),
-        'c' => _c(l),
-        'd' || 'e' => _d(l),
-        _ => _a(l),
+        _ => _d(l), // Design E page, kept for reference (not linked from Home)
       };
       return Scaffold(
         backgroundColor: widget.design == 'd' || widget.design == 'e' ? AppColors.surfaceMuted : Colors.white,
         appBar: AppBar(
           backgroundColor: widget.design == 'd' || widget.design == 'e' ? AppColors.surfaceMuted : Colors.white,
           surfaceTintColor: Colors.transparent,
-          title: Text(tk2DesignNames[widget.design] ?? '', style: const TextStyle(fontSize: 14, color: AppColors.muted)),
-          centerTitle: true,
           actions: [
+            // Active / Not active lives in the header; turning off asks why.
+            if (!l.sample) Tk2ActiveToggle(store: store, listing: l),
             if (!l.sample)
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_horiz, color: AppColors.heading),
@@ -810,6 +646,7 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
           children: [
+            if (store.inactive(l.id) case final off?) ...[Tk2InactiveBanner(info: off), const SizedBox(height: 12)],
             ...body,
             const SizedBox(height: 26),
             _heading('Visits${visits.isEmpty ? '' : ' · ${visits.length}'}'),
@@ -846,10 +683,13 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: PrimaryButton(label: 'Share', onPressed: () => showTk2Share(context, store, l)),
-                ),
+                // Turned off: no sharing until it is active again.
+                if (store.isActive(l.id)) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: PrimaryButton(label: 'Share', onPressed: () => showTk2Share(context, store, l)),
+                  ),
+                ],
               ],
             ),
           ),
@@ -915,55 +755,7 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
     );
   }
 
-  Widget _tile(IconData icon, String label, String value) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(16)),
-    child: Row(
-      children: [
-        tk2Glyph(icon, size: 20, color: AppColors.primaryDark),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-              Text(
-                value,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.heading),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-
   List<(IconData, String, String)> _labelled(Tk2Listing l) => tk2FactRows(l, line: widget.design == 'e');
-
-  Widget _grid(List<(IconData, String, String)> items) => LayoutBuilder(
-    builder: (context, c) {
-      final w = (c.maxWidth - 10) / 2;
-      return Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: [for (final i in items) SizedBox(width: w, child: _tile(i.$1, i.$2, i.$3))],
-      );
-    },
-  );
-
-  // A · Classic: photo, title, 2-column icon tiles, private block.
-  List<Widget> _a(Tk2Listing l) => [
-    _photos(l),
-    const SizedBox(height: 18),
-    _titleBlock(l),
-    const SizedBox(height: 18),
-    _grid(_labelled(l)),
-    _things(l),
-    const SizedBox(height: 26),
-    Tk2PrivateDetails(listing: l),
-  ];
 
   // B · Two tabs: "Customers see" and "Only you".
   List<Widget> _b(Tk2Listing l) => [
@@ -1009,80 +801,6 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
       Tk2PrivateDetails(listing: l),
   ];
 
-  // C · Price first: big rent card on top, then grouped sections.
-  List<Widget> _c(Tk2Listing l) {
-    final all = _labelled(l);
-    Widget section(String title, List<(IconData, String, String)> items) => Container(
-      margin: const EdgeInsets.only(top: 14),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.muted, letterSpacing: 0.4),
-          ),
-          const SizedBox(height: 6),
-          for (final i in items)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              child: _iconText(i.$1, '${i.$2}: ${i.$3}', color: AppColors.heading, size: 15),
-            ),
-        ],
-      ),
-    );
-    return [
-      Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [AppColors.primary, AppColors.primaryDark]),
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l.publicTitle,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Colors.white),
-            ),
-            if (l.area.isNotEmpty) Text(l.area, style: const TextStyle(fontSize: 14, color: Color(0xDDFFFFFF))),
-            const SizedBox(height: 14),
-            Text(
-              Tk2Store.money(l.rent),
-              style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white),
-            ),
-            Text(
-              l.maintenanceIncluded || l.maintenance == 0 ? 'per month · maintenance included' : 'per month + ${Tk2Store.money(l.maintenance)} maintenance',
-              style: const TextStyle(fontSize: 14, color: Color(0xDDFFFFFF)),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                Tk2Pill(l.deposit > 0 ? 'Deposit ${Tk2Store.money(l.deposit)}' : 'No deposit set', kind: 'dark'),
-                Tk2Pill('Visit ${l.feeText}', kind: 'dark'),
-              ],
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 14),
-      _photos(l, height: 150, radius: 16),
-      section('THE HOME', all.where((i) => const ['Size', 'Furnishing', 'Floor', 'Facing'].contains(i.$2)).toList()),
-      section('WHO CAN RENT', all.where((i) => const ['Who can rent', 'Pets', 'Available'].contains(i.$2)).toList()),
-      _things(l),
-      const SizedBox(height: 22),
-      Tk2PrivateDetails(listing: l),
-    ];
-  }
-
-  // D · Ticket: calm grey page, white grouped lists like settings.
   List<Widget> _d(Tk2Listing l) {
     Widget group(List<Widget> children) => Container(
       margin: const EdgeInsets.only(top: 12),
@@ -1143,44 +861,71 @@ class _Tk2DesignDetailState extends State<Tk2DesignDetail> {
   }
 }
 
-/// Home section that shows every design one under the other.
-class Tk2DesignShowcase extends StatelessWidget {
-  const Tk2DesignShowcase({required this.store, super.key});
+/// Home list: every property as a Design B card, with a simple sort and
+/// filter. Active ones first; turned-off ones below, greyed, without Share.
+class Tk2PropertyList extends StatefulWidget {
+  const Tk2PropertyList({required this.store, super.key});
   final Tk2Store store;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      for (final d in tk2Designs) ...[
-        const SizedBox(height: 22),
-        Row(
-          children: [
-            const HomeIcon('house', size: 18),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                'Design ${tk2DesignNames[d]}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.muted),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        for (final l in store.shown) ...[
-          Tk2DesignCard(
-            key: ValueKey('$d-${l.id}'),
-            design: d,
-            listing: l,
-            visits: store.visitsFor(l.id).where((v) => v.upcoming).length,
-            onOpen: () => context.push('/p/${l.id}?d=$d'),
-            onSend: d == 'b' ? () => showTk2Send(context, store, l) : null,
-          ),
+  State<Tk2PropertyList> createState() => _Tk2PropertyListState();
+}
+
+class _Tk2PropertyListState extends State<Tk2PropertyList> {
+  var filter = const Tk2ListFilter();
+
+  Tk2Store get store => widget.store;
+
+  Widget _card(BuildContext context, Tk2Listing l, {required bool active}) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Opacity(
+      opacity: active ? 1 : 0.6,
+      child: Tk2DesignCard(
+        key: ValueKey('b-${l.id}'),
+        design: 'b',
+        listing: l,
+        visits: store.visitsFor(l.id).where((v) => v.upcoming).length,
+        onOpen: () => context.push('/p/${l.id}?d=b'),
+        onSend: active ? () => showTk2Send(context, store, l) : null,
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final list = filter.apply(store.shown, store);
+    final active = [for (final l in list) if (store.isActive(l.id)) l];
+    final off = [for (final l in list) if (!store.isActive(l.id)) l];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 12),
+        // Sort and filter once there is more than one property.
+        if (store.listings.length > 1) ...[
+          Tk2SortFilterBar(value: filter, onChanged: (f) => setState(() => filter = f)),
           const SizedBox(height: 12),
         ],
+        for (final l in active) _card(context, l, active: true),
+        if (off.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Not active · ${off.length}',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.muted),
+          ),
+          const SizedBox(height: 10),
+          for (final l in off) _card(context, l, active: false),
+        ],
+        if (list.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Column(
+              children: [
+                const Text('No properties match', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading)),
+                TextButton(onPressed: () => setState(() => filter = Tk2ListFilter(sort: filter.sort)), child: const Text('Clear filters')),
+              ],
+            ),
+          ),
       ],
-    ],
-  );
+    );
+  }
 }

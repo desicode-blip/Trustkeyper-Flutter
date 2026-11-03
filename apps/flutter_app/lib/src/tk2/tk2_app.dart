@@ -18,6 +18,7 @@ import 'tk2_customer.dart';
 import 'tk2_account.dart';
 import 'tk2_designs.dart';
 import 'tk2_listing.dart';
+import 'tk2_status.dart';
 import 'tk2_store.dart';
 import 'tk2_visits.dart';
 
@@ -279,11 +280,11 @@ class _Tk2HomeState extends State<Tk2Home> {
       // Onboarding in progress (owner link sent, papers, agreement) – same panel as the main app.
       savedDrafts: BrokerDraftSection(repository: _NoAgreementDrafts()),
       trailing: Badge(
-        isLabelVisible: upcoming > 0,
-        label: Text('$upcoming'),
+        isLabelVisible: upcoming + store.remindersDue().length > 0,
+        label: Text('${upcoming + store.remindersDue().length}'),
         child: IconButton(
-          tooltip: 'Visits',
-          onPressed: widget.onOpenVisits,
+          tooltip: 'Updates',
+          onPressed: () => showTk2Updates(context, store, onOpenVisits: widget.onOpenVisits),
           icon: const Icon(Icons.notifications_none, color: AppColors.heading),
         ),
       ),
@@ -324,9 +325,7 @@ class _Tk2HomeState extends State<Tk2Home> {
             style: TextStyle(fontSize: 14.5, height: 20 / 14.5, color: AppColors.muted),
           ),
         ],
-        const SizedBox(height: 2),
-        const Text('Two designs we are finalising: E and B. Tap to see the page.', style: TextStyle(fontSize: 14, color: AppColors.muted)),
-        Tk2DesignShowcase(store: store),
+        Tk2PropertyList(store: store),
       ],
     );
   }

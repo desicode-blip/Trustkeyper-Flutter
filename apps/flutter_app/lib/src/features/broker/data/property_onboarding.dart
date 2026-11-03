@@ -492,6 +492,7 @@ class PropertyOnboarding {
     this.brokerSigned = false,
     this.ownerSigned = false,
     this.lastAskedAt = 0,
+    this.updatedAt = 0,
   }) : coOwners = List.unmodifiable(coOwners),
        papers = List.unmodifiable(
          ([...(papers ?? [for (final key in PaperKeys.all) OnboardingPaper(key: key)])])
@@ -504,6 +505,10 @@ class PropertyOnboarding {
 
   final String id;
   final String ownerName;
+
+  /// Last change (ms); 0 = never changed since [createdAt]. Newest first on Home.
+  final int updatedAt;
+  int get lastActivity => updatedAt > createdAt ? updatedAt : createdAt;
 
   /// 'email' or 'whatsapp'.
   final String channel;
@@ -734,8 +739,10 @@ class PropertyOnboarding {
     bool? brokerSigned,
     bool? ownerSigned,
     int? lastAskedAt,
+    int? updatedAt,
   }) => PropertyOnboarding(
     id: id,
+    updatedAt: updatedAt ?? this.updatedAt,
     ownerName: ownerName ?? this.ownerName,
     channel: channel ?? this.channel,
     contact: contact ?? this.contact,
@@ -779,6 +786,7 @@ class PropertyOnboarding {
     'channel': channel,
     'contact': contact,
     'createdAt': createdAt,
+    'updatedAt': updatedAt,
     'coOwners': [for (final c in coOwners) c.toJson()],
     'papers': [for (final p in papers) p.toJson()],
     'phase': phase,
@@ -810,6 +818,7 @@ class PropertyOnboarding {
     channel: json['channel'] as String? ?? 'email',
     contact: json['contact'] as String? ?? '',
     createdAt: (json['createdAt'] as num?)?.toInt() ?? 0,
+    updatedAt: (json['updatedAt'] as num?)?.toInt() ?? 0,
     coOwners: json['coOwners'] is List
         ? [
             for (final item in json['coOwners'] as List)
@@ -999,9 +1008,10 @@ class PropertyOnboardingStore extends ChangeNotifier {
   });
 
   Future<void> update(String id, PropertyOnboarding Function(PropertyOnboarding) change) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
     _items = [
       for (final item in _items)
-        if (item.id == id) change(item) else item,
+        if (item.id == id) change(item).copyWith(updatedAt: now) else item,
     ];
     notifyListeners();
     await _save();

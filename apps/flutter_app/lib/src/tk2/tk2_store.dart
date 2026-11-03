@@ -527,6 +527,56 @@ class Tk2Visit {
   );
 }
 
+/// A property taken off the market (rented out, tie-up ended…). It is kept,
+/// and the broker is reminded 10 months later to check if it is free again.
+class Tk2Inactive {
+  const Tk2Inactive({required this.reason, required this.since, required this.remindAt, this.note = '', this.rentStart});
+
+  final String reason;
+  final String note;
+
+  /// When the broker turned it off (ms).
+  final int since;
+
+  /// Rent start date when it was rented out (ms); the 10 months count from here.
+  final int? rentStart;
+
+  /// When to remind the broker (ms).
+  final int remindAt;
+
+  static const reasons = [
+    'Rented out by me',
+    'Rented out by someone else',
+    'Owner cancelled the tie-up',
+    'Owner is using it',
+    'Being sold or repaired',
+    'Other reason',
+  ];
+
+  static bool isRented(String reason) => reason.startsWith('Rented out');
+
+  /// Same day, 10 months later (end of month when the day does not exist).
+  static DateTime tenMonthsAfter(DateTime d) {
+    final last = DateTime(d.year, d.month + 11, 0).day;
+    return DateTime(d.year, d.month + 10, d.day > last ? last : d.day, d.hour, d.minute);
+  }
+
+  bool due(DateTime now) => !now.isBefore(DateTime.fromMillisecondsSinceEpoch(remindAt));
+
+  Tk2Inactive remindLater(DateTime now) =>
+      Tk2Inactive(reason: reason, note: note, since: since, rentStart: rentStart, remindAt: tenMonthsAfter(now).millisecondsSinceEpoch);
+
+  Map<String, Object?> toJson() => {'reason': reason, 'note': note, 'since': since, 'rentStart': rentStart, 'remindAt': remindAt};
+
+  factory Tk2Inactive.fromJson(Map<String, dynamic> j) => Tk2Inactive(
+    reason: j['reason'] as String? ?? '',
+    note: j['note'] as String? ?? '',
+    since: (j['since'] as num?)?.toInt() ?? 0,
+    rentStart: (j['rentStart'] as num?)?.toInt(),
+    remindAt: (j['remindAt'] as num?)?.toInt() ?? 0,
+  );
+}
+
 class Tk2Store extends ChangeNotifier {
   Tk2Store._();
   static final instance = Tk2Store._();
@@ -586,6 +636,12 @@ class Tk2Store extends ChangeNotifier {
               if (c is Map) (name: c['name'] as String? ?? '', phone: c['phone'] as String? ?? '', email: c['email'] as String? ?? ''),
           ]);
         brokerPhone = json['brokerPhone'] as String? ?? '';
+        _inactive
+          ..clear()
+          ..addAll({
+            for (final e in (json['inactive'] as Map? ?? const {}).entries)
+              if (e.value is Map) e.key as String: Tk2Inactive.fromJson(Map<String, dynamic>.from(e.value as Map)),
+          });
         account
           ..clear()
           ..addAll(Map<String, dynamic>.from(json['account'] as Map? ?? const {}));
@@ -620,6 +676,7 @@ class Tk2Store extends ChangeNotifier {
         ],
         'brokerPhone': brokerPhone,
         'account': account,
+        'inactive': {for (final e in _inactive.entries) e.key: e.value.toJson()},
         'listings': [for (final l in _listings) l.toJson()],
         'visits': [for (final v in _visits) v.toJson()],
       }),
@@ -644,6 +701,7 @@ class Tk2Store extends ChangeNotifier {
     brokerName = '';
     brokerPhone = '';
     account.clear();
+    _inactive.clear();
     _contacts.clear();
     _listings.clear();
     _visits.clear();
@@ -711,7 +769,49 @@ class Tk2Store extends ChangeNotifier {
     await _save();
   }
 
+  final Map<String, Tk2Inactive> _inactive = {};
+
+  /// Off the market, with why and when; null = active.
+  Tk2Inactive? inactive(String id) => _inactive[id];
+  bool isActive(String id) => !_inactive.containsKey(id);
+
+  /// Turn a property off. Rented out: 10 months from the rent start date;
+  /// otherwise from today.
+  Future<void> deactivate(String id, {required String reason, String note = '', DateTime? rentStart, DateTime? now}) {
+    final today = now ?? DateTime.now();
+    final from = Tk2Inactive.isRented(reason) && rentStart != null ? rentStart : today;
+    _inactive[id] = Tk2Inactive(
+      reason: reason,
+      note: note.trim(),
+      since: today.millisecondsSinceEpoch,
+      rentStart: Tk2Inactive.isRented(reason) ? rentStart?.millisecondsSinceEpoch : null,
+      remindAt: Tk2Inactive.tenMonthsAfter(from).millisecondsSinceEpoch,
+    );
+    return _save();
+  }
+
+  /// Back on the market. Turning it off again starts a new 10-month count.
+  Future<void> activate(String id) {
+    _inactive.remove(id);
+    return _save();
+  }
+
+  /// "Still not available": ask again 10 months from now.
+  Future<void> remindLater(String id, {DateTime? now}) {
+    final i = _inactive[id];
+    if (i == null) return Future.value();
+    _inactive[id] = i.remindLater(now ?? DateTime.now());
+    return _save();
+  }
+
+  /// Off-market properties whose 10 months are up (the "check with the owner" updates).
+  List<Tk2Listing> remindersDue([DateTime? now]) {
+    final t = now ?? DateTime.now();
+    return [for (final l in _listings) if (_inactive[l.id]?.due(t) ?? false) l];
+  }
+
   Future<void> removeListing(String id) async {
+    _inactive.remove(id);
     _listings.removeWhere((l) => l.id == id);
     await _save();
   }

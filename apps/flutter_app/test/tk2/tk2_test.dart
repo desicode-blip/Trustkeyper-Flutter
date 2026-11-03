@@ -8,6 +8,7 @@ import 'package:trustkeyper/src/features/broker/data/broker_property_repository.
 import 'package:trustkeyper/src/tk2/tk2_app.dart';
 import 'package:trustkeyper/src/tk2/tk2_designs.dart';
 import 'package:trustkeyper/src/tk2/tk2_account.dart';
+import 'package:trustkeyper/src/tk2/tk2_sort.dart';
 import 'package:trustkeyper/src/tk2/tk2_store.dart';
 
 void main() {
@@ -127,6 +128,51 @@ void main() {
       await account.close(reason: 'test', note: '');
       expect(store.brokerName, isEmpty);
       expect((await account.read()).text('email'), isEmpty);
+    });
+
+    test('turn off: rented → remind 10 months after rent start; other → from today; on again clears', () async {
+      final store = Tk2Store.forTest();
+      await store.load();
+      final p = await store.saveProperty(BrokerProperty(id: '', name: 'Villa 7', address: 'Kondapur', rooms: '3 BHK', floor: 1, totalFloors: 2, furnishing: 'Full', inventory: {}));
+      final today = DateTime(2026, 11, 3);
+      await store.deactivate(p.id, reason: 'Rented out by someone else', rentStart: DateTime(2026, 10, 1), now: today);
+      expect(store.isActive(p.id), isFalse);
+      expect(DateTime.fromMillisecondsSinceEpoch(store.inactive(p.id)!.remindAt), DateTime(2027, 8, 1));
+      expect(store.remindersDue(DateTime(2027, 7, 31)), isEmpty);
+      expect(store.remindersDue(DateTime(2027, 8, 1)).single.id, p.id);
+      await store.remindLater(p.id, now: DateTime(2027, 8, 2));
+      expect(store.remindersDue(DateTime(2027, 8, 3)), isEmpty);
+      await store.activate(p.id);
+      expect(store.isActive(p.id), isTrue);
+      await store.deactivate(p.id, reason: 'Owner cancelled the tie-up', now: DateTime(2028, 1, 31));
+      expect(DateTime.fromMillisecondsSinceEpoch(store.inactive(p.id)!.remindAt), DateTime(2028, 11, 30)); // 31 Nov → 30 Nov
+      final again = Tk2Store.forTest();
+      await again.load();
+      expect(again.inactive(p.id)?.reason, 'Owner cancelled the tie-up');
+    });
+
+    test('sort and filter: BHK numbers, 4.5+, furnishing, active', () async {
+      expect([for (final r in ['1 RK', '1 BHK', '2.5 BHK', '4+ BHK']) tk2Bhk(r)], [0.5, 1, 2.5, 4.5]);
+      final store = Tk2Store.forTest();
+      await store.load();
+      Future<Tk2Listing> add(String rooms, int rent, String furnishing) async {
+        final p = await store.saveProperty(BrokerProperty(id: '', name: rooms, address: 'Kondapur', rooms: rooms, floor: 1, totalFloors: 2, furnishing: furnishing, inventory: {}));
+        final l = store.listing(p.id)!.copyWith(rent: rent);
+        await store.putListing(l);
+        return l;
+      }
+      final a = await add('1 BHK', 15000, 'Empty');
+      final b = await add('2.5 BHK', 30000, 'Semi');
+      final c = await add('4+ BHK', 90000, 'Full');
+      List<String> ids(Tk2ListFilter f) => [for (final l in f.apply(store.listings, store)) l.id];
+      expect(ids(const Tk2ListFilter(sort: 'rentLow')), [a.id, b.id, c.id]);
+      expect(ids(const Tk2ListFilter(sort: 'bhkHigh')), [c.id, b.id, a.id]);
+      expect(ids(Tk2ListFilter(bhk: {4.5})), [c.id]);
+      expect(ids(Tk2ListFilter(bhk: {1, 2.5}, sort: 'rentLow')), [a.id, b.id]);
+      expect(ids(const Tk2ListFilter(furnishing: {'Semi'})), [b.id]);
+      await store.deactivate(b.id, reason: 'Owner is using it');
+      expect(ids(const Tk2ListFilter(status: 'off')), [b.id]);
+      expect(Tk2ListFilter(bhk: {1}, status: 'off').count, 2);
     });
 
     test('rent negotiable: off by default, shown on the rent line, travels in the link', () {
@@ -281,14 +327,18 @@ void main() {
 
     expect(find.text('Namaste, Suresh'), findsOneWidget);
     expect(find.text('Add property'), findsOneWidget);
-    // Only designs E and B on home; door number never on cards.
-    expect(find.text('Sri Sai Residency'), findsOneWidget); // E heading; B shows the address only (no repeat)
+    // Home shows Design B only; door number never on cards.
+    expect(find.text('Sri Sai Residency'), findsNothing); // no repeated society line
     expect(find.textContaining('2 BHK  ·  ₹32,000/m', findRichText: true), findsOneWidget); // B title
-    expect(find.text('Sri Sai Residency, Madhapur, Hyderabad'), findsNWidgets(2)); // address line on both
+    expect(find.text('Sri Sai Residency, Madhapur, Hyderabad'), findsOneWidget); // address line
     expect(find.textContaining('Flat 402'), findsNothing);
     expect(find.text('Example'), findsNothing);
 
-    await tester.tap(find.text('Sri Sai Residency').first);
+    await tester.ensureVisible(find.text('Sri Sai Residency, Madhapur, Hyderabad'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sri Sai Residency, Madhapur, Hyderabad'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Only you')); // Design B page: private details tab
     await tester.pumpAndSettle();
     // Broker-only block is on the page, with the banner.
     await tester.scrollUntilVisible(find.text('Complete address and details'), 300, scrollable: find.byType(Scrollable).first);

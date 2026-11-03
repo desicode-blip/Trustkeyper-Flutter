@@ -1373,3 +1373,20 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/tk2/tk2_account.dart (new), apps/flutter_app/lib/src/tk2/tk2_store.dart (account map, saveAccount, wipe), apps/flutter_app/lib/src/tk2/tk2_app.dart (AccountProfilePanel gets gateway, email, bank, onSignedOut), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 26/26 (new account test); broker app web build: Profile → My details, Language, Delete account step 1 checked
 ```
+
+## Change 84 – Design B only; Active/Not active with 10-month reminder; Continue "View all +N"; sort and filter
+Date: 2026-11-03 · Status: broker app code synced to the Mac, not yet built
+- Home shows Design B only. Design E stays in code once (its card is still the customer page ticket; its page is kept, not linked). Unused designs A, C and D removed (tk2_designs.dart 1,190 → ~950 lines); nothing renders twice.
+- Property page header: **Active / Not active** switch. Off asks why: Rented out by me · Rented out by someone else (both ask the rent start date) · Owner cancelled the tie-up · Owner is using it · Being sold or repaired · Other reason (note). Shows a grey banner with the reminder date; Share is hidden; on Home it moves to "Not active · N", greyed.
+- Reminder: 10 months after the rent start date (or the day it was turned off). Due reminders show in the bell (badge count) as "This property might be available – check the status with the owner" with **It is available** (turns it on) / **Still not free · remind later** (10 more months) / Call owner. On → off again starts a new count.
+- Home **Continue** (shared with the main app): shows the 2 newest unfinished items (houses being set up and saved agreements together, newest added or changed first). More → **View all** with a "+N" circle → page with all of them numbered 1, 2, 3… `PropertyOnboarding` gains `updatedAt` (set on every change).
+- **Sort and filter** under "Your properties" (2+ properties): Sort – recently added, oldest first, rent low/high, BHK small/large, most visits. Filter – BHK (1 RK, 1, 1.5 … 4, 4.5+), furnishing, status; "Clear all".
+```
+AGENT RECORD – Change 84
+id: CHG-084
+date: 2026-11-03
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/{tk2_status,tk2_sort}.dart (new), apps/flutter_app/lib/src/tk2/{tk2_store,tk2_designs,tk2_app}.dart, apps/flutter_app/lib/src/features/broker/presentation/broker_draft_cards.dart (Continue: newest first, View all +N, _AllActivitiesScreen), apps/flutter_app/lib/src/features/broker/data/property_onboarding.dart (updatedAt), apps/flutter_app/test/tk2/tk2_test.dart, docs/TRUSTKEEPER2-JOURNEYS.md, docs/CHANGELOG-staging.md
+backend: send the "might be available" reminder as a push/WhatsApp at remindAt (today it shows when the app is opened); stop bookings on links of turned-off properties
+verification: flutter analyze clean; test/tk2 29/29 (turn-off timer, sort/filter); property_onboarding_test passes; broker app web build checked: Home (B only, Continue + View all +1, sort/filter, Not active section), bell reminder, View all page, filter sheet, header switch, turn-off sheet with date, banner
+```
