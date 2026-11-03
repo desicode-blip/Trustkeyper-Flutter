@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trustkeyper/src/features/broker/data/broker_property_repository.dart';
 import 'package:trustkeyper/src/tk2/tk2_app.dart';
 import 'package:trustkeyper/src/tk2/tk2_designs.dart';
+import 'package:trustkeyper/src/tk2/tk2_account.dart';
 import 'package:trustkeyper/src/tk2/tk2_store.dart';
 
 void main() {
@@ -108,6 +109,24 @@ void main() {
       expect(l.dayOpen(DateTime(2026, 11, 7)), isTrue); // Saturday
       expect(l.dayOpen(DateTime(2026, 11, 9)), isFalse); // Monday
       expect(Tk2Listing.fromJson(l.toJson()).visitDays, 'weekends');
+    });
+
+    test('account: main app profile screens save to the phone; delete wipes it', () async {
+      final store = Tk2Store.forTest();
+      await store.load();
+      await store.setBroker('Suresh', '+91 98480 12345');
+      final account = Tk2AccountGateway(store);
+      await account.save({'displayName': 'Suresh Kumar', 'city': 'Hyderabad'});
+      expect(store.brokerName, 'Suresh Kumar');
+      expect((await account.read()).text('city'), 'Hyderabad');
+      final challenge = await account.requestEmail('s@example.com');
+      expect(() => account.verifyEmail('s@example.com', challenge, '000000'), throwsStateError);
+      await account.verifyEmail('s@example.com', challenge, Tk2AccountGateway.demoCode);
+      expect((await account.read()).flag('emailVerified'), isTrue);
+      expect((await account.closure())['canClose'], isTrue);
+      await account.close(reason: 'test', note: '');
+      expect(store.brokerName, isEmpty);
+      expect((await account.read()).text('email'), isEmpty);
     });
 
     test('rent negotiable: off by default, shown on the rent line, travels in the link', () {
@@ -284,7 +303,8 @@ void main() {
 
     // A slot within the next 24 hours, so the visit code works when the broker types it.
     final now = DateTime.now();
-    final slot = now.hour < 22 ? DateTime(now.year, now.month, now.day, (now.hour + 1).clamp(7, 23)) : DateTime(now.year, now.month, now.day + 1, 7);
+    // Today's slots open 2 hours ahead; late at night, tomorrow 7 am is still within 24 hours.
+    final slot = now.hour <= 21 ? DateTime(now.year, now.month, now.day, (now.hour + 2).clamp(7, 23)) : DateTime(now.year, now.month, now.day + 1, 7);
     String label(int h) => '${h % 12 == 0 ? 12 : h % 12}:00 ${h < 12 ? 'am' : 'pm'}';
     await tester.tap(find.text('${slot.day}').first);
     await tester.pumpAndSettle();

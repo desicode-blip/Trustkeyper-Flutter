@@ -15,6 +15,7 @@ import '../features/broker/presentation/broker_draft_cards.dart';
 import '../features/broker/presentation/approved_broker_home.dart';
 import '../features/broker/presentation/broker_property_screen.dart';
 import 'tk2_customer.dart';
+import 'tk2_account.dart';
 import 'tk2_designs.dart';
 import 'tk2_listing.dart';
 import 'tk2_store.dart';
@@ -190,6 +191,7 @@ class Tk2Shell extends StatefulWidget {
 
 class _Tk2ShellState extends State<Tk2Shell> {
   int tab = 0;
+  late final account = Tk2AccountGateway(widget.store);
 
   @override
   Widget build(BuildContext context) {
@@ -201,13 +203,17 @@ class _Tk2ShellState extends State<Tk2Shell> {
         final pages = [
           Tk2Home(store: store, profile: profile, onOpenProfile: () => setState(() => tab = 2), onOpenVisits: () => setState(() => tab = 1)),
           Tk2Visits(store: store, onShare: () => setState(() => tab = 0)),
+          // The main app's profile, as is: My details, Bank, Language, Help,
+          // Log out and Delete account, backed by the phone's store.
           AccountProfilePanel(
             name: store.brokerName,
             phone: store.brokerPhone,
+            email: store.account['email'] as String? ?? '',
+            bankName: store.account['bankName'] as String? ?? '',
+            bankLast4: store.account['bankAccountLast4'] as String? ?? '',
             role: 'broker',
-            gateway: null,
-            onLogout: () async {
-              await store.setBroker('', '');
+            gateway: account,
+            onSignedOut: () {
               if (context.mounted) context.go('/onboarding');
             },
           ),

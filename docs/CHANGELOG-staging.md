@@ -1359,3 +1359,17 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/tk2/tk2_designs.dart (_rentHeading measures with TextPainter in a LayoutBuilder, same DefaultTextStyle as the Text), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 25/25 (home-flow test checks the rent part; the note length depends on font width); broker app web build checked at 340, 400, 430 and 500 px wide
 ```
+
+## Change 83 – Broker profile works: the main app's account screens, as is
+Date: 2026-11-03 · Status: broker app code synced to the Mac, not yet built
+- Profile tab now opens the main app's own screens, unchanged: My details (name, verified phone, email with code, city, RERA), Bank for my money, Language, Help, Log out (confirm) and Delete account (3-step closure with reason and checks).
+- They were already on the screen but had no gateway, so taps did nothing. New `Tk2AccountGateway` connects them to the phone's store. Demo: email code 123456; deleting the account wipes everything on the phone and returns to the welcome screen. Backend: use `FirebaseAccountGateway` instead – the screens stay the same.
+- Test fix: the home-flow test books a slot 2 hours ahead (today's slots open 2 hours ahead).
+```
+AGENT RECORD – Change 83
+id: CHG-083
+date: 2026-11-03
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/tk2_account.dart (new), apps/flutter_app/lib/src/tk2/tk2_store.dart (account map, saveAccount, wipe), apps/flutter_app/lib/src/tk2/tk2_app.dart (AccountProfilePanel gets gateway, email, bank, onSignedOut), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 26/26 (new account test); broker app web build: Profile → My details, Language, Delete account step 1 checked
+```

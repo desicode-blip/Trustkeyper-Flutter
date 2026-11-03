@@ -586,6 +586,9 @@ class Tk2Store extends ChangeNotifier {
               if (c is Map) (name: c['name'] as String? ?? '', phone: c['phone'] as String? ?? '', email: c['email'] as String? ?? ''),
           ]);
         brokerPhone = json['brokerPhone'] as String? ?? '';
+        account
+          ..clear()
+          ..addAll(Map<String, dynamic>.from(json['account'] as Map? ?? const {}));
         _listings
           ..clear()
           ..addAll([
@@ -616,10 +619,36 @@ class Tk2Store extends ChangeNotifier {
           for (final c in _contacts) {'name': c.name, 'phone': c.phone, 'email': c.email},
         ],
         'brokerPhone': brokerPhone,
+        'account': account,
         'listings': [for (final l in _listings) l.toJson()],
         'visits': [for (final v in _visits) v.toJson()],
       }),
     );
+    notifyListeners();
+  }
+
+  /// Profile details for the main app's account screens (email, city, bank,
+  /// RERA…). Name and phone live in [brokerName] / [brokerPhone].
+  final Map<String, dynamic> account = {};
+
+  /// Saves profile changes from the account screens.
+  Future<void> saveAccount(Map<String, dynamic> details) {
+    account.addAll(details);
+    final name = details['displayName'];
+    if (name is String && name.trim().isNotEmpty) brokerName = name.trim();
+    return _save();
+  }
+
+  /// Delete account: everything on this phone is wiped.
+  Future<void> wipe() async {
+    brokerName = '';
+    brokerPhone = '';
+    account.clear();
+    _contacts.clear();
+    _listings.clear();
+    _visits.clear();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key);
     notifyListeners();
   }
 
