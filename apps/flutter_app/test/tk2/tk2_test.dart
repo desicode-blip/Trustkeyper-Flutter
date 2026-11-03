@@ -264,7 +264,7 @@ void main() {
     expect(find.text('Add property'), findsOneWidget);
     // Only designs E and B on home; door number never on cards.
     expect(find.text('Sri Sai Residency'), findsOneWidget); // E heading; B shows the address only (no repeat)
-    expect(find.textContaining('₹32,000/m + maint', findRichText: true), findsOneWidget); // B title
+    expect(find.textContaining('2 BHK  ·  ₹32,000/m', findRichText: true), findsOneWidget); // B title
     expect(find.text('Sri Sai Residency, Madhapur, Hyderabad'), findsNWidgets(2)); // address line on both
     expect(find.textContaining('Flat 402'), findsNothing);
     expect(find.text('Example'), findsNothing);

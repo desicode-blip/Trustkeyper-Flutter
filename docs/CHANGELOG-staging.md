@@ -1357,5 +1357,5 @@ id: CHG-082
 date: 2026-11-03
 branch: staging (never main)
 files: apps/flutter_app/lib/src/tk2/tk2_designs.dart (_rentHeading measures with TextPainter in a LayoutBuilder, same DefaultTextStyle as the Text), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
-verification: flutter analyze clean; test/tk2 25/25; broker app web build checked at 340, 400, 430 and 500 px wide
+verification: flutter analyze clean; test/tk2 25/25 (home-flow test checks the rent part; the note length depends on font width); broker app web build checked at 340, 400, 430 and 500 px wide
 ```
