@@ -264,7 +264,7 @@ void main() {
     expect(find.text('Add property'), findsOneWidget);
     // Only designs E and B on home; door number never on cards.
     expect(find.text('Sri Sai Residency'), findsOneWidget); // E heading; B shows the address only (no repeat)
-    expect(find.textContaining('₹32,000/month\u00A0 +\u00A0maintenance', findRichText: true), findsOneWidget); // B title
+    expect(find.textContaining('₹32,000/m + maint', findRichText: true), findsOneWidget); // B title
     expect(find.text('Sri Sai Residency, Madhapur, Hyderabad'), findsNWidgets(2)); // address line on both
     expect(find.textContaining('Flat 402'), findsNothing);
     expect(find.text('Example'), findsNothing);
@@ -282,11 +282,13 @@ void main() {
     await tester.tap(find.text('Book a visit · ₹150'));
     await tester.pumpAndSettle();
 
-    // Tomorrow always has free slots.
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    await tester.tap(find.text('${tomorrow.day}').first);
+    // A slot within the next 24 hours, so the visit code works when the broker types it.
+    final now = DateTime.now();
+    final slot = now.hour < 22 ? DateTime(now.year, now.month, now.day, (now.hour + 1).clamp(7, 23)) : DateTime(now.year, now.month, now.day + 1, 7);
+    String label(int h) => '${h % 12 == 0 ? 12 : h % 12}:00 ${h < 12 ? 'am' : 'pm'}';
+    await tester.tap(find.text('${slot.day}').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('11:00 am'));
+    await tester.tap(find.text(label(slot.hour)));
     await tester.scrollUntilVisible(find.widgetWithText(TextField, 'Your phone'), 200, scrollable: find.byType(Scrollable).last);
     await tester.enterText(find.widgetWithText(TextField, 'Your name'), 'Ravi');
     await tester.enterText(find.widgetWithText(TextField, 'Your phone'), '9000000000');

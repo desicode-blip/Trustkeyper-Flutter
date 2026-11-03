@@ -143,33 +143,50 @@ Widget tk2Glyph(IconData icon, {required double size, required Color color}) => 
       )
     : Icon(icon, size: size, color: color);
 
-/// Design B first line: "2 BHK  ·  ₹32,000/month" with maintenance after it
-/// in a lighter, smaller style ("+ maintenance" or "(maintenance included)").
+/// Design B first line: "2 BHK  ·  ₹32,000/m" and the maintenance note
+/// right after it, smaller and grey. It stays on one line: when it would come
+/// closer than 16 px to the Share button, the note gets shorter step by step:
+///   (maintenance included) → (maintenance inc.) → (all inclusive)
+///   + maintenance → + maint…
+/// (On a very narrow screen the note is left out rather than cut off.)
 Widget _rentHeading(Tk2Listing l) {
   const strong = TextStyle(fontSize: 16.5, height: 22 / 16.5, fontWeight: FontWeight.w700, color: AppColors.heading);
-  const light = TextStyle(fontSize: 13.5, fontWeight: FontWeight.w400, color: AppColors.muted);
+  const per = TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: AppColors.body);
+  const light = TextStyle(fontSize: 12.5, fontWeight: FontWeight.w400, color: AppColors.muted);
   final extra = !(l.maintenanceIncluded || l.maintenance == 0);
-  return Text.rich(
-    TextSpan(
-      style: strong,
-      children: [
-        TextSpan(text: l.property.rooms),
-        const TextSpan(text: '   ·   ', style: TextStyle(color: AppColors.muted)),
-        if (!l.hasRent)
-          const TextSpan(text: 'Add rent')
-        else ...[
-          TextSpan(text: Tk2Store.money(l.rent)),
-          const TextSpan(
-            text: '/month\u00A0',
-            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: AppColors.body),
-          ),
-          TextSpan(text: extra ? ' +\u00A0maintenance' : ' (maintenance\u00A0included)', style: light),
-          if (l.rentNegotiable) const TextSpan(text: '\u00A0·\u00A0negotiable', style: light),
-        ],
+  final notes = !l.hasRent
+      ? const ['']
+      : extra
+      ? const [' + maintenance', ' + maint…']
+      : const [' (maintenance included)', ' (maintenance inc.)', ' (all inclusive)'];
+  TextSpan span(TextStyle base, String note) => TextSpan(
+    style: base.merge(strong),
+    children: [
+      TextSpan(text: l.property.rooms),
+      const TextSpan(text: '  ·  ', style: TextStyle(color: AppColors.muted)),
+      if (!l.hasRent)
+        const TextSpan(text: 'Add rent')
+      else ...[
+        TextSpan(text: Tk2Store.money(l.rent)),
+        const TextSpan(text: '/m', style: per),
+        TextSpan(text: note, style: light),
       ],
-    ),
-    maxLines: 2,
-    overflow: TextOverflow.ellipsis,
+    ],
+  );
+  return LayoutBuilder(
+    builder: (context, box) {
+      // Measure with the same font the Text will use.
+      final base = DefaultTextStyle.of(context).style;
+      final scaler = MediaQuery.textScalerOf(context);
+      // Very narrow screens: the rent alone rather than a cut-off note.
+      final note = [...notes, ''].firstWhere((n) {
+        final tp = TextPainter(text: span(base, n), textDirection: TextDirection.ltr, textScaler: scaler, maxLines: 1)..layout();
+        final fits = tp.width <= box.maxWidth;
+        tp.dispose();
+        return fits;
+      }, orElse: () => '');
+      return Text.rich(span(base, note), maxLines: 1, overflow: TextOverflow.ellipsis);
+    },
   );
 }
 
@@ -263,7 +280,7 @@ class Tk2DesignCard extends StatelessWidget {
                         ),
                         // Secondary "Share": quiet outline, right of the heading.
                         if (onSend != null) ...[
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 16),
                           OutlinedButton.icon(
                             key: ValueKey('send-${l.id}'),
                             onPressed: onSend,

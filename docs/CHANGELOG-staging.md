@@ -1345,3 +1345,17 @@ files: apps/flutter_app/lib/src/tk2/tk2_designs.dart (_rentHeading), apps/flutte
 verification: flutter analyze clean; test/tk2 25/25; document_request_test, recipient_auth_recovery_test, ui_test_app_test pass; document_request_visual_test fails only because ../../output/ui-audit is missing here (writes screenshots), unrelated. Web: visit → liked → block → Documents → Aadhaar screen checked in headless Chromium; broker Design B checked in a web build.
 backend: TkwTenantDocs keeps files on the device today – connect it to the real document request (same gateway the main app uses).
 ```
+
+## Change 82 – Design B heading: "/m" and a note that shortens itself
+Date: 2026-11-03 · Status: broker app code synced to the Mac, not yet built
+- Heading is one line: "2.5 BHK  ·  ₹685/m" with the maintenance note right after it (small, grey).
+- Keeps at least 16 px from the Share button. When it would not fit, the note shortens in steps: "(maintenance included)" → "(maintenance inc.)" → "(all inclusive)"; "+ maintenance" → "+ maint…". On very narrow screens the note is left out rather than cut mid-word. "Negotiable" no longer shows on this card (still on the rent row of the property page).
+- Test fix: the home-flow test books a slot within the next 24 hours (the visit code only works ±24 h), so it no longer depends on the time of day.
+```
+AGENT RECORD – Change 82
+id: CHG-082
+date: 2026-11-03
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/tk2_designs.dart (_rentHeading measures with TextPainter in a LayoutBuilder, same DefaultTextStyle as the Text), apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 25/25; broker app web build checked at 340, 400, 430 and 500 px wide
+```
