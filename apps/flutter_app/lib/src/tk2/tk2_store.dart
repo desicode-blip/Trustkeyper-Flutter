@@ -204,6 +204,34 @@ class Tk2Listing {
   /// A slot is open inside the broker's hours. Other bookings never close a slot.
   bool slotOpen(int hour) => hour >= visitFrom && hour <= visitTo;
 
+  /// Customers book at least this long ahead.
+  static const visitLead = Duration(hours: 1);
+
+  /// Earliest time a customer can pick on [day] (any minute, e.g. 4:35 pm),
+  /// or null when the day is closed. Window: visitFrom:00 – visitTo:00.
+  DateTime? earliestVisit(DateTime day, DateTime now) {
+    final d = DateTime(day.year, day.month, day.day);
+    if (!dayOpen(d)) return null;
+    var start = d.add(Duration(hours: visitFrom));
+    final end = d.add(Duration(hours: visitTo));
+    final soonest = now.add(visitLead);
+    if (soonest.isAfter(start)) {
+      // Round up to the next 5 minutes so the wheel starts on a tidy time.
+      final m = (soonest.minute + 4) ~/ 5 * 5;
+      start = DateTime(soonest.year, soonest.month, soonest.day, soonest.hour).add(Duration(minutes: m));
+    }
+    return start.isAfter(end) ? null : start;
+  }
+
+  /// Latest time on [day] (visitTo:00).
+  DateTime latestVisit(DateTime day) => DateTime(day.year, day.month, day.day, visitTo);
+
+  /// A picked time is fine: inside the window and not too soon.
+  bool visitTimeOk(DateTime at, DateTime now) {
+    final first = earliestVisit(at, now);
+    return first != null && !at.isBefore(first) && !at.isAfter(latestVisit(at));
+  }
+
   /// yyyy-MM-dd, '' = now.
   final String availableFrom;
 

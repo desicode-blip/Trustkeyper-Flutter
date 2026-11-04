@@ -175,6 +175,17 @@ void main() {
       expect(Tk2ListFilter(bhk: {1}, status: 'off').count, 2);
     });
 
+    test('visit time: any minute inside the window, 1 hour ahead, rounded to 5 minutes', () {
+      final l = Tk2Listing.example.copyWith(visitFrom: 9, visitTo: 20, visitDays: 'all');
+      final now = DateTime(2026, 11, 4, 16, 42);
+      expect(l.earliestVisit(now, now), DateTime(2026, 11, 4, 17, 45));
+      expect(l.earliestVisit(DateTime(2026, 11, 5), now), DateTime(2026, 11, 5, 9));
+      expect(l.earliestVisit(now, DateTime(2026, 11, 4, 19, 30)), isNull); // 8:30 pm is past 8 pm
+      expect(l.visitTimeOk(DateTime(2026, 11, 5, 16, 35), now), isTrue);
+      expect(l.visitTimeOk(DateTime(2026, 11, 5, 20, 5), now), isFalse);
+      expect(l.visitTimeOk(DateTime(2026, 11, 4, 17, 10), now), isFalse);
+    });
+
     test('rent negotiable: off by default, shown on the rent line, travels in the link', () {
       final l = Tk2Listing.example;
       expect(l.rentNegotiable, isFalse);
@@ -351,14 +362,13 @@ void main() {
     await tester.tap(find.text('Book a visit · ₹150'));
     await tester.pumpAndSettle();
 
-    // A slot within the next 24 hours, so the visit code works when the broker types it.
+    // The wheel starts on the earliest time of the day picked: today if it is
+    // still open, else tomorrow morning – either way within 24 hours, so the
+    // visit code works when the broker types it.
     final now = DateTime.now();
-    // Today's slots open 2 hours ahead; late at night, tomorrow 7 am is still within 24 hours.
-    final slot = now.hour <= 21 ? DateTime(now.year, now.month, now.day, (now.hour + 2).clamp(7, 23)) : DateTime(now.year, now.month, now.day + 1, 7);
-    String label(int h) => '${h % 12 == 0 ? 12 : h % 12}:00 ${h < 12 ? 'am' : 'pm'}';
-    await tester.tap(find.text('${slot.day}').first);
+    final day = Tk2Listing.example.earliestVisit(now, now) != null ? now : now.add(const Duration(days: 1));
+    await tester.tap(find.text('${day.day}').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text(label(slot.hour)));
     await tester.scrollUntilVisible(find.widgetWithText(TextField, 'Your phone'), 200, scrollable: find.byType(Scrollable).last);
     await tester.enterText(find.widgetWithText(TextField, 'Your name'), 'Ravi');
     await tester.enterText(find.widgetWithText(TextField, 'Your phone'), '9000000000');

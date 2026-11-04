@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -231,9 +232,10 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
   final name = TextEditingController();
   final phone = TextEditingController();
   late final List<DateTime> days = [for (var i = 0; i < 7; i++) DateUtils.dateOnly(DateTime.now()).add(Duration(days: i))];
-  static const slots = Tk2Listing.visitHours;
   DateTime? day;
-  int? hour;
+
+  /// Picked visit time (any minute).
+  DateTime? at;
   String? error;
   bool paying = false;
 
@@ -247,14 +249,18 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
     super.dispose();
   }
 
-  // Closed: outside the broker's visit hours, or too soon today. Other bookings never close a slot.
-  bool _slotGone(DateTime d, int h) =>
-      !(widget.store.listing(widget.id)?.slotOpen(h) ?? true) || !(widget.store.listing(widget.id)?.dayOpen(d) ?? true) || (DateUtils.isSameDay(d, DateTime.now()) && DateTime.now().hour >= h - 1);
+  // A day is closed when the broker does not show on it, or today's window has passed.
+  bool _dayGone(Tk2Listing l, DateTime d) => l.earliestVisit(d, DateTime.now()) == null;
+
+  bool get _timeBad {
+    final l = widget.store.listing(widget.id);
+    return at == null || l == null || !l.visitTimeOk(at!, DateTime.now());
+  }
 
   Future<void> _pay(Tk2Listing l) async {
     final digits = phone.text.replaceAll(RegExp(r'\D'), '');
-    if (day == null || hour == null) return setState(() => tried = true);
-    if (widget.onPicked != null) return widget.onPicked!(day!.add(Duration(hours: hour!)));
+    if (day == null || _timeBad) return setState(() => tried = true);
+    if (widget.onPicked != null) return widget.onPicked!(at!);
     if (name.text.trim().length < 2) return setState(() => error = 'Type your name');
     if (digits.length != 10) return setState(() => error = 'Type your 10 digit phone number');
     FocusScope.of(context).unfocus();
@@ -276,7 +282,7 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading),
                     ),
                     const SizedBox(height: 16),
-                    _line('Visit', '${tk2Day(day!)}, ${tk2Time(DateTime(2000, 1, 1, hour!))}'),
+                    _line('Visit', '${tk2Day(at!)}, ${tk2Time(at!)}'),
                     _line('Property', l.publicTitle),
                     _line('Fee', Tk2Store.money(l.visitFee), bold: true),
                     const SizedBox(height: 12),
@@ -295,12 +301,7 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
     if (paid != true || !mounted) return;
     setState(() => paying = true);
     await Future<void>.delayed(const Duration(milliseconds: 700));
-    final visit = await widget.store.bookVisit(
-      listingId: l.id,
-      name: name.text,
-      phone: '+91 $digits',
-      at: day!.add(Duration(hours: hour!)),
-    );
+    final visit = await widget.store.bookVisit(listingId: l.id, name: name.text, phone: '+91 $digits', at: at!);
     if (!mounted) return;
     context.pushReplacement('/booked/${visit.id}');
   }
@@ -361,18 +362,21 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
                               itemBuilder: (context, i) {
                                 final d = days[i];
                                 final on = day != null && DateUtils.isSameDay(day, d);
-                                final allGone = slots.every((h) => _slotGone(d, h));
+                                final allGone = _dayGone(l, d);
                                 return Tk2Appear(
                                   index: i,
                                   child: _chip(
                                     on: on,
                                     disabled: allGone,
                                     width: 68,
-                                    onTap: () => setState(() {
-                                      day = d;
-                                      if (hour != null && _slotGone(d, hour!)) hour = null;
-                                      error = null;
-                                    }),
+                                    onTap: allGone
+                                        ? () {}
+                                        : () => setState(() {
+                                            day = d;
+                                            // Start the wheel on the earliest time that day.
+                                            at = l.earliestVisit(d, DateTime.now());
+                                            error = null;
+                                          }),
                                     child: Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
@@ -405,8 +409,8 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
                               children: [
                                 const SizedBox(height: 22),
                                 _attention(
-                                  bad: tried && hour == null,
-                                  message: 'Pick a time',
+                                  bad: tried && _timeBad,
+                                  message: 'Pick a time between ${tk2Time(l.earliestVisit(day!, DateTime.now()) ?? day!)} and ${tk2Time(l.latestVisit(day!))}',
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
@@ -414,29 +418,31 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
                                         'Time',
                                         style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
                                       ),
-                                      const SizedBox(height: 10),
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 8,
-                                        children: [
-                                          for (final h in slots)
-                                            _chip(
-                                              on: hour == h,
-                                              disabled: _slotGone(day!, h),
-                                              width: 96,
-                                              height: 46,
-                                              onTap: () => setState(() {
-                                                hour = h;
-                                                error = null;
-                                              }),
-                                              child: Center(
-                                                child: Text(
-                                                  tk2Time(DateTime(2000, 1, 1, h)),
-                                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: hour == h ? Colors.white : AppColors.heading),
-                                                ),
-                                              ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Any time from ${tk2Time(l.earliestVisit(day!, DateTime.now()) ?? day!)} to ${tk2Time(l.latestVisit(day!))}',
+                                        style: const TextStyle(fontSize: 14, color: AppColors.muted),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      // Hour · minute · am/pm wheels: any minute, e.g. 4:35 pm.
+                                      SizedBox(
+                                        height: 168,
+                                        child: CupertinoTheme(
+                                          data: CupertinoThemeData(
+                                            textTheme: CupertinoTextThemeData(
+                                              dateTimePickerTextStyle: Theme.of(context).textTheme.bodyLarge!.copyWith(fontSize: 21, color: AppColors.heading),
                                             ),
-                                        ],
+                                          ),
+                                          child: CupertinoDatePicker(
+                                            key: ValueKey(day),
+                                            mode: CupertinoDatePickerMode.time,
+                                            initialDateTime: at ?? l.earliestVisit(day!, DateTime.now()) ?? day!,
+                                            onDateTimeChanged: (t) => setState(() {
+                                              at = DateTime(day!.year, day!.month, day!.day, t.hour, t.minute);
+                                              error = null;
+                                            }),
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -511,20 +517,21 @@ class _Tk2BookVisitState extends State<Tk2BookVisit> {
     ),
   );
 
-  Widget _chip({required bool on, required bool disabled, required VoidCallback onTap, required Widget child, double width = 68, double height = 76}) => Opacity(
-    opacity: disabled ? 0.35 : 1,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: on ? AppColors.primary : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: on ? AppColors.primary : AppColors.border, width: 1.5),
-      ),
-      child: InkWell(borderRadius: BorderRadius.circular(16), onTap: disabled ? null : onTap, child: child),
-    ),
-  );
+  Widget _chip({required bool on, required bool disabled, required VoidCallback onTap, required Widget child, double width = 68, double height = 76}) =>
+      Opacity(
+        opacity: disabled ? 0.35 : 1,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: on ? AppColors.primary : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: on ? AppColors.primary : AppColors.border, width: 1.5),
+          ),
+          child: InkWell(borderRadius: BorderRadius.circular(16), onTap: disabled ? null : onTap, child: child),
+        ),
+      );
 }
 
 /// Booking done: the visit code and what happens to the fee.

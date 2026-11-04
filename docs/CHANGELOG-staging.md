@@ -1403,3 +1403,17 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/tkweb/tkweb_keyboard{,_stub,_web}.dart (new; visualViewport listener, conditional import), apps/flutter_app/lib/src/tkweb/tkweb_app.dart (TkwFrame adds the inset), apps/flutter_app/lib/src/tkweb/tkweb_auth.dart (compact header while typing), docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 29/29; checked in headless Chromium posing as an iPhone with a simulated 330 px keyboard. Not yet seen on a real iPhone.
 ```
+
+## Change 86 – Pay and book redesign; time wheels (any minute)
+Date: 2026-11-04 · Status: web app live (same link); broker app code synced to the Mac, not yet built
+- Pay and book (web): summary card with icons – When, Where (address + Open in Google Maps), Visit fee. Name and phone removed.
+- "Good to know", short: Your payment is safe with us · If the broker or owner cancels, full refund; if you cancel, no refund · Changed your mind? Cancel within 5 minutes for a full refund, minus a 2% platform fee · Please be on time: the agent waits 15 minutes, then the visit counts as cancelled.
+- Book a visit (web and the broker app's customer view): fixed hourly slots replaced by hour · minute · am/pm wheels, so any time works (e.g. 4:35 pm). The wheel starts on the earliest allowed time that day (1 hour ahead, rounded to 5 minutes); outside the window the Time section turns red with the allowed range. Closed days stay greyed.
+```
+AGENT RECORD – Change 86
+id: CHG-086
+date: 2026-11-04
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/tk2_store.dart (earliestVisit, latestVisit, visitTimeOk, visitLead), apps/flutter_app/lib/src/tk2/tk2_customer.dart (CupertinoDatePicker time wheels in Tk2BookVisit), apps/flutter_app/lib/src/tkweb/tkweb_tenant.dart (TkwPay summary + rules), apps/flutter_app/test/tk2/tk2_test.dart, docs/TRUSTKEEPER2-JOURNEYS.md, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 30/30 (new visit-time test); web: Book a visit wheels and Pay and book checked in headless Chromium
+```

@@ -34,7 +34,7 @@ The web app is Flutter web and reuses the apps' own screens and design system: t
 ## 2. Tenant (web, from the property link)
 
 1. Opens the link: photos, rent card, facts, visit-fee rules, "What happens next" (book → visit → token blocks it, house hidden from others → agreement → sign → pay deposit, brokerage if any, 1 month rent → keys). No "In the house" list (brokers don't fill it at this stage). **No login.**
-2. **Book a visit**: picks a day and hour. Days/hours outside the broker's visit times are greyed. Many people can book the same hour.
+2. **Book a visit**: picks a day, then any time on hour · minute · am/pm wheels (e.g. 4:35 pm), inside the broker's visit window and at least 1 hour ahead. Closed days are greyed. Many people can book the same time.
 3. Signs up: name + mobile (any country code) → 6-digit OTP.
 4. Pays the visit fee → **Your visit** screen, in this order: status · **When** (date, time, Add to Google Calendar) · **Where** (society, area, city – no flat number – Open in Google Maps) · **Your broker** (name, number, Call) · visit code · good to know (reminder call 1 hour before, gate pass on WhatsApp, be on time) · small Cancel visit button bottom right, no timer (any time; refund minus 2% only within 5 minutes; after that no refund – TrustKeyper keeps it, the broker gets nothing as he was told in advance. No-show: broker gets half).
 5. **I visited the place** → **Did you like it?** Yes → pays **token ₹15,000** → house is blocked. No → "We told the broker": he sends more houses; tenant can call him or wait. (Later: tenant can browse the broker's other houses.)

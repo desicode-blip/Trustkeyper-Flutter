@@ -114,7 +114,6 @@ class _TkwPayState extends State<TkwPay> {
   @override
   Widget build(BuildContext context) {
     final l = Tk2Store.instance.listing(widget.listingId)!;
-    final s = TkwSession.instance;
     return OnbPage(
       title: 'Pay and book',
       subtitle: l.publicTitle,
@@ -129,30 +128,67 @@ class _TkwPayState extends State<TkwPay> {
         ),
       ],
       children: [
+        // When · where · fee, each with its icon.
         OnbCard(
           child: Column(
             children: [
-              OnbKeyValue('Visit', '${tk2Day(widget.at)}, ${tk2Time(widget.at)}'),
-              OnbKeyValue('Name', s.name),
-              OnbKeyValue('Phone', s.contact),
-              OnbKeyValue('Visit fee', l.visitFee == 0 ? 'Free' : Tk2Store.money(l.visitFee), last: true),
+              _fact(Icons.event_outlined, 'When', '${tk2Day(widget.at)}, ${tk2Time(widget.at)}'),
+              const Divider(height: 1, color: AppColors.border),
+              _fact(
+                Icons.location_on_outlined,
+                'Where',
+                tk2PublicAddress(l),
+                action: TextButton.icon(
+                  onPressed: () => launchUrl(
+                    Uri.https('www.google.com', '/maps/search/', {'api': '1', 'query': tk2PublicAddress(l)}),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 32), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                  icon: const Icon(Icons.map_outlined, size: 18),
+                  label: const Text('Open in Google Maps'),
+                ),
+              ),
+              const Divider(height: 1, color: AppColors.border),
+              _fact(Icons.confirmation_number_outlined, 'Visit fee', l.visitFee == 0 ? 'Free' : Tk2Store.money(l.visitFee)),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        _rule(Icons.verified_user_outlined, 'TrustKeyper keeps the fee safe and pays the broker only after your visit.'),
-        _rule(Icons.replay, 'If the broker or owner is not available, you get it all back.'),
-        _rule(
-          Icons.timer_outlined,
-          'Cancel within 5 minutes of booking and you get it back, minus a 2% platform fee. You can cancel later too, but with no refund.',
-        ),
-        _rule(Icons.directions_walk, 'Please be on time. If you are more than 15 minutes late, there is no refund.'),
+        const SizedBox(height: 22),
+        const Text('Good to know', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading)),
+        const SizedBox(height: 6),
+        _rule(Icons.verified_user_outlined, 'Your payment is safe with us.'),
+        _rule(Icons.replay, 'If the broker or owner cancels, you get a full refund. If you cancel, there is no refund.'),
+        _rule(Icons.timer_outlined, 'Changed your mind? Cancel within 5 minutes for a full refund, minus a 2% platform fee.'),
+        _rule(Icons.directions_walk, 'Please be on time. The agent waits 15 minutes, then the visit counts as cancelled.'),
         const SizedBox(height: 12),
         const OnbBanner('Demo build: test payment. No money moves.', kind: 'wait', icon: Icons.science_outlined),
       ],
     );
   }
 }
+
+/// One line of the booking summary: icon, small label, the value.
+Widget _fact(IconData icon, String label, String value, {Widget? action}) => Padding(
+  padding: const EdgeInsets.symmetric(vertical: 12),
+  child: Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _Badge(icon),
+      const SizedBox(width: 14),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 13.5, color: AppColors.muted)),
+            const SizedBox(height: 2),
+            Text(value, style: const TextStyle(fontSize: 16.5, height: 22 / 16.5, fontWeight: FontWeight.w600, color: AppColors.heading)),
+            ?action,
+          ],
+        ),
+      ),
+    ],
+  ),
+);
 
 Widget _rule(IconData icon, String text) => Padding(
   padding: const EdgeInsets.symmetric(vertical: 7),
