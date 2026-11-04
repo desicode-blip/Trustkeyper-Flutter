@@ -11,6 +11,7 @@ import '../features/broker/presentation/onboarding_widgets.dart';
 import '../tk2/tk2_link.dart';
 import '../tk2/tk2_store.dart';
 import 'tkweb_owner.dart';
+import 'tkweb_keyboard.dart';
 import 'tkweb_session.dart';
 import 'tkweb_tenant.dart';
 
@@ -104,7 +105,23 @@ class TkwFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
+    tkwWatchKeyboard();
+    // The keyboard height from the browser becomes the normal keyboard inset,
+    // so every screen's footer button rises with the keyboard.
+    return ValueListenableBuilder<double>(
+      valueListenable: tkwKeyboard,
+      builder: (context, keyboard, _) {
+        final base = MediaQuery.of(context);
+        final mq = keyboard > base.viewInsets.bottom ? base.copyWith(viewInsets: base.viewInsets.copyWith(bottom: keyboard)) : base;
+        return MediaQuery(
+          data: mq,
+          child: Builder(builder: (context) => _framed(context, mq)),
+        );
+      },
+    );
+  }
+
+  Widget _framed(BuildContext context, MediaQueryData mq) {
     if (mq.size.width <= maxWidth + 40) return child;
     final width = min(mq.size.width, maxWidth);
     return ColoredBox(

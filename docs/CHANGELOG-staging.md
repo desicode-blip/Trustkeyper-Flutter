@@ -1390,3 +1390,16 @@ files: apps/flutter_app/lib/src/tk2/{tk2_status,tk2_sort}.dart (new), apps/flutt
 backend: send the "might be available" reminder as a push/WhatsApp at remindAt (today it shows when the app is opened); stop bookings on links of turned-off properties
 verification: flutter analyze clean; test/tk2 29/29 (turn-off timer, sort/filter); property_onboarding_test passes; broker app web build checked: Home (B only, Continue + View all +1, sort/filter, Not active section), bell reminder, View all page, filter sheet, header switch, turn-off sheet with date, banner
 ```
+
+## Change 85 – Web sign-up: Get OTP rises with the keyboard
+Date: 2026-11-04 · Status: web app live (same link)
+- iPhone browsers (Safari, WhatsApp in-app browser) put the keyboard over the page without telling Flutter. The web app now reads the keyboard height from the browser's visual viewport and gives it to every screen as the normal keyboard inset, so footer buttons (Get OTP, Verify, Pay…) sit right above the keyboard. If iOS slid the page up, it is put back.
+- Sign-up: while typing, the building picture folds into a small back button and the legal line hides, so name, number and Get OTP all fit above the keyboard.
+```
+AGENT RECORD – Change 85
+id: CHG-085
+date: 2026-11-04
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tkweb/tkweb_keyboard{,_stub,_web}.dart (new; visualViewport listener, conditional import), apps/flutter_app/lib/src/tkweb/tkweb_app.dart (TkwFrame adds the inset), apps/flutter_app/lib/src/tkweb/tkweb_auth.dart (compact header while typing), docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 29/29; checked in headless Chromium posing as an iPhone with a simulated 330 px keyboard. Not yet seen on a real iPhone.
+```

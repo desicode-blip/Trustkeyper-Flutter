@@ -64,56 +64,80 @@ class _TkwSignUpState extends State<TkwSignUp> {
   }
 
   @override
-  Widget build(BuildContext context) => ApprovedAuthScaffold(
-    showBack: false,
-    header: ApprovedLoginHero(onBack: () => Navigator.of(context).maybePop()),
-    bodyPadding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
-    footer: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        PrimaryButton(label: 'Get OTP', icon: Icons.chevron_right, onPressed: _next),
-        const SizedBox(height: 10),
-        const LoginLegalNotice(),
-      ],
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Log in or sign up', style: Theme.of(context).textTheme.displaySmall),
-        const SizedBox(height: 6),
-        Text(
-          widget.subtitle,
-          style: const TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted),
-        ),
-        const SizedBox(height: 18),
-        TextField(
-          controller: name,
-          textCapitalization: TextCapitalization.words,
-          textInputAction: TextInputAction.next,
-          autofillHints: const [AutofillHints.name],
-          onChanged: (_) => setState(() => nameError = null),
-          decoration: InputDecoration(labelText: 'Full name', prefixIcon: const Icon(Icons.person_outline), errorText: nameError),
-        ),
-        const SizedBox(height: 18),
-        if (widget.allowEmail) ...[
-          AuthMethodSelector(
-            selected: method,
-            onChanged: (m) => setState(() {
-              method = m;
-              contact.clear();
-              contactError = null;
-            }),
+  Widget build(BuildContext context) {
+    // Keyboard open: the picture folds away so name, number and Get OTP all fit
+    // above the keyboard; the button rides on top of it.
+    final typing = MediaQuery.viewInsetsOf(context).bottom > 0;
+    return ApprovedAuthScaffold(
+      showBack: false,
+      header: AnimatedSize(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: typing
+            ? Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                  child: ApprovedBackButton(onPressed: () => Navigator.of(context).maybePop()),
+                ),
+              )
+            : ApprovedLoginHero(onBack: () => Navigator.of(context).maybePop()),
+      ),
+      bodyPadding: EdgeInsets.fromLTRB(24, typing ? 12 : 18, 24, 16),
+      footerPadding: EdgeInsets.fromLTRB(24, 12, 24, typing ? 12 : 28),
+      footer: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PrimaryButton(label: 'Get OTP', icon: Icons.chevron_right, onPressed: _next),
+          if (!typing) ...[const SizedBox(height: 10), const LoginLegalNotice()],
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Log in or sign up', style: Theme.of(context).textTheme.displaySmall),
+          const SizedBox(height: 6),
+          Text(
+            widget.subtitle,
+            style: const TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted),
           ),
           const SizedBox(height: 18),
+          TextField(
+            controller: name,
+            textCapitalization: TextCapitalization.words,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.name],
+            onChanged: (_) => setState(() => nameError = null),
+            decoration: InputDecoration(labelText: 'Full name', prefixIcon: const Icon(Icons.person_outline), errorText: nameError),
+          ),
+          const SizedBox(height: 18),
+          if (widget.allowEmail) ...[
+            AuthMethodSelector(
+              selected: method,
+              onChanged: (m) => setState(() {
+                method = m;
+                contact.clear();
+                contactError = null;
+              }),
+            ),
+            const SizedBox(height: 18),
+          ],
+          AuthFieldSwitcher(
+            child: method == LoginMethod.phone
+                ? ApprovedPhoneField(
+                    key: const ValueKey('web-phone'),
+                    controller: contact,
+                    error: contactError,
+                    dialCode: dial,
+                    onDialCodeChanged: (c) => setState(() => dial = c),
+                  )
+                : ApprovedEmailField(key: const ValueKey('web-email'), controller: contact, error: contactError),
+          ),
         ],
-        AuthFieldSwitcher(
-          child: method == LoginMethod.phone
-              ? ApprovedPhoneField(key: const ValueKey('web-phone'), controller: contact, error: contactError, dialCode: dial, onDialCodeChanged: (c) => setState(() => dial = c))
-              : ApprovedEmailField(key: const ValueKey('web-email'), controller: contact, error: contactError),
-        ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 /// The 6-digit code screen (main app's OTP boxes). Demo code: 123456.
