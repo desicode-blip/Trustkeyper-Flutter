@@ -1417,3 +1417,17 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/tk2/tk2_store.dart (earliestVisit, latestVisit, visitTimeOk, visitLead), apps/flutter_app/lib/src/tk2/tk2_customer.dart (CupertinoDatePicker time wheels in Tk2BookVisit), apps/flutter_app/lib/src/tkweb/tkweb_tenant.dart (TkwPay summary + rules), apps/flutter_app/test/tk2/tk2_test.dart, docs/TRUSTKEEPER2-JOURNEYS.md, docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 30/30 (new visit-time test); web: Book a visit wheels and Pay and book checked in headless Chromium
 ```
+
+## Change 87 – Broker "Send link to owner" opens WhatsApp with the owner web-app link
+Date: 2026-11-09 · Status: broker app built to Aman's iPhone
+- TrustKeeper 2 Add property → name → **Send link to owner** runs the main app's owner flow as before (how many owners, each owner's name and WhatsApp or email). On Send it now also opens WhatsApp (or email) to the first owner with a message and the owner web-app link (`tk2OwnerLink`: `#owner-<base32 {bn, h}>`), so the owner fills the house in on the web.
+- Shared widgets get optional params, defaults unchanged for the main app: `OnboardNewScreen.ownerLink`, `BrokerPropertyScreen.ownerLink`.
+```
+AGENT RECORD – Change 87
+id: CHG-087
+date: 2026-11-09
+branch: staging (never main)
+files: apps/flutter_app/lib/src/features/broker/presentation/{onboarding_start_screens,broker_property_screen}.dart, apps/flutter_app/lib/src/tk2/tk2_app.dart, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 30/30
+limit: demo build has no shared backend – the links carry data broker → owner/tenant; nothing flows back (owner answers and tenant bookings stay on the device that made them) until the backend is connected.
+```

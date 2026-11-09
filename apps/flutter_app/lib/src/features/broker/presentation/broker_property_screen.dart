@@ -21,6 +21,7 @@ class BrokerPropertyScreen extends StatefulWidget {
     this.doneLabel = 'Next: Owner',
     this.askThings = true,
     this.askHowToAdd = false,
+    this.ownerLink,
     this.firstStage,
     this.initialName = '',
     this.heading,
@@ -42,6 +43,9 @@ class BrokerPropertyScreen extends StatefulWidget {
   /// After the name of a new property, ask "Send link to owner" or "Add manually"
   /// (the main app's Onboard property choice). On in TrustKeeper 2.
   final bool askHowToAdd;
+
+  /// TrustKeeper 2: link to the owner web app, sent by "Send link to owner".
+  final String Function(String houseName, String ownerName)? ownerLink;
 
   /// Open on this step (e.g. 2 after "Add manually"); Back on it leaves the screen.
   final int? firstStage;
@@ -1345,7 +1349,10 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
         builder: (choose) => OnboardChooseScreen(
           onLink: () => Navigator.of(choose).push(
             MaterialPageRoute<void>(
-              builder: (_) => OnboardNewScreen(label: label),
+              builder: (_) => OnboardNewScreen(
+                label: label,
+                ownerLink: widget.ownerLink == null ? null : (owner) => widget.ownerLink!(label, owner),
+              ),
             ),
           ),
           // Opens like "Send link to owner" does (a new screen slides in).

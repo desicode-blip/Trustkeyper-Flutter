@@ -136,10 +136,14 @@ class _BigTile extends StatelessWidget {
 /// Ask the owner for papers: how many owners → each owner → check → sent.
 /// Same flow as the rent agreement ("How many owners?", then Owner 1, Owner 2...).
 class OnboardNewScreen extends StatefulWidget {
-  const OnboardNewScreen({this.label = '', super.key});
+  const OnboardNewScreen({this.label = '', this.ownerLink, super.key});
 
   /// Broker's name for the house, typed before choosing "Send link to owner".
   final String label;
+
+  /// TrustKeeper 2: the owner's web-app link. When set, sending opens WhatsApp
+  /// (or email) with this link, so the owner can fill the house in on the web.
+  final String Function(String ownerName)? ownerLink;
 
   @override
   State<OnboardNewScreen> createState() => _OnboardNewScreenState();
@@ -406,6 +410,18 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
         carryFrom: _carryFrom,
         label: widget.label,
       );
+      final link = widget.ownerLink?.call(_first.name.text.trim());
+      if (link != null) {
+        final first = _first.name.text.trim().split(' ').first;
+        final text = 'Hi $first, please add your house details for ${widget.label.isEmpty ? 'your house' : widget.label} here: $link';
+        final digits = contact.replaceAll(RegExp(r'\D'), '');
+        await launchUrl(
+          _channel == 'email'
+              ? Uri(scheme: 'mailto', path: contact, query: 'subject=${Uri.encodeComponent('Your house on TrustKeyper')}&body=${Uri.encodeComponent(text)}')
+              : Uri.parse('https://wa.me/${digits.length == 10 ? '91$digits' : digits}?text=${Uri.encodeComponent(text)}'),
+          mode: LaunchMode.externalApplication,
+        );
+      }
       if (!mounted) return;
       setState(() {
         _createdId = created.id;

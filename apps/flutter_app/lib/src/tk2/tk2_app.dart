@@ -17,6 +17,7 @@ import '../features/broker/presentation/broker_property_screen.dart';
 import 'tk2_customer.dart';
 import 'tk2_account.dart';
 import 'tk2_designs.dart';
+import 'tk2_link.dart';
 import 'tk2_listing.dart';
 import 'tk2_status.dart';
 import 'tk2_store.dart';
@@ -82,6 +83,7 @@ GoRouter buildTk2Router(Tk2Store store) => GoRouter(
         askThings: false,
         startNew: true,
         askHowToAdd: true,
+        ownerLink: (house, owner) => tk2OwnerLink(store.brokerName, house),
         doneLabel: 'Next: rent',
         onSelected: (property) => context.pushReplacement('/listing/${property.id}?new=1'),
       ),
