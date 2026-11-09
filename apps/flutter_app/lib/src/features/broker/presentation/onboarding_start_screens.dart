@@ -135,8 +135,9 @@ class _BigTile extends StatelessWidget {
 
 /// Ask the owner for papers: how many owners → each owner → check → sent.
 /// Same flow as the rent agreement ("How many owners?", then Owner 1, Owner 2...).
-/// Sends the owner invite to a phone number with this message.
-typedef OwnerInviteSender = Future<void> Function(BuildContext context, {required String ownerName, required String phone, required String message});
+/// Sends the owner invite to a phone number with this message. Returns how
+/// ('whatsapp' · 'sms' · 'copy'), or null when the broker closed it unsent.
+typedef OwnerInviteSender = Future<String?> Function(BuildContext context, {required String ownerName, required String phone, required String message});
 
 class OnboardNewScreen extends StatefulWidget {
   const OnboardNewScreen({this.label = '', this.ownerLink, this.inviteOwner, super.key});
@@ -183,6 +184,9 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
   int _step = 0; // 0 how many · 1 owner details · 2 check · 3 sent
   int _person = 0;
   String? _sendError;
+
+  /// How the TrustKeeper 2 invite went out ('whatsapp' · 'sms' · 'copy'); null otherwise.
+  String? _sentBy;
   bool _sending = false;
   String? _createdId;
 
@@ -398,6 +402,7 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
     setState(() {
       _sending = true;
       _sendError = null;
+      _sentBy = null;
     });
     try {
       final contact = _channel == 'email' ? _first.email.text.trim() : _first.phone.text.trim();
@@ -409,6 +414,20 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
             contact: o.channel == 'whatsapp' ? o.phone.text.trim() : o.email.text.trim(),
           ),
       ];
+      final link = widget.ownerLink?.call(_first.name.text.trim());
+      final first = _first.name.text.trim().split(' ').first;
+      final text = link == null ? '' : 'Hi $first, please add your house details for ${widget.label.isEmpty ? 'your house' : widget.label} here: $link';
+      // TrustKeeper 2: ask how to send first. Closing the sheet sends nothing
+      // and saves nothing – the broker stays on this screen.
+      if (link != null && _channel != 'email' && widget.inviteOwner != null) {
+        if (!mounted) return;
+        final how = await widget.inviteOwner!(context, ownerName: _first.name.text.trim(), phone: contact, message: text);
+        if (how == null) {
+          if (mounted) setState(() => _sending = false);
+          return;
+        }
+        _sentBy = how;
+      }
       final created = await _store.create(
         ownerName: _first.name.text.trim(),
         channel: _channel,
@@ -417,22 +436,14 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
         carryFrom: _carryFrom,
         label: widget.label,
       );
-      final link = widget.ownerLink?.call(_first.name.text.trim());
-      if (link != null) {
-        final first = _first.name.text.trim().split(' ').first;
-        final text = 'Hi $first, please add your house details for ${widget.label.isEmpty ? 'your house' : widget.label} here: $link';
+      if (link != null && _sentBy == null) {
         final digits = contact.replaceAll(RegExp(r'\D'), '');
-        if (_channel != 'email' && widget.inviteOwner != null) {
-          if (!mounted) return;
-          await widget.inviteOwner!(context, ownerName: _first.name.text.trim(), phone: contact, message: text);
-        } else {
-          await launchUrl(
+        await launchUrl(
           _channel == 'email'
               ? Uri(scheme: 'mailto', path: contact, query: 'subject=${Uri.encodeComponent('Your house on TrustKeyper')}&body=${Uri.encodeComponent(text)}')
               : Uri.parse('https://wa.me/${digits.length == 10 ? '91$digits' : digits}?text=${Uri.encodeComponent(text)}'),
-            mode: LaunchMode.externalApplication,
-          );
-        }
+          mode: LaunchMode.externalApplication,
+        );
       }
       if (!mounted) return;
       setState(() {
@@ -687,9 +698,12 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
               icon: Icons.check,
               kind: 'ok',
               title: 'We asked $_firstName',
-              message: _channel == 'email'
-                  ? 'We sent an email to $_contact. We will tell you when documents come.'
-                  : 'We sent a WhatsApp message to +91 $_contact. We will tell you when documents come.',
+              message: switch (_channel == 'email' ? 'email' : _sentBy) {
+                'email' => 'We sent an email to $_contact. We will tell you when documents come.',
+                'sms' => 'We sent a text message to +91 $_contact. We will tell you when documents come.',
+                'copy' => 'Paste the invite to $_firstName in any app. We will tell you when documents come.',
+                _ => 'We sent a WhatsApp message to +91 $_contact. We will tell you when documents come.',
+              },
             ),
           ],
         ),

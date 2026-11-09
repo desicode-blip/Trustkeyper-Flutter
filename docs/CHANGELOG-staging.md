@@ -1475,3 +1475,17 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/tk2/{tk2_token,tk2_store,tk2_link,tk2_listing,tk2_app}.dart, apps/flutter_app/lib/src/tkweb/tkweb_tenant.dart, apps/flutter_app/lib/src/features/account/presentation/account_screens.dart, apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 31/31 (new token test; login test covers the sign-up token step). account_screens visual-regression goldens fail the same with and without this change (pre-existing).
 ```
+
+## Change 91 – Owner invite: closing the "how to send" sheet sends nothing
+Date: 2026-11-09 · Status: code synced to Aman's Mac (Aman runs it from Xcode)
+- Fix: closing the WhatsApp / Text message / Copy link sheet (✕ or swipe down) used to jump to "Request sent". Now the sheet just closes, the broker stays on the check screen, and nothing is saved or sent. The house is saved only after a way is picked.
+- "Request sent" says how it went: WhatsApp message, text message, or "Paste the invite to <name> in any app" after Copy link.
+- `OwnerInviteSender` / `showTk2OwnerInvite` now return how it was sent ('whatsapp' · 'sms' · 'copy') or null.
+```
+AGENT RECORD – Change 91
+id: CHG-091
+date: 2026-11-09
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/tk2_invite.dart, apps/flutter_app/lib/src/features/broker/presentation/onboarding_start_screens.dart, apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 32/32 (new: closing the sheet keeps the broker on the check screen; Copy link reaches "Request sent")
+```

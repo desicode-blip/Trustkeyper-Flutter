@@ -10,7 +10,9 @@ import 'tk2_widgets.dart';
 /// "Send link to owner": ask how, then open that app with the message written.
 /// WhatsApp opens the normal WhatsApp app directly (no wa.me chooser),
 /// Text message opens Messages, Copy link covers anything else.
-Future<void> showTk2OwnerInvite(BuildContext context, {required String ownerName, required String phone, required String message}) async {
+/// Returns how it was sent ('whatsapp' · 'sms' · 'copy'), or null when the
+/// sheet was closed without picking (nothing is sent, the broker stays put).
+Future<String?> showTk2OwnerInvite(BuildContext context, {required String ownerName, required String phone, required String message}) async {
   final digits = phone.replaceAll(RegExp(r'\D'), '');
   final full = digits.length == 10 ? '91$digits' : digits;
   final first = ownerName.trim().split(' ').first;
@@ -32,16 +34,13 @@ Future<void> showTk2OwnerInvite(BuildContext context, {required String ownerName
     messenger.showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, content: Text('Message and link copied')));
   }
 
-  await showModalBottomSheet<void>(
+  final how = await showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: Colors.white,
     builder: (sheet) {
-      Future<void> pick(Future<void> Function() send) async {
-        Navigator.of(sheet).pop();
-        await send();
-      }
+      void pick(String how) => Navigator.of(sheet).pop(how);
 
       return SafeArea(
         child: Padding(
@@ -54,17 +53,17 @@ Future<void> showTk2OwnerInvite(BuildContext context, {required String ownerName
                 'Send the invite to ${first.isEmpty ? 'the owner' : first}',
                 '+${full.length == 12 ? '${full.substring(0, 2)} ${full.substring(2, 7)} ${full.substring(7)}' : full}',
               ),
-              tk2SheetRow(leading: tk2WhatsAppLogo(size: 28), title: 'WhatsApp', onTap: () => pick(whatsapp)),
+              tk2SheetRow(leading: tk2WhatsAppLogo(size: 28), title: 'WhatsApp', onTap: () => pick('whatsapp')),
               tk2SheetRow(
                 leading: const Icon(Icons.sms_outlined, size: 28, color: AppColors.primaryDark),
                 title: 'Text message',
-                onTap: () => pick(sms),
+                onTap: () => pick('sms'),
               ),
               tk2SheetRow(
                 leading: const Icon(Icons.copy_rounded, size: 28, color: AppColors.primaryDark),
                 title: 'Copy link',
                 sub: 'For WhatsApp Business, email or any app',
-                onTap: () => pick(copy),
+                onTap: () => pick('copy'),
               ),
             ],
           ),
@@ -72,4 +71,13 @@ Future<void> showTk2OwnerInvite(BuildContext context, {required String ownerName
       );
     },
   );
+  switch (how) {
+    case 'whatsapp':
+      await whatsapp();
+    case 'sms':
+      await sms();
+    case 'copy':
+      await copy();
+  }
+  return how;
 }

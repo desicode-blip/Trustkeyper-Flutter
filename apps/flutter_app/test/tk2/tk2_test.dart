@@ -513,4 +513,55 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Namaste, Suresh'), findsOneWidget);
   });
+
+  testWidgets('owner invite: closing the how-to-send sheet sends and saves nothing', (tester) async {
+    tester.view.physicalSize = const Size(1800, 2532);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({});
+    final store = Tk2Store.forTest();
+    await store.load();
+    await store.setBroker('Suresh', '+91 9876543210');
+    final router = buildTk2Router(store)..go('/home');
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add property'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Flat 402');
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Send link to owner'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Full name *'), 'Hari Rao');
+    await tester.tap(find.text('WhatsApp').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Mobile number'), '9876500000');
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Send to Hari'));
+    // The button spins while the sheet is open, so pump instead of settle.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('Send the invite to Hari'), findsOneWidget);
+    // Close without picking: still on the check screen, nothing sent.
+    tester.state<NavigatorState>(find.byType(Navigator).last).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('Request sent'), findsNothing);
+    expect(find.text('Send to Hari'), findsOneWidget);
+    // Picking a way sends it.
+    await tester.tap(find.text('Send to Hari'));
+    // The button spins while the sheet is open, so pump instead of settle.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.tap(find.text('Copy link'));
+    // Saving the onboarding uses real storage, so let it finish outside fake time.
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    expect(find.text('Request sent'), findsOneWidget);
+    expect(find.textContaining('Paste the invite to Hari'), findsOneWidget);
+  });
 }
