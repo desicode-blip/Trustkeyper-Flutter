@@ -20,7 +20,7 @@ import 'tkweb_session.dart';
 /// Tenant journey on the web, in order. Index = step number in the session.
 const tkwTenantSteps = ['visit', 'block', 'docs', 'details', 'owner', 'agreement', 'sign', 'pay', 'keys', 'home'];
 
-/// Token amount that blocks a house.
+/// Token for old links that don't carry the broker's amount.
 const tkwToken = 15000;
 
 Route<void> _route(Widget page, [String? name]) => MaterialPageRoute<void>(
@@ -329,7 +329,7 @@ class _TkwStepState extends State<TkwStep> {
     }
     final (title, action, children) = switch (key) {
       'visit' => _visitStep(),
-      'block' => ('Block this house', 'Pay ${Tk2Store.money(tkwToken)} and block', _blockStep()),
+      'block' => ('Block this house', 'Pay ${Tk2Store.money(l.tokenOr(tkwToken))} and block', _blockStep()),
       'details' => ('Your details for rental agreement', 'Send my details', _detailsStep()),
       'owner' => ('Owner details', 'Demo: owner shared details', _ownerStep()),
       'agreement' => ('Rent agreement', 'Demo: broker approved', _agreementStep(final_: false)),
@@ -598,7 +598,7 @@ class _TkwStepState extends State<TkwStep> {
       style: TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.body),
     ),
     const SizedBox(height: 18),
-    OnbCard(child: Column(children: [OnbKeyValue('House', l.publicTitle), OnbKeyValue('Token amount', Tk2Store.money(tkwToken), last: true)])),
+    OnbCard(child: Column(children: [OnbKeyValue('House', l.publicTitle), OnbKeyValue('Token amount', Tk2Store.money(l.tokenOr(tkwToken)), last: true)])),
     const SizedBox(height: 16),
     const Tk2NextSteps(done: 2),
     const SizedBox(height: 12),

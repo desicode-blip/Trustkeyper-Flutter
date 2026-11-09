@@ -29,6 +29,7 @@ class Tk2Listing {
     this.availableFrom = '',
     this.photos = const [],
     this.visitFee = 150,
+    this.token = 0,
     this.createdAt = 0,
     this.sample = false,
     this.maintenance = 0,
@@ -240,7 +241,13 @@ class Tk2Listing {
 
   /// What a customer pays to book a visit (held until the visit happens).
   final int visitFee;
+
+  /// Token the tenant pays to block the house. 0 = not set yet (the broker's default is used).
+  final int token;
   final int createdAt;
+
+  /// This property's token, or [fallback] (the broker's default) when not set.
+  int tokenOr(int fallback) => token > 0 ? token : fallback;
 
   /// The built-in example shown until the broker adds their own.
   final bool sample;
@@ -262,6 +269,7 @@ class Tk2Listing {
     String? availableFrom,
     List<String>? photos,
     int? visitFee,
+    int? token,
     int? maintenance,
     bool? maintenanceIncluded,
     bool? rentNegotiable,
@@ -289,6 +297,7 @@ class Tk2Listing {
     availableFrom: availableFrom ?? this.availableFrom,
     photos: photos ?? this.photos,
     visitFee: visitFee ?? this.visitFee,
+    token: token ?? this.token,
     createdAt: createdAt,
     sample: sample,
     maintenance: maintenance ?? this.maintenance,
@@ -320,6 +329,7 @@ class Tk2Listing {
     'availableFrom': availableFrom,
     'photos': photos,
     'visitFee': visitFee,
+    'token': token,
     'createdAt': createdAt,
     'maintenance': maintenance,
     'maintenanceIncluded': maintenanceIncluded,
@@ -353,6 +363,7 @@ class Tk2Listing {
         if (p is String) p,
     ],
     visitFee: (json['visitFee'] as num?)?.toInt() ?? 150,
+    token: (json['token'] as num?)?.toInt() ?? 0,
     createdAt: (json['createdAt'] as num?)?.toInt() ?? 0,
     maintenance: (json['maintenance'] as num?)?.toInt() ?? 0,
     maintenanceIncluded: json['maintenanceIncluded'] as bool? ?? true,
@@ -618,6 +629,12 @@ class Tk2Store extends ChangeNotifier {
   String brokerName = '';
   String brokerPhone = '';
 
+  /// Token the broker usually asks for. Filled in for every new property
+  /// (each property can change it). Set at sign-up and in Profile.
+  int defaultToken = defaultTokenStart;
+  static const defaultTokenStart = 15000;
+  static const maxToken = 999999;
+
   /// People the broker has sent properties to (name, phone).
   final List<({String name, String phone, String email})> _contacts = [];
   final List<Tk2Listing> _listings = [];
@@ -664,6 +681,7 @@ class Tk2Store extends ChangeNotifier {
               if (c is Map) (name: c['name'] as String? ?? '', phone: c['phone'] as String? ?? '', email: c['email'] as String? ?? ''),
           ]);
         brokerPhone = json['brokerPhone'] as String? ?? '';
+        defaultToken = (json['defaultToken'] as num?)?.toInt() ?? defaultTokenStart;
         _inactive
           ..clear()
           ..addAll({
@@ -703,6 +721,7 @@ class Tk2Store extends ChangeNotifier {
           for (final c in _contacts) {'name': c.name, 'phone': c.phone, 'email': c.email},
         ],
         'brokerPhone': brokerPhone,
+        'defaultToken': defaultToken,
         'account': account,
         'inactive': {for (final e in _inactive.entries) e.key: e.value.toJson()},
         'listings': [for (final l in _listings) l.toJson()],
@@ -728,6 +747,7 @@ class Tk2Store extends ChangeNotifier {
   Future<void> wipe() async {
     brokerName = '';
     brokerPhone = '';
+    defaultToken = defaultTokenStart;
     account.clear();
     _inactive.clear();
     _contacts.clear();
@@ -741,6 +761,13 @@ class Tk2Store extends ChangeNotifier {
   Future<void> setBroker(String name, String phone) {
     brokerName = name.trim();
     brokerPhone = phone.trim();
+    return _save();
+  }
+
+  /// The broker's usual token (sign-up and Profile). Properties already
+  /// saved keep their own amount.
+  Future<void> setDefaultToken(int amount) {
+    defaultToken = amount;
     return _save();
   }
 
@@ -782,6 +809,7 @@ class Tk2Store extends ChangeNotifier {
           door: property.flat,
           society: property.society,
           locality: locality,
+          token: defaultToken,
           createdAt: DateTime.now().millisecondsSinceEpoch,
         ),
       );
@@ -955,7 +983,7 @@ class Tk2Store extends ChangeNotifier {
       'Available ${l.availableFrom.isEmpty ? 'now' : 'from ${l.availableFrom}'}',
       '',
       l.visitFee == 0 ? 'See photos and book a visit (free):' : 'See the house and book a visit (${money(l.visitFee)}):',
-      tk2PropertyLink(l, brokerName, brokerPhone),
+      tk2PropertyLink(l.copyWith(token: l.tokenOr(defaultToken)), brokerName, brokerPhone),
       if (brokerName.isNotEmpty) '',
       if (brokerName.isNotEmpty) '– $brokerName${brokerPhone.isNotEmpty ? ', $brokerPhone' : ''}',
     ].join('\n');

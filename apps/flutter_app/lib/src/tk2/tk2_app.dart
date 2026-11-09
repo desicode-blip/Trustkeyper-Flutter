@@ -18,6 +18,7 @@ import 'tk2_customer.dart';
 import 'tk2_account.dart';
 import 'tk2_designs.dart';
 import 'tk2_invite.dart';
+import 'tk2_token.dart';
 import 'tk2_link.dart';
 import 'tk2_listing.dart';
 import 'tk2_status.dart';
@@ -157,7 +158,13 @@ class _Tk2LoginState extends State<Tk2Login> {
     });
     if (nameError != null || phoneError != null) return;
     await widget.store.setBroker(name.text, PhoneCountry.format(dial, digits));
-    if (mounted) context.go('/home');
+    if (!mounted) return;
+    // Then the usual token, once (Profile changes it later).
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (screen) => Tk2TokenScreen(store: widget.store, signUp: true, onDone: () => context.go('/home')),
+      ),
+    );
   }
 
   @override
@@ -218,6 +225,18 @@ class _Tk2ShellState extends State<Tk2Shell> {
             bankLast4: store.account['bankAccountLast4'] as String? ?? '',
             role: 'broker',
             gateway: account,
+            extraRows: [
+              (
+                icon: 'money',
+                title: 'Token amount',
+                subtitle: '${Tk2Store.money(store.defaultToken)} · filled in for new properties',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (screen) => Tk2TokenScreen(store: store, onDone: () => Navigator.of(screen).pop()),
+                  ),
+                ),
+              ),
+            ],
             onSignedOut: () {
               if (context.mounted) context.go('/onboarding');
             },

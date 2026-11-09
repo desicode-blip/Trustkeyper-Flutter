@@ -1459,3 +1459,19 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/features/broker/presentation/broker_property_screen.dart, apps/flutter_app/test/broker_property_test.dart, docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 + broker_property + owner_property_setup + journey_visual 40/40
 ```
+
+## Change 90 – Broker's token amount: set once, filled in, changeable per property
+Date: 2026-11-09 · Status: broker app built to Aman's iPhone; web app published
+- **Sign-up:** after name and number, "Your token amount" (pre-filled ₹15,000) → Continue. Red message in place when empty.
+- **Profile:** new row "Token amount · ₹X · filled in for new properties" opens the same screen (Save). Changing it never touches properties already saved.
+- **Each property:** the "Visit fee" step is now "Visit fee and token". The token field is pre-filled with the broker's amount; helper says "Your usual amount. Change it in Profile." or "For this property only" when changed.
+- **Tenant web:** the Block step and its button show the property's token (link field `tk`); old links without it fall back to ₹15,000.
+- Store: `Tk2Store.defaultToken` (saved, reset on delete account), `setDefaultToken`, `Tk2Listing.token` + `tokenOr()`; new properties get the default. Shared `AccountProfilePanel` gets optional `extraRows` (empty in the main app). New `lib/src/tk2/tk2_token.dart`.
+```
+AGENT RECORD – Change 90
+id: CHG-090
+date: 2026-11-09
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/{tk2_token,tk2_store,tk2_link,tk2_listing,tk2_app}.dart, apps/flutter_app/lib/src/tkweb/tkweb_tenant.dart, apps/flutter_app/lib/src/features/account/presentation/account_screens.dart, apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 31/31 (new token test; login test covers the sign-up token step). account_screens visual-regression goldens fail the same with and without this change (pre-existing).
+```

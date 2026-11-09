@@ -8,6 +8,7 @@ import '../core/theme/app_colors.dart';
 import '../core/widgets/primary_button.dart';
 import '../features/broker/presentation/onboarding_widgets.dart';
 import 'tk2_store.dart';
+import 'tk2_token.dart';
 import 'tk2_widgets.dart';
 
 /// After the house facts: rent, deposit, move-in date, visit fee and photos.
@@ -34,6 +35,8 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   late final brokerage = TextEditingController(text: (start?.brokerage ?? 0) > 0 ? '${start!.brokerage}' : '');
   late String availableFrom = start?.availableFrom ?? '';
   late final fee = TextEditingController(text: '${start?.visitFee ?? 150}');
+  // The broker's usual token, unless this property already has its own.
+  late final token = TextEditingController(text: '${start?.tokenOr(widget.store.defaultToken) ?? widget.store.defaultToken}');
   late final society = TextEditingController(text: start?.society ?? '');
   late final locality = TextEditingController(text: start?.locality ?? '');
   late final door = TextEditingController(text: start?.door ?? '');
@@ -52,7 +55,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   late final ownerFee = TextEditingController(text: (start?.ownerBrokerage ?? 0) > 0 ? '${start!.ownerBrokerage}' : '');
   late Set<int> visitDays = Tk2Listing.visitDaySet(start?.visitDays ?? 'all');
   int step = 0;
-  static const _all = {'rent': 'Rent details', 'times': 'Visit times', 'fee': 'Visit fee', 'photos': 'Photos', 'private': 'Only for you'};
+  static const _all = {'rent': 'Rent details', 'times': 'Visit times', 'fee': 'Visit fee and token', 'photos': 'Photos', 'private': 'Only for you'};
   late final List<String> _keys = widget.ownerMode ? const ['rent', 'times', 'photos'] : _all.keys.toList();
   List<String> get _titles => [for (final k in _keys) _all[k]!];
   late bool pets = start?.pets ?? true;
@@ -71,7 +74,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
     brokerage.dispose();
     ownerFee.dispose();
     maintenance.dispose();
-    for (final c in [fee, society, locality, door, ownerName, ownerPhone, note]) {
+    for (final c in [fee, token, society, locality, door, ownerName, ownerPhone, note]) {
       c.dispose();
     }
     super.dispose();
@@ -117,6 +120,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
       if (k == 'rent' && who.isEmpty) 'who',
       if (k == 'times' && visitDays.isEmpty) 'days',
       if (k == 'fee' && _num(fee) > Tk2Listing.maxVisitFee) 'fee',
+      if (k == 'fee' && tk2TokenError(token.text).$2 != null) 'token',
       if (k == 'private' && (payer == 'Owner' || payer == 'Both') && _num(ownerFee) <= 0) 'ownerFee',
       if (k == 'private' && (payer == 'Tenant' || payer == 'Both') && _num(brokerage) <= 0) 'tenantFee',
     };
@@ -175,6 +179,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
         availableFrom: availableFrom,
         photos: photos,
         visitFee: _num(fee),
+        token: _num(token),
         society: society.text.trim(),
         locality: locality.text.trim(),
         door: door.text.trim(),
@@ -401,6 +406,20 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
         helperText: _num(fee) == 0 ? 'Free visit – customers book without paying' : 'Up to ₹${Tk2Listing.maxVisitFee}. Type 0 for a free visit.',
         errorText: feeError,
       ),
+    ),
+    const SizedBox(height: 28),
+    const Text(
+      'Token',
+      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading),
+    ),
+    const SizedBox(height: 4),
+    const Text(tk2TokenWhy, style: TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted)),
+    const SizedBox(height: 12),
+    Tk2TokenField(
+      controller: token,
+      error: missing.contains('token') ? tk2TokenError(token.text).$2 : null,
+      helper: _num(token) == widget.store.defaultToken ? 'Your usual amount. Change it in Profile.' : 'For this property only',
+      onChanged: () => setState(() => missing.remove('token')),
     ),
   ];
 

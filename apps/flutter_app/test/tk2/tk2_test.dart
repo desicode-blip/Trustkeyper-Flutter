@@ -10,6 +10,7 @@ import 'package:trustkeyper/src/tk2/tk2_designs.dart';
 import 'package:trustkeyper/src/tk2/tk2_account.dart';
 import 'package:trustkeyper/src/tk2/tk2_sort.dart';
 import 'package:trustkeyper/src/tk2/tk2_store.dart';
+import 'package:trustkeyper/src/tk2/tk2_token.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -205,6 +206,27 @@ void main() {
       expect(json, isNot(contains('402')));
       expect(json, isNot(contains(l.ownerName.isEmpty ? '~none~' : l.ownerName)));
       expect(tk2Base32('hi'), 'nbuq');
+    });
+
+    test('token: broker default fills new properties; each property can differ; link carries it', () async {
+      final store = Tk2Store.forTest();
+      await store.load();
+      expect(store.defaultToken, 15000);
+      await store.setDefaultToken(20000);
+      final p = await store.saveProperty(BrokerProperty(id: '', name: 'A', address: 'Flat 1, Madhapur', rooms: '2 BHK', floor: 1, totalFloors: 2, furnishing: 'Empty', inventory: {}));
+      final l = store.listing(p.id)!;
+      expect(l.token, 20000);
+      await store.saveListing(l.copyWith(token: 25000));
+      expect(store.listing(p.id)!.token, 25000);
+      // Changing the default later leaves saved properties alone.
+      await store.setDefaultToken(10000);
+      expect(store.listing(p.id)!.token, 25000);
+      final back = tk2ListingFromPublic(tk2PublicPayload(store.listing(p.id)!, 'S'));
+      expect(back.token, 25000);
+      // Old saves and links without a token use the fallback.
+      expect(Tk2Listing.fromJson(const {'id': 'x'}).tokenOr(15000), 15000);
+      expect(tk2TokenError('').$2, 'Type the token amount');
+      expect(tk2TokenError('15000'), (15000, null));
     });
 
     test('visit money: no-show half to broker, customer cancel 98% within 5 min', () {
@@ -418,6 +440,16 @@ void main() {
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     expect(store.brokerName, 'Suresh Kumar');
+    // Then the usual token, pre-filled with ₹15,000.
+    expect(find.text('Your token amount'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Token amount'), '');
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+    expect(find.text('Type the token amount'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Token amount'), '20000');
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(store.defaultToken, 20000);
     expect(find.text('Namaste, Suresh'), findsOneWidget);
   });
 

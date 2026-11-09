@@ -117,9 +117,15 @@ class AccountProfilePanel extends StatelessWidget {
     this.onSwitchRole,
     this.onManagerSupport,
     this.onLogout,
+    this.extraRows = const [],
     super.key,
   });
   final String name, phone, email, role, bankName, bankLast4;
+
+  /// App-specific rows shown after "Bank for my money" (icon is an
+  /// [AccountGlyph] name). Empty in the main app.
+  final List<({String icon, String title, String subtitle, VoidCallback onTap})>
+  extraRows;
   final AccountGateway? gateway;
   final VoidCallback? onUpdates, onSignedOut, onSwitchRole, onManagerSupport;
   final Future<void> Function()? onLogout;
@@ -407,6 +413,10 @@ class AccountProfilePanel extends StatelessWidget {
               ? null
               : () => _open(context, AccountBankScreen(gateway: gateway!)),
         ),
+        for (final extra in extraRows) ...[
+          const Divider(height: 1, color: AppColors.border),
+          row(extra.icon, extra.title, extra.subtitle, extra.onTap),
+        ],
         const Divider(height: 1, color: AppColors.border),
         row(
           'globe',

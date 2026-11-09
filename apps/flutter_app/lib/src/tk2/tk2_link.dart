@@ -35,6 +35,7 @@ Map<String, Object?> tk2PublicPayload(Tk2Listing l, String brokerName, [String b
     'vf': l.visitFrom,
     'vt': l.visitTo,
     'fee': l.visitFee,
+    if (l.token > 0) 'tk': l.token,
     'bn': brokerName,
     if (brokerPhone.isNotEmpty) 'bp': brokerPhone,
   };
@@ -103,6 +104,7 @@ Tk2Listing tk2ListingFromPublic(Map<String, dynamic> j) {
     visitFrom: n('vf', 7),
     visitTo: n('vt', 23),
     visitFee: n('fee', 150),
+    token: n('tk'),
   );
 }
 
