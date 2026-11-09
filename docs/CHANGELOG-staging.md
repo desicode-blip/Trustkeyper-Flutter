@@ -1445,3 +1445,17 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/tk2/{tk2_invite,tk2_send,tk2_app}.dart, apps/flutter_app/lib/src/features/broker/presentation/{onboarding_start_screens,broker_property_screen}.dart, docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 30/30
 ```
+
+## Change 89 – Counters: tap the number to type it
+Date: 2026-11-09 · Status: broker app built to Aman's iPhone; web app published
+- Every − value + counter in the shared property screen (Floor, Total floors, inventory counts, "How many") now lets you tap the number and type it on the number keypad, so a 32nd floor doesn't need 32 taps. Digits only, capped at the counter's maximum (200 for floors); leaving the field empty puts back the last number. − / + work as before.
+- Same widget in the broker app, the owner web app ("Your house") and the main app (shared `_Counter` in `broker_property_screen.dart`).
+- Test fix: `broker_property_test.dart` now finds the item-name field by its label (counters are text fields too).
+```
+AGENT RECORD – Change 89
+id: CHG-089
+date: 2026-11-09
+branch: staging (never main)
+files: apps/flutter_app/lib/src/features/broker/presentation/broker_property_screen.dart, apps/flutter_app/test/broker_property_test.dart, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 + broker_property + owner_property_setup + journey_visual 40/40
+```

@@ -260,7 +260,10 @@ void main() {
         await tapVisible(tester, find.byTooltip('Decrease Fan'));
         await tapVisible(tester, find.byTooltip('Increase Fan'));
         await tapVisible(tester, find.text('Add other item'));
-        await tester.enterText(find.byType(TextField), 'Chimney');
+        await tester.enterText(
+          find.widgetWithText(TextField, 'Item name, for example Chimney'),
+          'Chimney',
+        );
         await tapVisible(tester, find.text('Add'));
         if (width == 440) {
           await captureScreen(tester, boundary, 'property-inventory');

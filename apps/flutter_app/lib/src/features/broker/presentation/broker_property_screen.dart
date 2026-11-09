@@ -1717,7 +1717,9 @@ class _CircleAction extends StatelessWidget {
   );
 }
 
-class _Counter extends StatelessWidget {
+/// − value +. The number can also be tapped and typed on the keypad
+/// (high floors, big counts), kept between 0 and [maximum].
+class _Counter extends StatefulWidget {
   const _Counter({
     required this.label,
     required this.value,
@@ -1730,32 +1732,96 @@ class _Counter extends StatelessWidget {
   final int maximum;
   final double size;
   final ValueChanged<int> onChanged;
+
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      _control(
-        'minus',
-        'Decrease $label',
-        value > 0 ? () => onChanged(value - 1) : null,
-      ),
-      Flexible(
-        child: Text(
-          '$value',
-          style: TextStyle(
-            fontSize: size == 44 ? 22 : 20,
-            fontWeight: FontWeight.w700,
-            color: value == 0 ? const Color(0xFF8C99AB) : AppColors.heading,
+  State<_Counter> createState() => _CounterState();
+}
+
+class _CounterState extends State<_Counter> {
+  late final text = TextEditingController(text: '${widget.value}');
+  final focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    focus.addListener(() {
+      if (focus.hasFocus) {
+        text.selection = TextSelection(baseOffset: 0, extentOffset: text.text.length);
+      } else if (text.text != '${widget.value}') {
+        text.text = '${widget.value}';
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(_Counter old) {
+    super.didUpdateWidget(old);
+    if (!focus.hasFocus && text.text != '${widget.value}') text.text = '${widget.value}';
+  }
+
+  @override
+  void dispose() {
+    text.dispose();
+    focus.dispose();
+    super.dispose();
+  }
+
+  void _typed(String raw) {
+    if (raw.isEmpty) return;
+    final n = int.parse(raw);
+    final v = n > widget.maximum ? widget.maximum : n;
+    if (v != n) {
+      text.text = '$v';
+      text.selection = TextSelection.collapsed(offset: text.text.length);
+    }
+    if (v != widget.value) widget.onChanged(v);
+  }
+
+  void _step(int v) {
+    focus.unfocus();
+    text.text = '$v';
+    widget.onChanged(v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.value;
+    final size = widget.size;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _control('minus', 'Decrease ${widget.label}', value > 0 ? () => _step(value - 1) : null),
+        Expanded(
+          child: TextField(
+            controller: text,
+            focusNode: focus,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter('${widget.maximum}'.length)],
+            textAlign: TextAlign.center,
+            onChanged: _typed,
+            onTapOutside: (_) => focus.unfocus(),
+            onSubmitted: (_) => focus.unfocus(),
+            style: TextStyle(
+              fontSize: size == 44 ? 22 : 20,
+              fontWeight: FontWeight.w700,
+              color: value == 0 ? const Color(0xFF8C99AB) : AppColors.heading,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              filled: false,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+              semanticCounterText: widget.label,
+            ),
           ),
         ),
-      ),
-      _control(
-        'plus',
-        'Increase $label',
-        value < maximum ? () => onChanged(value + 1) : null,
-      ),
-    ],
-  );
+        _control('plus', 'Increase ${widget.label}', value < widget.maximum ? () => _step(value + 1) : null),
+      ],
+    );
+  }
+
   Widget _control(String icon, String tooltip, VoidCallback? action) => Tooltip(
     message: tooltip,
     child: Semantics(
@@ -1773,8 +1839,8 @@ class _Counter extends StatelessWidget {
           onTap: action,
           customBorder: const CircleBorder(),
           child: SizedBox(
-            width: size,
-            height: size,
+            width: widget.size,
+            height: widget.size,
             child: Center(
               child: _DesignIcon(
                 icon,
