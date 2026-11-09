@@ -22,6 +22,7 @@ class BrokerPropertyScreen extends StatefulWidget {
     this.askThings = true,
     this.askHowToAdd = false,
     this.ownerLink,
+    this.inviteOwner,
     this.firstStage,
     this.initialName = '',
     this.heading,
@@ -46,6 +47,9 @@ class BrokerPropertyScreen extends StatefulWidget {
 
   /// TrustKeeper 2: link to the owner web app, sent by "Send link to owner".
   final String Function(String houseName, String ownerName)? ownerLink;
+
+  /// TrustKeeper 2: how "Send link to owner" sends the invite (see [OwnerInviteSender]).
+  final OwnerInviteSender? inviteOwner;
 
   /// Open on this step (e.g. 2 after "Add manually"); Back on it leaves the screen.
   final int? firstStage;
@@ -1352,6 +1356,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
               builder: (_) => OnboardNewScreen(
                 label: label,
                 ownerLink: widget.ownerLink == null ? null : (owner) => widget.ownerLink!(label, owner),
+                inviteOwner: widget.inviteOwner,
               ),
             ),
           ),

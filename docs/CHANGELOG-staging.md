@@ -1431,3 +1431,17 @@ files: apps/flutter_app/lib/src/features/broker/presentation/{onboarding_start_s
 verification: flutter analyze clean; test/tk2 30/30
 limit: demo build has no shared backend – the links carry data broker → owner/tenant; nothing flows back (owner answers and tenant bookings stay on the device that made them) until the backend is connected.
 ```
+
+## Change 88 – Owner invite asks how to send: WhatsApp, Text message or Copy link
+Date: 2026-11-09 · Status: broker app built to Aman's iPhone
+- After **Send link to owner** (phone owner), a sheet "Send the invite to <name>" offers one-tap **WhatsApp**, **Text message** and **Copy link** (for WhatsApp Business, email or any app). Fixes the confusing WhatsApp "Message / Open in WhatsApp Business" pop-up: WhatsApp now opens through `whatsapp://send` straight in normal WhatsApp (falls back to wa.me if WhatsApp isn't installed). Email owners still open Mail directly.
+- New `lib/src/tk2/tk2_invite.dart` (`showTk2OwnerInvite`). Share sheet's row and heading become shared `tk2SheetRow` / `tk2SheetTitle` (no copy).
+- Shared widgets get optional `inviteOwner` (`OwnerInviteSender`) on `OnboardNewScreen` and `BrokerPropertyScreen`; main app unchanged.
+```
+AGENT RECORD – Change 88
+id: CHG-088
+date: 2026-11-09
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/{tk2_invite,tk2_send,tk2_app}.dart, apps/flutter_app/lib/src/features/broker/presentation/{onboarding_start_screens,broker_property_screen}.dart, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 30/30
+```

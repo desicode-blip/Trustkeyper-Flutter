@@ -135,8 +135,11 @@ class _BigTile extends StatelessWidget {
 
 /// Ask the owner for papers: how many owners → each owner → check → sent.
 /// Same flow as the rent agreement ("How many owners?", then Owner 1, Owner 2...).
+/// Sends the owner invite to a phone number with this message.
+typedef OwnerInviteSender = Future<void> Function(BuildContext context, {required String ownerName, required String phone, required String message});
+
 class OnboardNewScreen extends StatefulWidget {
-  const OnboardNewScreen({this.label = '', this.ownerLink, super.key});
+  const OnboardNewScreen({this.label = '', this.ownerLink, this.inviteOwner, super.key});
 
   /// Broker's name for the house, typed before choosing "Send link to owner".
   final String label;
@@ -144,6 +147,10 @@ class OnboardNewScreen extends StatefulWidget {
   /// TrustKeeper 2: the owner's web-app link. When set, sending opens WhatsApp
   /// (or email) with this link, so the owner can fill the house in on the web.
   final String Function(String ownerName)? ownerLink;
+
+  /// TrustKeeper 2: asks how to send the invite (WhatsApp / Text message / Copy link)
+  /// and opens that app. Without it, a phone invite opens WhatsApp directly.
+  final OwnerInviteSender? inviteOwner;
 
   @override
   State<OnboardNewScreen> createState() => _OnboardNewScreenState();
@@ -415,12 +422,17 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
         final first = _first.name.text.trim().split(' ').first;
         final text = 'Hi $first, please add your house details for ${widget.label.isEmpty ? 'your house' : widget.label} here: $link';
         final digits = contact.replaceAll(RegExp(r'\D'), '');
-        await launchUrl(
+        if (_channel != 'email' && widget.inviteOwner != null) {
+          if (!mounted) return;
+          await widget.inviteOwner!(context, ownerName: _first.name.text.trim(), phone: contact, message: text);
+        } else {
+          await launchUrl(
           _channel == 'email'
               ? Uri(scheme: 'mailto', path: contact, query: 'subject=${Uri.encodeComponent('Your house on TrustKeyper')}&body=${Uri.encodeComponent(text)}')
               : Uri.parse('https://wa.me/${digits.length == 10 ? '91$digits' : digits}?text=${Uri.encodeComponent(text)}'),
-          mode: LaunchMode.externalApplication,
-        );
+            mode: LaunchMode.externalApplication,
+          );
+        }
       }
       if (!mounted) return;
       setState(() {

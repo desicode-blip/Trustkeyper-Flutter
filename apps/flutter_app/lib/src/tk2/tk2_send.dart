@@ -136,83 +136,11 @@ class _SendSheetState extends State<_SendSheet> {
     ),
   );
 
-  Widget _title(String title, String sub, {VoidCallback? onBack}) => Padding(
-    padding: const EdgeInsets.only(bottom: 16),
-    child: Row(
-      children: [
-        if (onBack != null) ...[IconButton(onPressed: onBack, icon: const Icon(Icons.chevron_left), tooltip: 'Back'), const SizedBox(width: 4)],
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                sub,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 15, color: AppColors.muted),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-
   Widget _section(String label) => Padding(
     padding: const EdgeInsets.only(left: 2, bottom: 8),
     child: Text(
       label.toUpperCase(),
       style: const TextStyle(fontSize: 12.5, letterSpacing: 0.8, fontWeight: FontWeight.w600, color: AppColors.muted),
-    ),
-  );
-
-  Widget _row({required Widget leading, required String title, String? sub, Widget? trailing, required VoidCallback onTap, bool on = false}) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
-    child: Material(
-      color: on ? AppColors.primarySoft : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: on ? AppColors.primary : AppColors.border, width: on ? 1.6 : 1),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: [
-              leading,
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading),
-                    ),
-                    if (sub != null)
-                      Text(
-                        sub,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14, color: AppColors.muted),
-                      ),
-                  ],
-                ),
-              ),
-              ?trailing,
-            ],
-          ),
-        ),
-      ),
     ),
   );
 
@@ -224,10 +152,10 @@ class _SendSheetState extends State<_SendSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _title('Share with', widget.listing.publicTitle),
+        tk2SheetTitle('Share with', widget.listing.publicTitle),
         _section('Recent'),
         for (final p in recent)
-          _row(
+          tk2SheetRow(
             leading: CircleAvatar(
               radius: 20,
               backgroundColor: AppColors.surfaceMuted,
@@ -242,7 +170,7 @@ class _SendSheetState extends State<_SendSheet> {
             onTap: () => _pick(p),
           ),
         const SizedBox(height: 8),
-        _row(
+        tk2SheetRow(
           leading: const CircleAvatar(
             radius: 20,
             backgroundColor: AppColors.primarySoft,
@@ -265,7 +193,7 @@ class _SendSheetState extends State<_SendSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _title('Add new', widget.listing.publicTitle, onBack: recent.isEmpty ? null : () => _go('who')),
+        tk2SheetTitle('Add new', widget.listing.publicTitle, onBack: recent.isEmpty ? null : () => _go('who')),
         ApprovedPhoneField(controller: phone, error: phoneError, dialCode: dial, onDialCodeChanged: (c) => setState(() => dial = c)),
         const SizedBox(height: 12),
         TextField(
@@ -279,7 +207,7 @@ class _SendSheetState extends State<_SendSheet> {
     ),
   );
 
-  Widget _check(bool on, Widget leading, String title, ValueChanged<bool> onChanged) => _row(
+  Widget _check(bool on, Widget leading, String title, ValueChanged<bool> onChanged) => tk2SheetRow(
     on: on,
     leading: leading,
     title: title,
@@ -302,7 +230,7 @@ class _SendSheetState extends State<_SendSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _title('Share by', 'To ${t.name.isEmpty ? t.phone : '${t.name} · ${t.phone}'}', onBack: () => _go(recent.contains(t) ? 'who' : 'new')),
+          tk2SheetTitle('Share by', 'To ${t.name.isEmpty ? t.phone : '${t.name} · ${t.phone}'}', onBack: () => _go(recent.contains(t) ? 'who' : 'new')),
           _check(whatsapp, tk2WhatsAppLogo(size: 28), 'WhatsApp', (v) => whatsapp = v),
           _check(sms, const Icon(Icons.sms_outlined, size: 28, color: AppColors.primaryDark), 'Text message', (v) => sms = v),
           _check(byEmail, const Icon(Icons.mail_outline, size: 28, color: AppColors.primaryDark), 'Email', (v) => byEmail = v),
@@ -360,3 +288,77 @@ class _SendSheetState extends State<_SendSheet> {
     );
   }
 }
+
+/// Sheet heading with an optional Back (shared by Share and the owner invite).
+Widget tk2SheetTitle(String title, String sub, {VoidCallback? onBack}) => Padding(
+  padding: const EdgeInsets.only(bottom: 16),
+  child: Row(
+    children: [
+      if (onBack != null) ...[IconButton(onPressed: onBack, icon: const Icon(Icons.chevron_left), tooltip: 'Back'), const SizedBox(width: 4)],
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              sub,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 15, color: AppColors.muted),
+            ),
+          ],
+        ),
+      ),
+    ],
+  ),
+);
+
+/// One tappable row in a bottom sheet.
+Widget tk2SheetRow({required Widget leading, required String title, String? sub, Widget? trailing, required VoidCallback onTap, bool on = false}) => Padding(
+  padding: const EdgeInsets.only(bottom: 10),
+  child: Material(
+    color: on ? AppColors.primarySoft : Colors.white,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+      side: BorderSide(color: on ? AppColors.primary : AppColors.border, width: on ? 1.6 : 1),
+    ),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            leading,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading),
+                  ),
+                  if (sub != null)
+                    Text(
+                      sub,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14, color: AppColors.muted),
+                    ),
+                ],
+              ),
+            ),
+            ?trailing,
+          ],
+        ),
+      ),
+    ),
+  ),
+);
