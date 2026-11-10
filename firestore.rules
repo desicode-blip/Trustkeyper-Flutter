@@ -360,6 +360,127 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // ---- TrustKeeper 2 (broker app + owner/tenant web). docs/TRUSTKEEPER2-BACKEND.md ----
+    // Any signed-in phone/email user may be a TK2 broker, owner or tenant; access
+    // is by uid fields on each document, not by the main app's users/{uid} roles.
+
+    function tk2Uid() {
+      return request.auth.uid;
+    }
+
+    function tk2Unchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    function tk2Invite(id) {
+      return get(/databases/$(database)/documents/tk2Invites/$(id)).data;
+    }
+
+    // Broker profile: name, phone, default token, contacts, account details.
+    match /tk2Brokers/{uid} {
+      allow read, write: if signedIn() && tk2Uid() == uid;
+    }
+
+    // Owner invite from "Send link to owner". The id is the secret in the link.
+    // The owner claims it once (ownerUid) and links the house (listingId).
+    match /tk2Invites/{id} {
+      allow get: if true;
+      allow list: if signedIn() && resource.data.brokerUid == tk2Uid();
+      allow create: if signedIn() && request.resource.data.brokerUid == tk2Uid()
+        && request.resource.data.get('ownerUid', null) == null;
+      allow update: if signedIn() && (
+        resource.data.brokerUid == tk2Uid() && tk2Unchanged(['brokerUid', 'ownerUid'])
+        || resource.data.get('ownerUid', null) in [null, tk2Uid()]
+          && request.resource.data.ownerUid == tk2Uid()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerUid', 'ownerName', 'listingId', 'updatedAt']));
+      allow delete: if signedIn() && resource.data.brokerUid == tk2Uid();
+    }
+
+    // Public listing: only what tenants may see (tk2PublicPayload) + brokerUid,
+    // ownerUid, active, updatedAt. Door no., owner, keys and notes never go here.
+    match /tk2Listings/{id} {
+      function publicOnly() {
+        return request.resource.data.keys().hasOnly(['id', 't', 'a', 'r', 'rent', 'mi', 'rn', 'm', 'd', 'b', 'bd', 'f', 's', 'fl', 'tf',
+          'fc', 'w', 'pt', 'av', 'vd', 'vf', 'vt', 'fee', 'tk', 'bn', 'bp', 'ph', 'brokerUid', 'ownerUid', 'inviteId', 'active', 'updatedAt'])
+          && request.resource.data.id == id
+          && request.resource.data.fee is int && request.resource.data.fee >= 0 && request.resource.data.fee <= 500;
+      }
+      function ownerOfInvite() {
+        return request.resource.data.get('inviteId', null) is string
+          && tk2Invite(request.resource.data.inviteId).brokerUid == request.resource.data.brokerUid
+          && tk2Invite(request.resource.data.inviteId).ownerUid == tk2Uid()
+          && request.resource.data.ownerUid == tk2Uid();
+      }
+      allow get: if true;
+      allow list: if signedIn() && resource.data.brokerUid == tk2Uid();
+      allow create: if signedIn() && publicOnly() && (request.resource.data.brokerUid == tk2Uid() || ownerOfInvite());
+      allow update: if signedIn() && publicOnly() && tk2Unchanged(['brokerUid', 'ownerUid', 'inviteId'])
+        && (resource.data.brokerUid == tk2Uid() || resource.data.get('ownerUid', null) == tk2Uid());
+      allow delete: if signedIn() && resource.data.brokerUid == tk2Uid();
+    }
+
+    // The full listing for the broker (and the owner who added it): door no.,
+    // owner, keys, notes, off-market reason, owner answers.
+    match /tk2Private/{id} {
+      function listingDoc() {
+        return get(/databases/$(database)/documents/tk2Listings/$(id)).data;
+      }
+      allow get: if signedIn() && (resource.data.brokerUid == tk2Uid() || resource.data.get('ownerUid', null) == tk2Uid());
+      allow list: if signedIn() && resource.data.brokerUid == tk2Uid();
+      allow create: if signedIn() && request.resource.data.brokerUid == listingDoc().brokerUid
+        && (request.resource.data.brokerUid == tk2Uid() || request.resource.data.get('ownerUid', null) == tk2Uid() && listingDoc().get('ownerUid', null) == tk2Uid());
+      allow update: if signedIn() && tk2Unchanged(['brokerUid', 'ownerUid'])
+        && (resource.data.brokerUid == tk2Uid() || resource.data.get('ownerUid', null) == tk2Uid());
+      allow delete: if signedIn() && resource.data.brokerUid == tk2Uid();
+    }
+
+    // Paid visit. The tenant books it; the broker cancels / marks "did not come"
+    // or adds the gate pass; "visit done" is only set by tk2ConfirmVisit.
+    match /tk2Visits/{id} {
+      function listingDoc() {
+        return get(/databases/$(database)/documents/tk2Listings/$(request.resource.data.listingId)).data;
+      }
+      function onlyStatus(to) {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+          && resource.data.status == 'booked' && request.resource.data.status in to;
+      }
+      allow get: if signedIn() && tk2Uid() in [resource.data.brokerUid, resource.data.customerUid];
+      allow list: if signedIn() && (resource.data.brokerUid == tk2Uid() || resource.data.customerUid == tk2Uid());
+      allow create: if signedIn() && request.resource.data.customerUid == tk2Uid()
+        && request.resource.data.status == 'booked'
+        && request.resource.data.brokerUid == listingDoc().brokerUid
+        && listingDoc().get('active', true) == true
+        && request.resource.data.fee == listingDoc().fee
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.keys().hasOnly(['listingId', 'brokerUid', 'customerUid', 'customerName', 'customerPhone', 'at', 'fee', 'status', 'createdAt', 'updatedAt']);
+      allow update: if signedIn() && (
+        resource.data.brokerUid == tk2Uid() && (onlyStatus(['cancelled', 'noShow'])
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['gatePass', 'updatedAt']))
+        || resource.data.customerUid == tk2Uid() && (
+          onlyStatus(['customerCancelled']) && request.time < resource.data.createdAt + duration.value(5, 'm')
+          || onlyStatus(['customerCancelledLate'])));
+      allow delete: if false;
+
+      // The 4-digit visit code: only the tenant sees it; the broker types it in
+      // and tk2ConfirmVisit checks it on the server.
+      match /secret/code {
+        allow create: if signedIn() && get(/databases/$(database)/documents/tk2Visits/$(id)).data.customerUid == tk2Uid()
+          && request.resource.data.keys().hasOnly(['code']) && request.resource.data.code.matches('^[0-9]{4}$');
+        allow get: if signedIn() && get(/databases/$(database)/documents/tk2Visits/$(id)).data.customerUid == tk2Uid();
+        allow update, delete, list: if false;
+      }
+    }
+
+    // Tenant journey per house (step, liked, details for the agreement).
+    // id = <tenant uid>_<listing id>. The broker of the house can read it.
+    match /tk2Trips/{id} {
+      allow get, list: if signedIn() && tk2Uid() in [resource.data.customerUid, resource.data.brokerUid];
+      allow create, update: if signedIn() && request.resource.data.customerUid == tk2Uid()
+        && id == tk2Uid() + '_' + request.resource.data.listingId
+        && (resource == null || tk2Unchanged(['customerUid', 'brokerUid', 'listingId']));
+      allow delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

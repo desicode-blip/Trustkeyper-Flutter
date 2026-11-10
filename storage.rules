@@ -210,6 +210,41 @@ service firebase.storage {
       allow read, write: if false;
     }
 
+    // ---- TrustKeeper 2. docs/TRUSTKEEPER2-BACKEND.md ----
+    function tk2Image() {
+      return request.resource.size > 0 && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|heic)');
+    }
+
+    // House photos are public (tenants see them from the link). The broker of
+    // the listing, or the owner who added it, uploads them.
+    match /tk2/listings/{listingId}/{file} {
+      function listing() {
+        return firestore.get(/databases/(default)/documents/tk2Listings/$(listingId)).data;
+      }
+      allow read: if true;
+      allow create, update: if signedIn() && tk2Image()
+        && request.auth.uid in [listing().brokerUid, listing().get('ownerUid', '')];
+      allow delete: if signedIn() && request.auth.uid in [listing().brokerUid, listing().get('ownerUid', '')];
+    }
+
+    // Gate pass: the broker uploads it; the tenant of that visit reads it.
+    match /tk2/visits/{visitId}/{file} {
+      function visit() {
+        return firestore.get(/databases/(default)/documents/tk2Visits/$(visitId)).data;
+      }
+      allow read: if signedIn() && request.auth.uid in [visit().brokerUid, visit().customerUid];
+      allow create, update: if signedIn() && request.auth.uid == visit().brokerUid && isAllowedDocument();
+      allow delete: if false;
+    }
+
+    // Owner and tenant documents (ID proof, ownership papers): private to the person.
+    match /tk2/people/{uid}/{allPaths=**} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid && isAllowedDocument();
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

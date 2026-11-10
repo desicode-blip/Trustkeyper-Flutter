@@ -14,12 +14,13 @@ import '../features/broker/data/broker_repository.dart';
 import '../features/broker/presentation/broker_draft_cards.dart';
 import '../features/broker/presentation/approved_broker_home.dart';
 import '../features/broker/presentation/broker_property_screen.dart';
+import '../tkweb/tkweb_auth.dart';
+import 'tk2_cloud.dart';
 import 'tk2_customer.dart';
 import 'tk2_account.dart';
 import 'tk2_designs.dart';
 import 'tk2_invite.dart';
 import 'tk2_token.dart';
-import 'tk2_link.dart';
 import 'tk2_listing.dart';
 import 'tk2_status.dart';
 import 'tk2_store.dart';
@@ -56,6 +57,11 @@ GoRouter buildTk2Router(Tk2Store store) => GoRouter(
       builder: (context, state) => SplashScreen(
         nextRoute: () async {
           await store.load();
+          // Backend on: the login decides; the saved profile comes from Firestore.
+          if (store.sync != null) {
+            if (Tk2Cloud.uid == null) return '/onboarding';
+            return await store.sync!.startBroker() ? '/home' : '/onboarding';
+          }
           return store.hasName ? '/home' : '/onboarding';
         },
       ),
@@ -85,7 +91,7 @@ GoRouter buildTk2Router(Tk2Store store) => GoRouter(
         askThings: false,
         startNew: true,
         askHowToAdd: true,
-        ownerLink: (house, owner) => tk2OwnerLink(store.brokerName, house),
+        ownerLink: store.ownerLink,
         inviteOwner: showTk2OwnerInvite,
         doneLabel: 'Next: rent',
         onSelected: (property) => context.pushReplacement('/listing/${property.id}?new=1'),
@@ -142,6 +148,7 @@ class _Tk2LoginState extends State<Tk2Login> {
   String? nameError;
   String? phoneError;
   String dial = '+91';
+  bool sending = false;
 
   @override
   void dispose() {
@@ -157,7 +164,39 @@ class _Tk2LoginState extends State<Tk2Login> {
       phoneError = PhoneCountry.valid(dial, digits) ? null : (dial == '+91' ? 'Enter a valid 10-digit mobile number' : 'Enter a valid phone number');
     });
     if (nameError != null || phoneError != null) return;
-    await widget.store.setBroker(name.text, PhoneCountry.format(dial, digits));
+    final number = PhoneCountry.format(dial, digits);
+    final sync = widget.store.sync;
+    var returning = false;
+    if (sync != null) {
+      // Backend on: the 6-digit SMS code first (same screen as the web app).
+      setState(() => sending = true);
+      final failed = await Tk2Cloud.sendCode(number);
+      if (!mounted) return;
+      setState(() {
+        sending = false;
+        phoneError = failed;
+      });
+      if (failed != null) return;
+      var verified = Tk2Cloud.uid != null; // Android may verify on its own
+      if (!verified) {
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (screen) => TkwOtp(
+              destination: number,
+              onVerified: () async {
+                verified = true;
+                Navigator.of(screen).pop();
+              },
+            ),
+          ),
+        );
+      }
+      if (!verified || !mounted) return;
+      returning = await sync.startBroker();
+      if (!mounted) return;
+      if (returning) return context.go('/home');
+    }
+    await widget.store.setBroker(name.text, number);
     if (!mounted) return;
     // Then the usual token, once (Profile changes it later).
     await Navigator.of(context).push(
@@ -172,7 +211,7 @@ class _Tk2LoginState extends State<Tk2Login> {
     showBack: false,
     header: ApprovedLoginHero(onBack: widget.onBack),
     bodyPadding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
-    footer: PrimaryButton(label: 'Continue', icon: Icons.chevron_right, onPressed: _continue),
+    footer: PrimaryButton(label: 'Continue', icon: Icons.chevron_right, loading: sending, onPressed: sending ? null : _continue),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

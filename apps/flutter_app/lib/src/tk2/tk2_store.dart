@@ -6,7 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/broker/data/broker_property_repository.dart';
+import 'tk2_cloud.dart';
 import 'tk2_link.dart';
+import 'tk2_sync.dart';
 
 // TrustKeeper 2 – broker MVP. Everything is stored on the phone for now
 // (SharedPreferences). The backend plan is in docs/TRUSTKEEPER2.md.
@@ -526,14 +528,14 @@ class Tk2Visit {
 
   Tk2Visit withStatus(String next) => _copy(status: next);
 
-  Tk2Visit _copy({String? status, String? gatePass}) => Tk2Visit(
+  Tk2Visit _copy({String? status, String? gatePass, String? code}) => Tk2Visit(
     id: id,
     listingId: listingId,
     customerName: customerName,
     customerPhone: customerPhone,
     at: at,
     fee: fee,
-    code: code,
+    code: code ?? this.code,
     status: status ?? this.status,
     createdAt: createdAt,
     gatePass: gatePass ?? this.gatePass,
@@ -625,6 +627,9 @@ class Tk2Store extends ChangeNotifier {
   factory Tk2Store.forTest() => Tk2Store._();
 
   static const _key = 'tk2_store_v1';
+
+  /// Backend sync (null in the demo build and in tests). Set by the app at start.
+  Tk2Sync? sync;
 
   String brokerName = '';
   String brokerPhone = '';
@@ -740,11 +745,87 @@ class Tk2Store extends ChangeNotifier {
     account.addAll(details);
     final name = details['displayName'];
     if (name is String && name.trim().isNotEmpty) brokerName = name.trim();
+    sync?.profile();
     return _save();
   }
 
-  /// Delete account: everything on this phone is wiped.
+  /// Profile as saved in the backend (tk2Brokers/{uid}).
+  Map<String, Object?> profileJson() => {
+    'name': brokerName,
+    'phone': brokerPhone,
+    'defaultToken': defaultToken,
+    'account': account,
+    'contacts': [
+      for (final c in _contacts) {'name': c.name, 'phone': c.phone, 'email': c.email},
+    ],
+  };
+
+  /// Backend → this device: the broker's saved profile.
+  void applyProfile(Map<String, dynamic> j) {
+    brokerName = j['name'] as String? ?? brokerName;
+    brokerPhone = j['phone'] as String? ?? brokerPhone;
+    defaultToken = (j['defaultToken'] as num?)?.toInt() ?? defaultToken;
+    account
+      ..clear()
+      ..addAll(Map<String, dynamic>.from(j['account'] as Map? ?? const {}));
+    _contacts
+      ..clear()
+      ..addAll([
+        for (final c in (j['contacts'] as List? ?? const []))
+          if (c is Map) (name: c['name'] as String? ?? '', phone: c['phone'] as String? ?? '', email: c['email'] as String? ?? ''),
+      ]);
+    _save();
+  }
+
+  /// Backend → this device: listings and off-market notes. Listings still
+  /// uploading ([keep]) stay as they are on this device.
+  void applyListings(List<Tk2Listing> listings, Map<String, Tk2Inactive> off, {Set<String> keep = const {}}) {
+    final local = {for (final l in _listings) l.id: l};
+    _listings
+      ..clear()
+      ..addAll([for (final l in listings) keep.contains(l.id) ? local[l.id] ?? l : l]);
+    for (final id in keep) {
+      if (!_listings.any((l) => l.id == id) && local[id] != null) _listings.insert(0, local[id]!);
+    }
+    _inactive
+      ..clear()
+      ..addAll(off);
+    _save();
+  }
+
+  /// Backend → this device: visits (broker: theirs; tenant web: own).
+  void applyVisits(List<Tk2Visit> visits) {
+    // The tenant's code may arrive a moment after the visit: keep the one we have.
+    final codes = {for (final v in _visits) v.id: v.code};
+    _visits
+      ..clear()
+      ..addAll([for (final v in visits) v.code.isEmpty && (codes[v.id] ?? '').isNotEmpty ? v._copy(code: codes[v.id]) : v]);
+    _save();
+  }
+
+  /// After upload: photo files become web addresses.
+  void replacePhotos(String id, List<String> photos) {
+    final at = _listings.indexWhere((l) => l.id == id);
+    if (at < 0) return;
+    _listings[at] = _listings[at].copyWith(photos: photos);
+    _save();
+  }
+
+  /// Log out: the backend keeps everything; this device forgets it.
+  Future<void> signOut() async {
+    sync?.stop();
+    await Tk2Cloud.signOut();
+    await _clearDevice();
+  }
+
+  /// Delete account: everything on this phone is wiped (and, with the
+  /// backend on, the broker's listings and profile).
   Future<void> wipe() async {
+    await sync?.deleteAccount();
+    await _clearDevice();
+  }
+
+  Future<void> _clearDevice() async {
     brokerName = '';
     brokerPhone = '';
     defaultToken = defaultTokenStart;
@@ -761,6 +842,7 @@ class Tk2Store extends ChangeNotifier {
   Future<void> setBroker(String name, String phone) {
     brokerName = name.trim();
     brokerPhone = phone.trim();
+    sync?.profile();
     return _save();
   }
 
@@ -768,8 +850,14 @@ class Tk2Store extends ChangeNotifier {
   /// saved keep their own amount.
   Future<void> setDefaultToken(int amount) {
     defaultToken = amount;
+    sync?.profile();
     return _save();
   }
+
+  /// Owner invite link for "Send link to owner" (saved as an invite when the
+  /// backend is on).
+  String ownerLink(String houseName, String ownerName) =>
+      tk2OwnerLink(brokerName, houseName, inviteId: sync?.invite(houseName: houseName, ownerName: ownerName));
 
   static String _id(String prefix) => '$prefix${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${Random().nextInt(999)}';
 
@@ -815,6 +903,7 @@ class Tk2Store extends ChangeNotifier {
       );
     }
     await _save();
+    sync?.listing(id);
     return saved;
   }
 
@@ -823,6 +912,7 @@ class Tk2Store extends ChangeNotifier {
     if (at < 0) return;
     _listings[at] = listing;
     await _save();
+    sync?.listing(listing.id);
   }
 
   final Map<String, Tk2Inactive> _inactive = {};
@@ -843,12 +933,14 @@ class Tk2Store extends ChangeNotifier {
       rentStart: Tk2Inactive.isRented(reason) ? rentStart?.millisecondsSinceEpoch : null,
       remindAt: Tk2Inactive.tenMonthsAfter(from).millisecondsSinceEpoch,
     );
+    sync?.listing(id);
     return _save();
   }
 
   /// Back on the market. Turning it off again starts a new 10-month count.
   Future<void> activate(String id) {
     _inactive.remove(id);
+    sync?.listing(id);
     return _save();
   }
 
@@ -857,6 +949,7 @@ class Tk2Store extends ChangeNotifier {
     final i = _inactive[id];
     if (i == null) return Future.value();
     _inactive[id] = i.remindLater(now ?? DateTime.now());
+    sync?.listing(id);
     return _save();
   }
 
@@ -870,6 +963,7 @@ class Tk2Store extends ChangeNotifier {
     _inactive.remove(id);
     _listings.removeWhere((l) => l.id == id);
     await _save();
+    sync?.removeListing(id);
   }
 
   void clearSampleNotice() => sampleJustRemoved = false;
@@ -901,6 +995,7 @@ class Tk2Store extends ChangeNotifier {
     final old = _contacts.where((c) => c.phone.replaceAll(RegExp(r'\D'), '') == key).firstOrNull;
     _contacts.removeWhere((c) => c.phone.replaceAll(RegExp(r'\D'), '') == key);
     _contacts.add((name: name.trim(), phone: phone.trim(), email: email.trim().isNotEmpty ? email.trim() : old?.email ?? ''));
+    sync?.profile();
     await _save();
   }
 
@@ -924,6 +1019,7 @@ class Tk2Store extends ChangeNotifier {
       code: (1000 + Random().nextInt(9000)).toString(),
       createdAt: DateTime.now().millisecondsSinceEpoch,
     );
+    await sync?.bookVisit(visit);
     _visits.add(visit);
     await _save();
     return visit;
@@ -934,6 +1030,16 @@ class Tk2Store extends ChangeNotifier {
   /// 24 hours before or after the visit time).
   Future<String?> confirmVisit(String visitId, String code, {DateTime? now}) async {
     final at = _visits.indexWhere((v) => v.id == visitId);
+    // Backend: only the tenant can read the code, so the server checks it.
+    if (sync != null) {
+      if (at < 0) return 'wrong';
+      final why = await Tk2Cloud.confirmVisit(visitId, code.trim());
+      if (why == null) {
+        _visits[at] = _visits[at].withStatus(VisitStatus.done);
+        await _save();
+      }
+      return why;
+    }
     if (at < 0 || _visits[at].code != code.trim()) return 'wrong';
     if (!_visits[at].codeWorks(now ?? DateTime.now())) return 'window';
     _visits[at] = _visits[at].withStatus(VisitStatus.done);
@@ -948,6 +1054,7 @@ class Tk2Store extends ChangeNotifier {
     if (at < 0 || !_visits[at].upcoming) return false;
     final inTime = _visits[at].inRefundWindow(now ?? DateTime.now());
     _visits[at] = _visits[at].withStatus(inTime ? VisitStatus.customerCancelled : VisitStatus.customerCancelledLate);
+    sync?.visitStatus(visitId, _visits[at].status);
     await _save();
     return true;
   }
@@ -957,7 +1064,8 @@ class Tk2Store extends ChangeNotifier {
   Future<void> addGatePass(String visitId, String file) async {
     final at = _visits.indexWhere((v) => v.id == visitId);
     if (at < 0) return;
-    _visits[at] = _visits[at]._copy(gatePass: file);
+    final url = sync == null ? file : await sync!.gatePass(visitId, file);
+    _visits[at] = _visits[at]._copy(gatePass: url);
     await _save();
   }
 
@@ -966,6 +1074,7 @@ class Tk2Store extends ChangeNotifier {
     final at = _visits.indexWhere((v) => v.id == visitId);
     if (at < 0) return;
     _visits[at] = _visits[at].withStatus(status);
+    sync?.visitStatus(visitId, status);
     await _save();
   }
 

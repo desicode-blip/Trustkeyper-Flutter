@@ -1489,3 +1489,21 @@ branch: staging (never main)
 files: apps/flutter_app/lib/src/tk2/tk2_invite.dart, apps/flutter_app/lib/src/features/broker/presentation/onboarding_start_screens.dart, apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
 verification: flutter analyze clean; test/tk2 32/32 (new: closing the sheet keeps the broker on the check screen; Copy link reaches "Request sent")
 ```
+
+## Change 92 – TK2 backend: login, shared data, photos, visit-code check (for Ajay to deploy on staging)
+Date: 2026-11-10 · Status: built and tested on Firebase emulators; not deployed (Ajay)
+- **One switch:** the demo build is unchanged (no Firebase, OTP 123456). Built with `--dart-define-from-file=tk2_cloud.json`, the broker app and the owner/tenant web app use Firebase (staging): phone OTP, owner email OTP (existing functions), Firestore, Storage. Screens are unchanged; with the backend on, the broker's login adds the existing 6-digit code screen.
+- **Shared data:** broker profile, listings (public doc for tenants + private doc for broker/owner), owner invites, visits (+ tenant-only code), tenant journey. Short links: `#l-<id>` (tenant), `#i-<id>` (owner). Owner-added houses land in the broker's list with the owner's name, number and key holder in the private block. Turned-off houses can't be booked; their link says "no longer active".
+- **Server:** `tk2ConfirmVisit` (asia-south1) checks the 4-digit code, so the broker never sees it. Firestore and Storage rules for all `tk2…` paths (additive, before the deny-all).
+- **Fixes found while testing:** "Copy link" no longer jumps to "Request sent" if copying fails; uploaded photos travel in the public listing.
+- **Hosting:** `firebase.tk2.json` (target `tk2`) + `scripts/tk2-build.sh web|broker [staging] | deploy-web`.
+- **Handoff doc:** `docs/TRUSTKEEPER2-BACKEND.md` – what's built, data model, deploy steps, what's pending (Razorpay, iOS flavor, automatic messages, documents, agreement).
+```
+AGENT RECORD – Change 92
+id: CHG-092
+date: 2026-11-10
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/{tk2_cloud,tk2_sync}.dart (new), apps/flutter_app/lib/src/tk2/{tk2_store,tk2_link,tk2_app,tk2_account,tk2_invite}.dart, apps/flutter_app/lib/src/tkweb/{tkweb_app,tkweb_auth,tkweb_session}.dart, apps/flutter_app/lib/{main_tk2,main_tk2_web}.dart, apps/flutter_app/test/tk2/tk2_test.dart, apps/flutter_app/tk2_cloud.example.json, firestore.rules, storage.rules, functions/{tk2.js,index.js,test/tk2.test.js,rules-test/tk2.test.mjs}, firebase.tk2.json, scripts/tk2-build.sh, .gitignore, docs/{TRUSTKEEPER2-BACKEND,TRUSTKEEPER2,CHANGELOG-staging}.md
+verification: flutter analyze clean; test/tk2 33/33; functions npm test 259/259; tk2 rules 6/6 (full rules suite 56/57, #46 fails identically without this change); end-to-end on emulators (broker OTP → house + photo → tenant link → OTP → book → broker live → server code check; owner invite → claim → house under broker)
+deploy: NOT deployed. Ajay follows docs/TRUSTKEEPER2-BACKEND.md §5 on trustkeyper-app-staging only.
+```

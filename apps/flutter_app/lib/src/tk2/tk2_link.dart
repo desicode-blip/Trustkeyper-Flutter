@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../features/broker/data/broker_property_repository.dart';
 
+import 'tk2_cloud.dart';
 import 'tk2_designs.dart';
 import 'tk2_store.dart';
 
@@ -36,17 +37,24 @@ Map<String, Object?> tk2PublicPayload(Tk2Listing l, String brokerName, [String b
     'vt': l.visitTo,
     'fee': l.visitFee,
     if (l.token > 0) 'tk': l.token,
+    // Uploaded photos only (web addresses); file paths on the device stay there.
+    if (l.photos.any((x) => x.startsWith('http'))) 'ph': [for (final x in l.photos) if (x.startsWith('http')) x],
     'bn': brokerName,
     if (brokerPhone.isNotEmpty) 'bp': brokerPhone,
   };
 }
 
-/// Property link for WhatsApp: the public details ride in the link (#p-…).
-String tk2PropertyLink(Tk2Listing l, String brokerName, [String brokerPhone = '']) =>
-    '$tk2WebApp#p-${tk2Base32(jsonEncode(tk2PublicPayload(l, brokerName, brokerPhone)))}';
+/// Property link for WhatsApp. With the backend on: a short link to the
+/// listing (#l-ID). Demo build: the public details ride in the link (#p-…).
+String tk2PropertyLink(Tk2Listing l, String brokerName, [String brokerPhone = '']) => Tk2Cloud.on
+    ? '${Tk2Cloud.webUrl}#l-${l.id}'
+    : '$tk2WebApp#p-${tk2Base32(jsonEncode(tk2PublicPayload(l, brokerName, brokerPhone)))}';
 
-/// Owner invite link: the owner signs up and adds the house (#owner-…).
-String tk2OwnerLink(String brokerName, String houseName) => '$tk2WebApp#owner-${tk2Base32(jsonEncode({'bn': brokerName, 'h': houseName}))}';
+/// Owner invite link: the owner signs up and adds the house. With the backend
+/// on it points to an invite saved in Firestore (#i-ID), else the details
+/// ride in the link (#owner-…).
+String tk2OwnerLink(String brokerName, String houseName, {String? inviteId}) =>
+    inviteId != null ? '${Tk2Cloud.webUrl}#i-$inviteId' : '$tk2WebApp#owner-${tk2Base32(jsonEncode({'bn': brokerName, 'h': houseName}))}';
 
 /// Lower-case base32 (a–z, 2–7): the only characters the link's #name allows.
 String tk2Base32(String text) {
@@ -105,6 +113,7 @@ Tk2Listing tk2ListingFromPublic(Map<String, dynamic> j) {
     visitTo: n('vt', 23),
     visitFee: n('fee', 150),
     token: n('tk'),
+    photos: [for (final x in (j['ph'] as List? ?? const [])) if (x is String) x],
   );
 }
 

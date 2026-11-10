@@ -29,9 +29,15 @@ Future<String?> showTk2OwnerInvite(BuildContext context, {required String ownerN
   Future<void> sms() =>
       launchUrl(Uri.parse('sms:+$full${defaultTargetPlatform == TargetPlatform.iOS ? '&' : '?'}body=$text'), mode: LaunchMode.externalApplication);
 
-  Future<void> copy() async {
-    await Clipboard.setData(ClipboardData(text: message));
-    messenger.showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, content: Text('Message and link copied')));
+  Future<bool> copy() async {
+    try {
+      await Clipboard.setData(ClipboardData(text: message));
+      messenger.showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, content: Text('Message and link copied')));
+      return true;
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, content: Text('Could not copy. Use WhatsApp or Text message.')));
+      return false;
+    }
   }
 
   final how = await showModalBottomSheet<String>(
@@ -77,7 +83,7 @@ Future<String?> showTk2OwnerInvite(BuildContext context, {required String ownerN
     case 'sms':
       await sms();
     case 'copy':
-      await copy();
+      if (!await copy()) return null;
   }
   return how;
 }

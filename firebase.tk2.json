@@ -1,0 +1,10 @@
+{
+  "hosting": {
+    "target": "tk2",
+    "public": "apps/flutter_app/build/tk2_web",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "headers": [{ "source": "**", "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }] }],
+    "cleanUrls": true,
+    "rewrites": [{ "source": "**", "destination": "/index.html" }]
+  }
+}

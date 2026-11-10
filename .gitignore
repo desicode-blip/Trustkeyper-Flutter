@@ -46,3 +46,6 @@ Thumbs.db
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+# TrustKeeper 2 backend settings (copy of tk2_cloud.example.json)
+apps/flutter_app/tk2_cloud.json

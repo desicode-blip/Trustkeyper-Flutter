@@ -517,3 +517,23 @@ export const razorpayTestWebhook = onRequest({ ...paymentOptions, secrets: [...p
   });
 export { requestEmailOtp, verifyEmailOtp, requestProfileEmailOtp, verifyProfileEmailOtp,
   requestAccountEmailOtp, verifyAccountEmailOtp } from './email-functions.js';
+
+// ---- TrustKeeper 2 (docs/TRUSTKEEPER2-BACKEND.md) ----
+import { createTk2Service, Tk2Error } from './tk2.js';
+function tk2Store() {
+  const database = getFirestore();
+  return {
+    transaction: handler => database.runTransaction(transaction => handler({
+      get: async path => (await transaction.get(database.doc(path))).data(),
+      update: (path, data) => transaction.update(database.doc(path), { ...data, updatedAt: FieldValue.serverTimestamp() }),
+    })),
+  };
+}
+export const tk2ConfirmVisit = onCall({ region: 'asia-south1', invoker: 'public', maxInstances: 5, timeoutSeconds: 20 }, async request => {
+  try {
+    return await createTk2Service({ store: tk2Store() }).confirmVisit(request.auth, request.data);
+  } catch (error) {
+    if (error instanceof Tk2Error) throw new HttpsError(error.code, error.message);
+    throw new HttpsError('internal', 'The visit could not be confirmed. Try again.');
+  }
+});

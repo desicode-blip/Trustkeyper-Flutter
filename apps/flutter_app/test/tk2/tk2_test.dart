@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trustkeyper/src/tk2/tk2_link.dart';
@@ -9,7 +10,9 @@ import 'package:trustkeyper/src/tk2/tk2_app.dart';
 import 'package:trustkeyper/src/tk2/tk2_designs.dart';
 import 'package:trustkeyper/src/tk2/tk2_account.dart';
 import 'package:trustkeyper/src/tk2/tk2_sort.dart';
+import 'package:trustkeyper/src/tk2/tk2_cloud.dart';
 import 'package:trustkeyper/src/tk2/tk2_store.dart';
+import 'package:trustkeyper/src/tk2/tk2_sync.dart';
 import 'package:trustkeyper/src/tk2/tk2_token.dart';
 
 void main() {
@@ -206,6 +209,44 @@ void main() {
       expect(json, isNot(contains('402')));
       expect(json, isNot(contains(l.ownerName.isEmpty ? '~none~' : l.ownerName)));
       expect(tk2Base32('hi'), 'nbuq');
+    });
+
+    test('backend public listing: only fields the Firestore rules allow; no door, owner, keys or note', () {
+      final l = Tk2Listing.example.copyWith(
+        door: 'B-1204',
+        ownerName: 'Hari Rao',
+        ownerPhone: '+91 90000 12345',
+        keys: 'With security',
+        note: 'Gate code 4455',
+        photos: ['/var/mobile/x.jpg', 'https://firebasestorage.googleapis.com/p.jpg'],
+      );
+      final doc = Tk2Cloud.publicDoc(l, brokerUid: 'b1', brokerName: 'Suresh', brokerPhone: '+91 98480 12345', active: true, ownerUid: 'o1', inviteId: 'i1');
+      final text = jsonEncode({...doc}..remove('updatedAt'));
+      for (final secret in ['B-1204', 'Hari', '90000 12345', 'With security', '4455', '/var/mobile']) {
+        expect(text, isNot(contains(secret)), reason: secret);
+      }
+      expect(doc['ph'], ['https://firebasestorage.googleapis.com/p.jpg']);
+      // Same list as publicOnly() in firestore.rules: keep them in step.
+      final rules = File('../../firestore.rules').readAsStringSync();
+      final allowed = RegExp(r"publicOnly\(\) \{\s*return request\.resource\.data\.keys\(\)\.hasOnly\(\[([^\]]+)\]\)")
+          .firstMatch(rules)!
+          .group(1)!
+          .split(',')
+          .map((k) => k.trim().replaceAll("'", ''))
+          .toSet();
+      expect(allowed.containsAll(doc.keys), isTrue, reason: '${doc.keys.toSet().difference(allowed)}');
+    });
+
+    test('owner-added house: owner name, number and keys fill the broker block; the broker\'s own entries win', () {
+      final answers = {'keys': 'Security', 'keyName': 'Ramu', 'keyPhone': '+91 90000 11111', 'keyNote': 'Ask at gate 2', 'ownerName': 'Lakshmi', 'ownerContact': '+91 90000 77777'};
+      final filled = tk2WithOwnerAnswers(Tk2Listing.example.copyWith(ownerName: '', ownerPhone: '', keys: '', note: ''), answers);
+      expect(filled.ownerName, 'Lakshmi');
+      expect(filled.ownerPhone, '+91 90000 77777');
+      expect(filled.keys, 'With security');
+      expect(filled.note, 'Keys: Security · Ramu · +91 90000 11111\nAsk at gate 2');
+      final mine = tk2WithOwnerAnswers(Tk2Listing.example.copyWith(ownerName: 'Hari', keys: 'Lockbox', note: 'mine'), answers);
+      expect([mine.ownerName, mine.keys, mine.note], ['Hari', 'Lockbox', 'mine']);
+      expect(tk2WithOwnerAnswers(Tk2Listing.example.copyWith(ownerPhone: ''), {'ownerContact': 'a@b.co'}).ownerPhone, '');
     });
 
     test('token: broker default fills new properties; each property can differ; link carries it', () async {

@@ -8,6 +8,7 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
 import '../features/auth/presentation/approved_auth_widgets.dart';
 import '../features/broker/presentation/onboarding_widgets.dart';
+import '../tk2/tk2_cloud.dart';
 import '../tk2/tk2_link.dart';
 import '../tk2/tk2_store.dart';
 import 'tkweb_owner.dart';
@@ -22,6 +23,20 @@ sealed class TkwStart {
   /// Reads the link once at start. The page never writes the address bar.
   static Future<TkwStart> fromFragment(String fragment) async {
     try {
+      // Backend links: #l-<listing id> (tenant), #i-<invite id> (owner).
+      final sync = Tk2Store.instance.sync;
+      if (sync != null && fragment.startsWith('l-')) {
+        final listing = await sync.openListing(fragment.substring(2));
+        if (listing == null) return const TkwOpenHome(gone: true);
+        await Tk2Store.instance.putListing(listing);
+        return TkwOpenProperty(listing.id);
+      }
+      if (sync != null && fragment.startsWith('i-')) {
+        final invite = await sync.openInvite(fragment.substring(2));
+        if (invite == null) return const TkwOpenHome(gone: true);
+        if (TkwSession.instance.signedIn) await sync.claimInvite(TkwSession.instance.name);
+        return TkwOpenOwner(invite.brokerName, invite.houseName);
+      }
       if (fragment.startsWith('p-')) {
         final listing = tk2ListingFromPublic(jsonDecode(tk2Base32Decode(fragment.substring(2))) as Map<String, dynamic>);
         await Tk2Store.instance.putListing(listing);
@@ -58,7 +73,10 @@ class TkwOpenOwner extends TkwStart {
 }
 
 class TkwOpenHome extends TkwStart {
-  const TkwOpenHome();
+  const TkwOpenHome({this.gone = false});
+
+  /// The link's house or invite was removed.
+  final bool gone;
 }
 
 /// Tenant and owner web app (opened from WhatsApp links). Same design system,
@@ -79,7 +97,7 @@ class _TkWebAppState extends State<TkWebApp> {
   static Widget _first(TkwStart start) => switch (start) {
     TkwOpenProperty(:final listingId) => TkwProperty(listingId: listingId),
     TkwOpenOwner(:final brokerName, :final houseName) => TkwOwnerInvite(brokerName: brokerName, houseName: houseName),
-    TkwOpenHome() => const TkwHome(),
+    TkwOpenHome(:final gone) => TkwHome(gone: gone),
   };
 
   @override
@@ -145,7 +163,8 @@ class TkwFrame extends StatelessWidget {
 
 /// Opened without a link: pick a sample journey (also the demo reset).
 class TkwHome extends StatelessWidget {
-  const TkwHome({super.key});
+  const TkwHome({this.gone = false, super.key});
+  final bool gone;
 
   @override
   Widget build(BuildContext context) => ApprovedAuthScaffold(
@@ -156,10 +175,17 @@ class TkwHome extends StatelessWidget {
       children: [
         Text('Welcome to TrustKeyper', style: Theme.of(context).textTheme.displaySmall),
         const SizedBox(height: 8),
-        const Text(
-          'Tenants and house owners open these pages from a WhatsApp link.',
-          style: TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted),
+        Text(
+          gone ? 'This link is no longer active. Ask your broker for a new one.' : 'Tenants and house owners open these pages from a WhatsApp link.',
+          style: const TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted),
         ),
+        // Live site: no demo journeys, just the note above.
+        if (!Tk2Cloud.on) ..._demo(context),
+      ],
+    ),
+  );
+
+  List<Widget> _demo(BuildContext context) => [
         const SizedBox(height: 22),
         OnbRow(
           icon: Icons.home_outlined,
@@ -195,9 +221,7 @@ class TkwHome extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         const OnbBanner('Demo build: codes, payments and e-sign are tests. Nothing is sent or charged.', kind: 'wait', icon: Icons.science_outlined),
-      ],
-    ),
-  );
+  ];
 }
 
 /// Demo broker for the example property (real links carry the broker's name and number).

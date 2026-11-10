@@ -7,6 +7,7 @@ import '../core/widgets/primary_button.dart';
 import '../features/auth/presentation/approved_auth_widgets.dart';
 import '../features/auth/presentation/login_method.dart';
 import '../features/broker/presentation/onboarding_widgets.dart';
+import '../tk2/tk2_cloud.dart';
 import 'tkweb_session.dart';
 
 /// Sign up on the web: the main app's login screen (hero with logo, name,
@@ -38,7 +39,9 @@ class _TkwSignUpState extends State<TkwSignUp> {
     super.dispose();
   }
 
-  void _next() {
+  bool sending = false;
+
+  Future<void> _next() async {
     final digits = contact.text.replaceAll(RegExp(r'\D'), '');
     final email = contact.text.trim().toLowerCase();
     setState(() {
@@ -50,6 +53,17 @@ class _TkwSignUpState extends State<TkwSignUp> {
     if (nameError != null || contactError != null) return;
     final destination = method == LoginMethod.phone ? PhoneCountry.format(dial, digits) : email;
     FocusScope.of(context).unfocus();
+    if (Tk2Cloud.on) {
+      setState(() => sending = true);
+      final failed = await Tk2Cloud.sendCode(destination);
+      if (!mounted) return;
+      setState(() {
+        sending = false;
+        contactError = failed;
+      });
+      if (failed != null) return;
+    }
+    if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => TkwOtp(
@@ -89,7 +103,7 @@ class _TkwSignUpState extends State<TkwSignUp> {
       footer: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          PrimaryButton(label: 'Get OTP', icon: Icons.chevron_right, onPressed: _next),
+          PrimaryButton(label: 'Get OTP', icon: Icons.chevron_right, loading: sending, onPressed: sending ? null : _next),
           if (!typing) ...[const SizedBox(height: 10), const LoginLegalNotice()],
         ],
       ),
@@ -140,13 +154,22 @@ class _TkwSignUpState extends State<TkwSignUp> {
   }
 }
 
-/// The 6-digit code screen (main app's OTP boxes). Demo code: 123456.
+/// The 6-digit code screen (main app's OTP boxes). With the backend on the
+/// code comes by SMS / email (Firebase); in the demo build it is 123456.
+/// Also used by the broker app's login.
 class TkwOtp extends StatefulWidget {
   const TkwOtp({required this.destination, required this.onVerified, super.key});
   final String destination;
   final Future<void> Function() onVerified;
 
   static const demoCode = '123456';
+
+  /// Checks the code: null when right, else the red message.
+  static Future<String?> check(String code) async {
+    if (Tk2Cloud.on) return Tk2Cloud.verifyCode(code);
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    return code == demoCode ? null : 'That code is not right. Try again.';
+  }
 
   @override
   State<TkwOtp> createState() => _TkwOtpState();
@@ -187,12 +210,12 @@ class _TkwOtpState extends State<TkwOtp> {
       checking = true;
       error = null;
     });
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    final wrong = await TkwOtp.check(code.text);
     if (!mounted) return;
-    if (code.text != TkwOtp.demoCode) {
+    if (wrong != null) {
       setState(() {
         checking = false;
-        error = 'That code is not right. Try again.';
+        error = wrong;
       });
       return;
     }
@@ -228,16 +251,21 @@ class _TkwOtpState extends State<TkwOtp> {
           child: TextButton(
             onPressed: wait > 0
                 ? null
-                : () {
+                : () async {
                     code.clear();
                     _startTimer();
+                    final failed = Tk2Cloud.on ? await Tk2Cloud.sendCode(widget.destination) : null;
+                    if (!context.mounted) return;
+                    if (failed != null) return setState(() => error = failed);
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, content: Text('New code sent')));
                   },
             child: Text(wait > 0 ? 'Send again in 0:${wait.toString().padLeft(2, '0')}' : 'Send code again'),
           ),
         ),
-        const SizedBox(height: 8),
-        const OnbBanner('Demo build: the code is 123456. Real SMS and WhatsApp codes come with the backend.', kind: 'wait', icon: Icons.science_outlined),
+        if (!Tk2Cloud.on) ...[
+          const SizedBox(height: 8),
+          const OnbBanner('Demo build: the code is 123456. Real SMS and WhatsApp codes come with the backend.', kind: 'wait', icon: Icons.science_outlined),
+        ],
       ],
     ),
   );

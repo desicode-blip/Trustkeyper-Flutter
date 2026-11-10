@@ -57,5 +57,5 @@ class Tk2AccountGateway implements AccountGateway {
   }
 
   @override
-  Future<void> logout() => store.setBroker('', '');
+  Future<void> logout() => store.sync != null ? store.signOut() : store.setBroker('', '');
 }

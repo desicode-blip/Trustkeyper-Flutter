@@ -40,22 +40,14 @@ Flutter project and reuses the house screens, colours and buttons.
 booked → fee **held** → visit done with the right code → **released** to the broker
 booked → cancelled / did not come → **refunded** to the customer
 
-## What is pretend in this build (backend work)
+## Backend
 
-| Now (on the phone) | Needed for launch |
-| --- | --- |
-| All data in SharedPreferences key `tk2_store_v1` (`Tk2Store`) | Firestore: `brokers/{uid}`, `listings/{id}`, `visits/{id}`; broker login (phone OTP) |
-| Photos are local file paths | Upload to Firebase Storage, save URLs |
-| The share link page does not exist | Public web page at `trustkeyper.com/v/{id}` built from the Customer view screens (`tk2_customer.dart`) |
-| Payment sheet says "Test payment" | Razorpay test mode → order per visit; hold in our account (Route/escrow or manual payout) |
-| Visit code checked on the phone | Cloud Function `confirmVisit(visitId, code)` → mark released → payout to broker |
-| Cancel / did not come just change status | Cloud Function → Razorpay refund |
-| No notifications | WhatsApp/SMS to broker on new booking, reminder to both before the visit |
+Built and tested on the Firebase emulators. It is off in the demo build and on with
+`tk2_cloud.json`. What it covers, how to deploy it on staging, and what is still
+pending (payments, iOS packaging, automatic messages, documents, agreement): see
+**`docs/TRUSTKEEPER2-BACKEND.md`**.
 
-Methods to swap for backend calls: `Tk2Store.load`, `setBroker`, `saveProperty`,
-`saveListing`, `removeListing`, `bookVisit`, `confirmVisit`, `closeVisit`.
-
-Real money needs Aman's business/compliance sign-off first (see AGENTS.md).
+Real money needs Aman's sign-off first (see AGENTS.md).
 
 ## Installing on a phone as a separate app
 
