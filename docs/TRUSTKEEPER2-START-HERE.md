@@ -1,57 +1,93 @@
 # TrustKeeper 2 – start here (read first in every new chat)
 
-Last updated: 2 Nov 2026 · Branch: `staging` only (never `main`) · Last change: 66
+Last updated: 10 Nov 2026 · Branch: `staging` only (never `main`) · Last change: 92
 
 ## What it is
-A separate launch-fast broker app inside the same Flutter project. The broker adds properties, shares them in one tap, and customers book a visit by paying a fee (₹0–500). The fee is held and goes to the broker after the visit, or back to the customer if the visit doesn't happen.
-Entry: `apps/flutter_app/lib/main_tk2.dart` (no Firebase). Code: `apps/flutter_app/lib/src/tk2/`. Tests: `apps/flutter_app/test/tk2/tk2_test.dart`. Details and backend plan: `docs/TRUSTKEEPER2.md`. History: `docs/CHANGELOG-staging.md` (Changes 58–66).
+Three apps that work together:
+- **Broker:** mobile app. Entry `apps/flutter_app/lib/main_tk2.dart`, code in `lib/src/tk2/`.
+- **Tenant and house owner:** one web app, opened from WhatsApp links. Entry `lib/main_tk2_web.dart`, code in `lib/src/tkweb/`.
+
+What the broker does:
+- adds houses, either by hand or with "Send link to owner";
+- shares them in one tap;
+- tenants book a paid visit (₹0–500), with a 4-digit code that releases the fee to the broker.
+
+After a visit the tenant can block the house with a token. The steps after that (documents, agreement, sign, pay, keys) are screens only for now.
+
+Tests: `apps/flutter_app/test/tk2/tk2_test.dart` (33). History: `docs/CHANGELOG-staging.md`. Journeys: `docs/TRUSTKEEPER2-JOURNEYS.md`.
+
+## Backend (Change 92)
+- **Demo build** (default, what Aman tests on his phone): no Firebase; data stays on the device; OTP 123456.
+- **Backend build:** the same code with `--dart-define-from-file=tk2_cloud.json`. It uses Firebase staging (phone/email OTP, Firestore, Storage, function `tk2ConfirmVisit`). It is tested end to end on the emulators and **not deployed yet**.
+- Ajay's handoff, with deploy steps and what's pending (Razorpay, iOS flavor, automatic messages, documents, agreement): **`docs/TRUSTKEEPER2-BACKEND.md`**.
+- Owner/tenant demo web app: https://claude.ai/artifact/Szj2fK38ocoCABGHbTtxUt (private to Aman). It is rebuilt with `/home/claude/tools/rebuild.sh` and published in patch mode.
 
 ## Current state
-- Splash, welcome carousel, logo, login look, broker home, floating bottom bar (Home · Visits · Profile): main app screens reused as they are.
-- Add property = the main app's **Onboard property** journey (Send link to owner / Add manually), shared via `brokerPropertyRoutes()` in `lib/src/core/routing/app_router.dart`. Add manually → house details (no "Things in the house") → rent & details screen.
-- Home cards: **Design E and Design B are the finalists** (`lib/src/tk2/tk2_designs.dart`). A, C, D are hidden from home (code still there).
-  - E: left panel 2 BHK loudest → rent → maintenance; right: society name (else area), then the address without house numbers; facts in 2 columns with a light divider (left: sft, furnishing, who can rent; right: pets, available from, space for more). One outlined icon family.
-  - B: swipeable photos with 3 dots (house illustration placeholder); title "2.5 BHK · ₹30,000 incl. maintenance"; same address line as E; facts.
-- Property page: broker-only "Complete address and details" block with a green lock banner.
-- Visits tab: held / yours totals, visit done with the customer's 4-digit code, cancel / didn't come refunds.
-- All data is on the phone (SharedPreferences). Payments are test-only. The share link page isn't live yet.
+- Main app screens are reused as they are (splash, welcome, login, broker home, bottom bar, Onboard property, account and profile).
+- Home cards: **Design B** is final. E is hidden (light code kept).
+- Property list:
+  - sort and filter (2+ properties);
+  - a "Not active" section; deactivate with reasons, and a 10-month reminder in the bell.
+- Share sheet: Recent / Add new → WhatsApp / Text / Email ticks.
+- Owner invite sheet: WhatsApp / Text message / Copy link. Closing it sends nothing.
+- Token:
+  - the broker sets a usual amount at sign-up and in Profile;
+  - it is filled in per property, and each property can change it;
+  - the tenant pays that property's token.
+- Counters: tap the number to type it.
+- Visits: held / yours totals; the code check (server-side with the backend); cancel / did not come; gate pass.
 
 ## Product rules (don't break)
-1. Never show tenants the door number, full address, owner name/number, key status or private note: not in the card title, share message, customer page or booking. These live only in the broker-only block.
-2. Card heading = society name, else area. Never the broker's own label for the property.
-3. Visit fee: broker types ₹0–500. ₹0 = free visit, no payment step.
-4. "Things in the house" is asked later, during agreement drafting, not when adding a property.
-5. Reuse existing main-app screens and flows exactly. Change the look only where it's critically needed.
-6. When Aman asks to change one design or section, change only that one (or add it as a new variant). Don't touch the others.
-7. Simple words on screen (low-literacy users). No repeated steps.
+1. Never show tenants the door number, full address, owner name or number, key status or private note.
+   - This applies everywhere: card, share message, link and booking.
+   - With the backend, `tk2PublicPayload` and `publicOnly()` in `firestore.rules` must match. A test checks this.
+2. Card heading = society name, else area. Never the broker's own label.
+3. Visit fee ₹0–500. ₹0 = free visit.
+4. Reuse the main app's screens and flows exactly. Change only what Aman asks, only where he asks.
+5. Simple words on screen. No repeated steps.
 
-## How we work (to save credits)
-- **Batch.** Aman sends several changes in one message. Claude makes them all, then stops.
-- **Build only when Aman says "build".** Aman can also press ▶ in Xcode himself. Claude doesn't screenshot Xcode to confirm. The chime on the Mac means the build is done; Aman says if something failed.
-- **Ask one short question** when a request can be read two ways (e.g. "previous version"), before building.
-- **Design options:** make quick mockups first. Code only the option Aman picks.
-- **Checks:** `flutter analyze --no-pub` and only `test/tk2` (quiet output: pipe to `tail`). Full suite only before a release. It has 39 old failures that were there before TK2.
-- **Tests only for logic** (privacy, money, fee, address rules). Not for layout tweaks.
-- **One commit + one changelog entry per batch.** Short reply: what changed, in plain words.
-- Read only the part of a file you need. Don't print long logs.
-- Start a fresh chat per feature, and update this note at the end of each chat.
+## How we work
+- Batch the changes. One changelog entry and one commit per batch, pushed to `staging`.
+- Aman presses ▶ in Xcode himself. Claude only updates the code and the Mac, unless asked.
+- Ask one short question when a request can be read two ways.
+- Checks:
+  - `flutter analyze --no-pub` and `flutter test test/tk2`;
+  - with backend changes, also `npm --prefix functions test` and the rules tests on the emulators.
+- Tests only for logic.
+- Keep replies short and plain. Update this note at the end of each chat.
 
-## Claude's technical routine (per batch)
-1. Edit in `/home/claude/trustkeyper-flutter` (clone of `desicode-blip/Trustkeyper-Flutter`, branch `staging`). Flutter at `/tmp/flutter/bin` (`export PATH=/tmp/flutter/bin:$PATH CI=true`). Re-clone or install if the session is new.
-2. Analyze + `test/tk2`.
-3. Append the changelog entry (human text + "AGENT RECORD – Change N"). Commit with the session trailers, `git pull --rebase origin staging`, push. Another session pushes website changes.
-4. Copy the changed files to the Mac with `device_commit_files` (force) to `~/Documents/Trustkeyper-Flutter/...`, then verify with md5 via `device_bash` (`$HOME/mnt/Documents/Trustkeyper-Flutter`).
-5. Build only when asked: Xcode (click-only access) → Run.
+## Claude's technical routine
+1. Work in `/home/claude/trustkeyper-flutter` (clone of `desicode-blip/Trustkeyper-Flutter`, branch `staging`). Flutter is at `/tmp/flutter/bin` (`export PATH=/tmp/flutter/bin:$PATH CI=true`).
+2. Analyze and test. Append the changelog entry. Commit with the session trailers, `git pull --rebase origin staging`, push.
+3. Copy the changed files to the Mac:
+   - `device_commit_files` to `~/Documents/Trustkeyper-Flutter/...`;
+   - check md5 via `device_bash` (`$HOME/mnt/Trustkeyper-Flutter`).
+4. Emulator end-to-end:
+   - Firebase CLI: `npm i -g firebase-tools`;
+   - `firebase emulators:start --only auth,firestore,storage,functions --project demo-tk2`;
+   - build both apps for web with `TK2_EMULATOR_HOST=127.0.0.1` in the settings file;
+   - drive them with Playwright (Flutter semantics on).
 
 ## Mac build setup (local only, not in the repo)
-The Mac's iOS project is switched so TK2 installs as its own app, "TrustKeeper 2":
-- `ios/Flutter/Generated.xcconfig`: `FLUTTER_TARGET=lib/main_tk2.dart`
-- `ios/Runner.xcodeproj/project.pbxproj`: `PRODUCT_BUNDLE_IDENTIFIER = com.trustkeyper.tk2` and `CODE_SIGN_ENTITLEMENTS = ""` (no push/App Attest, so the team wildcard profile signs it)
-- `ios/Runner/Info.plist`: display name "TrustKeeper 2"
-- Originals backed up in `~/Documents/tk1-ios-backup/`. Restore them before building the main TrustKeyper app.
+In Xcode, open **File → Open Recent → "Runner.xcworkspace — flutter_app"**. The other Xcode workspaces on the Mac are WashKrew; check the window before pressing Run.
+
+The Mac's iOS project is switched locally so TK2 installs as its own app:
+- `Generated.xcconfig`: `FLUTTER_TARGET=lib/main_tk2.dart`
+- bundle id `com.trustkeyper.tk2`, no entitlements
+- display name "TrustKeeper 2"
+
+The originals are in `~/Documents/tk1-ios-backup/`.
 
 ## Open items
-- Pick between E and B. Then remove the rest.
-- Properties added via "Send link to owner" show in the Continue panel but not as property cards yet.
-- Real backend: login (OTP), Firestore, photo upload, public link page, Razorpay held fee / payout / refund, notifications (see `docs/TRUSTKEEPER2.md`). Real money needs Aman's sign-off.
-- Rent agreements are not in TK2 yet ("Make rent agreement" goes home).
+- Ajay: deploy the backend on staging (`docs/TRUSTKEEPER2-BACKEND.md` §5).
+- Pending before real launch:
+  - Razorpay (real money needs Aman's sign-off);
+  - a TK2 iOS flavor;
+  - automatic WhatsApp/SMS;
+  - owner and tenant document uploads;
+  - agreement and e-sign (Leegality);
+  - post-finalisation screens (Claude Doc "TrustKeyper: from finalised to moved in").
+- Unanswered:
+  - stamp paper: who pays;
+  - is the Leegality cost inside the ₹500?
+  - repairs: paid in the app, or deducted from rent?
