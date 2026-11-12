@@ -22,7 +22,11 @@ Tk2Deal deal() => Tk2Deal(
 
 void main() {
   final now = DateTime(2026, 11, 12, 10);
-  List<String> keys(Tk2Deal d, DealRole r, [DateTime? at]) => [for (final t in d.tasks(r, at ?? now)) t.key];
+  // Steps that hold the deal up (optional ones like "pay the fee early" left out).
+  List<String> keys(Tk2Deal d, DealRole r, [DateTime? at]) => [
+    for (final t in d.tasks(r, at ?? now))
+      if (!Tk2Deal.optional.contains(t.key)) t.key,
+  ];
 
   test('the ten stages run in order, each person only gets their own step', () {
     final d = deal();
@@ -33,7 +37,16 @@ void main() {
       if (seen.isEmpty || seen.last != at) seen.add(at);
       if (!DealRole.values.any((r) => d.demoDo(r, now))) break;
     }
-    expect(seen, [DealStage.token, DealStage.docs, DealStage.draft, DealStage.approval, DealStage.signing, DealStage.payment, DealStage.handover, DealStage.repairs]);
+    expect(seen, [
+      DealStage.token,
+      DealStage.docs,
+      DealStage.draft,
+      DealStage.approval,
+      DealStage.signing,
+      DealStage.payment,
+      DealStage.handover,
+      DealStage.repairs,
+    ]);
     // Society steps ran beside handover and repairs; the 7 days then end.
     expect(d.societyDone, isTrue);
     expect(d.stage(now.add(const Duration(days: 8))), DealStage.living);
@@ -98,6 +111,44 @@ void main() {
     expect(d.moveInTotal, 60000 + 30000 + 15000 + 250 - 15000);
   });
 
+  Tk2Deal signedDeal({int ownerBrokerage = 15000}) {
+    final d = Tk2Deal.fromJson({...deal().toJson(), 'ownerBrokerage': ownerBrokerage});
+    while (d.stage(now).index < DealStage.payment.index) {
+      DealRole.values.any((r) => d.demoDo(r, now));
+    }
+    return d;
+  }
+
+  test('owner pays the ₹250 early, or with the brokerage after signing; keys wait for both', () {
+    // Owner's documents are done; the tenant's are not.
+    final early = deal()
+      ..t['tokenPaid'] = true
+      ..o['docsAt'] = 1
+      ..b['docsOk'] = {'owner': true};
+    expect(early.tasks(DealRole.owner, now).map((t) => t.key), contains('feeEarly'));
+    expect(early.holders(now), isNot(contains(DealRole.owner)), reason: 'paying early is a choice, not a step');
+
+    final d = signedDeal();
+    expect(d.ownerDue, 15000 + 250);
+    expect(d.tasks(DealRole.owner, now).single.label, 'Pay ₹15,250 brokerage and agreement fee');
+    d.t['paid'] = true;
+    expect(d.stage(now), DealStage.payment, reason: 'keys wait for the owner too');
+    d.o.addAll({'feePaid': true, 'brokPaid': true});
+    expect(d.stage(now), DealStage.handover);
+
+    final paidEarly = signedDeal()..o['feePaid'] = true;
+    expect(paidEarly.ownerDue, 15000);
+    expect(paidEarly.tasks(DealRole.owner, now).single.label, 'Pay ₹15,000 brokerage');
+    expect(signedDeal(ownerBrokerage: 0).tasks(DealRole.owner, now).single.label, 'Pay ₹250 agreement fee');
+  });
+
+  test('society: told as soon as both have signed, beside payments and keys', () {
+    final d = signedDeal();
+    expect(d.stage(now), DealStage.payment);
+    expect(d.stageState(DealStage.society, now), 'now');
+    expect(keys(d, DealRole.broker), contains('playbook'));
+  });
+
   Tk2Deal handedOver() {
     final d = deal();
     while (d.stage(now).index < DealStage.repairs.index) {
@@ -109,7 +160,12 @@ void main() {
   test('handover: a later change counts only after owner and tenant both approve', () {
     final d = handedOver();
     expect(d.handover['keys'], 2);
-    d.b['edit'] = {'v': 1, 'text': 'Third key found', 'keys': 3, 'meters': const {'Electricity': '1024'}};
+    d.b['edit'] = {
+      'v': 1,
+      'text': 'Third key found',
+      'keys': 3,
+      'meters': const {'Electricity': '1024'},
+    };
     expect(keys(d, DealRole.tenant), contains('edit'));
     d.t['editOk'] = 1;
     expect(d.handover['keys'], 2);
@@ -150,7 +206,8 @@ void main() {
   });
 
   test('agreement text: the template fills from the terms, blanks stay visible', () {
-    final d = deal()..sendVersion({...deal().defaultTerms(now), 'address': 'Flat 10141, Tower 10, Prestige Highfield, Hyderabad'}, const [(name: 'Geyser', count: 3)]);
+    final d = deal()
+      ..sendVersion({...deal().defaultTerms(now), 'address': 'Flat 10141, Tower 10, Prestige Highfield, Hyderabad'}, const [(name: 'Geyser', count: 3)]);
     final text = Tk2Agreement.fill(File('assets/agreements/rent_leave_licence.md').readAsStringSync(), d, today: now);
     expect(text, contains('**Hari Rao**'));
     expect(text, contains('Rs. 30,000/-'));

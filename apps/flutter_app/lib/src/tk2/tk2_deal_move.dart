@@ -277,7 +277,7 @@ class _DealCheckState extends State<DealCheck> {
       if (ticks[e.key] != 'ok') ticks[e.key] = e.value.text.trim().isEmpty ? 'Problem' : e.value.text.trim();
     }
     if (!d.items.every((i) => ticks.containsKey(i.name)) || !keysOk) return setState(() => showError = true);
-    d.t.addAll({'items': ticks, 'keysOk': true});
+    d.t.addAll({'items': ticks, 'keysOk': true, 'keysAt': DateTime.now().millisecondsSinceEpoch});
     await widget.store.saveDeal(d, DealRole.tenant);
     if (mounted) Navigator.of(context).pop();
   }
@@ -754,7 +754,7 @@ class _DealRepairState extends State<DealRepair> {
                     intro: 'The broker got this fixed and paid for it. This pays them back the exact amount.',
                     lines: [(r.text, r.amount)],
                     onPaid: () {
-                      d.o['rep'] = _sub(d.o, 'rep')..[id] = {...r.answer, 'paid': true};
+                      d.o['rep'] = _sub(d.o, 'rep')..[id] = {...r.answer, 'paid': true, 'at': DateTime.now().millisecondsSinceEpoch};
                       return widget.store.saveDeal(d, DealRole.owner);
                     },
                   ),

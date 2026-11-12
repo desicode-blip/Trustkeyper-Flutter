@@ -23,7 +23,9 @@ void main() {
       final store = Tk2Store.forTest();
       await store.load();
       expect(store.shown.single.sample, isTrue);
-      final saved = await store.saveProperty(BrokerProperty(id: '', name: 'Villa 7', address: 'Kondapur', rooms: '3 BHK', floor: 1, totalFloors: 2, furnishing: 'Full', inventory: {}));
+      final saved = await store.saveProperty(
+        BrokerProperty(id: '', name: 'Villa 7', address: 'Kondapur', rooms: '3 BHK', floor: 1, totalFloors: 2, furnishing: 'Full', inventory: {}),
+      );
       expect(store.sampleJustRemoved, isTrue);
       expect(store.shown.single.id, saved.id);
       expect(store.shown.single.sample, isFalse);
@@ -52,7 +54,9 @@ void main() {
       final a = Tk2Store.forTest();
       await a.load();
       await a.setBroker('Suresh', '+91 9876543210');
-      await a.saveProperty(BrokerProperty(id: '', name: 'Flat 1', address: 'Gachibowli', rooms: '1 BHK', floor: 2, totalFloors: 5, furnishing: 'Empty', inventory: {}));
+      await a.saveProperty(
+        BrokerProperty(id: '', name: 'Flat 1', address: 'Gachibowli', rooms: '1 BHK', floor: 2, totalFloors: 5, furnishing: 'Empty', inventory: {}),
+      );
       final b = Tk2Store.forTest();
       await b.load();
       expect(b.brokerName, 'Suresh');
@@ -137,7 +141,9 @@ void main() {
     test('turn off: rented → remind 10 months after rent start; other → from today; on again clears', () async {
       final store = Tk2Store.forTest();
       await store.load();
-      final p = await store.saveProperty(BrokerProperty(id: '', name: 'Villa 7', address: 'Kondapur', rooms: '3 BHK', floor: 1, totalFloors: 2, furnishing: 'Full', inventory: {}));
+      final p = await store.saveProperty(
+        BrokerProperty(id: '', name: 'Villa 7', address: 'Kondapur', rooms: '3 BHK', floor: 1, totalFloors: 2, furnishing: 'Full', inventory: {}),
+      );
       final today = DateTime(2026, 11, 3);
       await store.deactivate(p.id, reason: 'Rented out by someone else', rentStart: DateTime(2026, 10, 1), now: today);
       expect(store.isActive(p.id), isFalse);
@@ -156,15 +162,23 @@ void main() {
     });
 
     test('sort and filter: BHK numbers, 4.5+, furnishing, active', () async {
-      expect([for (final r in ['1 RK', '1 BHK', '2.5 BHK', '4+ BHK']) tk2Bhk(r)], [0.5, 1, 2.5, 4.5]);
+      expect(
+        [
+          for (final r in ['1 RK', '1 BHK', '2.5 BHK', '4+ BHK']) tk2Bhk(r),
+        ],
+        [0.5, 1, 2.5, 4.5],
+      );
       final store = Tk2Store.forTest();
       await store.load();
       Future<Tk2Listing> add(String rooms, int rent, String furnishing) async {
-        final p = await store.saveProperty(BrokerProperty(id: '', name: rooms, address: 'Kondapur', rooms: rooms, floor: 1, totalFloors: 2, furnishing: furnishing, inventory: {}));
+        final p = await store.saveProperty(
+          BrokerProperty(id: '', name: rooms, address: 'Kondapur', rooms: rooms, floor: 1, totalFloors: 2, furnishing: furnishing, inventory: {}),
+        );
         final l = store.listing(p.id)!.copyWith(rent: rent);
         await store.putListing(l);
         return l;
       }
+
       final a = await add('1 BHK', 15000, 'Empty');
       final b = await add('2.5 BHK', 30000, 'Semi');
       final c = await add('4+ BHK', 90000, 'Full');
@@ -228,17 +242,21 @@ void main() {
       expect(doc['ph'], ['https://firebasestorage.googleapis.com/p.jpg']);
       // Same list as publicOnly() in firestore.rules: keep them in step.
       final rules = File('../../firestore.rules').readAsStringSync();
-      final allowed = RegExp(r"publicOnly\(\) \{\s*return request\.resource\.data\.keys\(\)\.hasOnly\(\[([^\]]+)\]\)")
-          .firstMatch(rules)!
-          .group(1)!
-          .split(',')
-          .map((k) => k.trim().replaceAll("'", ''))
-          .toSet();
+      final allowed = RegExp(
+        r"publicOnly\(\) \{\s*return request\.resource\.data\.keys\(\)\.hasOnly\(\[([^\]]+)\]\)",
+      ).firstMatch(rules)!.group(1)!.split(',').map((k) => k.trim().replaceAll("'", '')).toSet();
       expect(allowed.containsAll(doc.keys), isTrue, reason: '${doc.keys.toSet().difference(allowed)}');
     });
 
     test('owner-added house: owner name, number and keys fill the broker block; the broker\'s own entries win', () {
-      final answers = {'keys': 'Security', 'keyName': 'Ramu', 'keyPhone': '+91 90000 11111', 'keyNote': 'Ask at gate 2', 'ownerName': 'Lakshmi', 'ownerContact': '+91 90000 77777'};
+      final answers = {
+        'keys': 'Security',
+        'keyName': 'Ramu',
+        'keyPhone': '+91 90000 11111',
+        'keyNote': 'Ask at gate 2',
+        'ownerName': 'Lakshmi',
+        'ownerContact': '+91 90000 77777',
+      };
       final filled = tk2WithOwnerAnswers(Tk2Listing.example.copyWith(ownerName: '', ownerPhone: '', keys: '', note: ''), answers);
       expect(filled.ownerName, 'Lakshmi');
       expect(filled.ownerPhone, '+91 90000 77777');
@@ -254,7 +272,9 @@ void main() {
       await store.load();
       expect(store.defaultToken, 15000);
       await store.setDefaultToken(20000);
-      final p = await store.saveProperty(BrokerProperty(id: '', name: 'A', address: 'Flat 1, Madhapur', rooms: '2 BHK', floor: 1, totalFloors: 2, furnishing: 'Empty', inventory: {}));
+      final p = await store.saveProperty(
+        BrokerProperty(id: '', name: 'A', address: 'Flat 1, Madhapur', rooms: '2 BHK', floor: 1, totalFloors: 2, furnishing: 'Empty', inventory: {}),
+      );
       final l = store.listing(p.id)!;
       expect(l.token, 20000);
       await store.saveListing(l.copyWith(token: 25000));
@@ -299,7 +319,21 @@ void main() {
     test('address parts: flat stays private, society and area are shown', () async {
       final store = Tk2Store.forTest();
       await store.load();
-      final saved = await store.saveProperty(BrokerProperty(id: '', name: 'Mine', address: 'Flat 9B, Green Park, Kondapur, Hyderabad', flat: 'Flat 9B', society: 'Green Park', area: 'Kondapur', city: 'Hyderabad', rooms: '2 BHK', floor: 2, totalFloors: 5, furnishing: 'Semi'));
+      final saved = await store.saveProperty(
+        BrokerProperty(
+          id: '',
+          name: 'Mine',
+          address: 'Flat 9B, Green Park, Kondapur, Hyderabad',
+          flat: 'Flat 9B',
+          society: 'Green Park',
+          area: 'Kondapur',
+          city: 'Hyderabad',
+          rooms: '2 BHK',
+          floor: 2,
+          totalFloors: 5,
+          furnishing: 'Semi',
+        ),
+      );
       final l = store.listing(saved.id)!;
       expect(l.door, 'Flat 9B');
       expect(l.society, 'Green Park');
@@ -362,21 +396,46 @@ void main() {
     });
 
     test('card heading is never empty (old properties without society)', () {
-      final old = Tk2Listing(id: 'x', property: BrokerProperty(id: 'x', name: 'Green Villa', address: '', rooms: '2.5 BHK', floor: 1, totalFloors: 2, furnishing: 'Semi'));
+      final old = Tk2Listing(
+        id: 'x',
+        property: BrokerProperty(id: 'x', name: 'Green Villa', address: '', rooms: '2.5 BHK', floor: 1, totalFloors: 2, furnishing: 'Semi'),
+      );
       // Never the broker's own label ("Green Villa"); falls back to rooms.
       expect(tk2CardHeading(old), '2.5 BHK property');
       expect(tk2CardHeading(old.copyWith(locality: 'Kondapur, Hyderabad')), 'Kondapur');
       expect(tk2CardHeading(old.copyWith(society: 'My Home Avatar', locality: 'Kondapur')), 'My Home Avatar');
-      final bare = Tk2Listing(id: 'y', property: BrokerProperty(id: 'y', address: '', rooms: '1 BHK', floor: 0, totalFloors: 0, furnishing: 'Empty'));
+      final bare = Tk2Listing(
+        id: 'y',
+        property: BrokerProperty(id: 'y', address: '', rooms: '1 BHK', floor: 0, totalFloors: 0, furnishing: 'Empty'),
+      );
       expect(tk2CardHeading(bare), '1 BHK property');
     });
 
     test('public address drops house numbers', () {
-      final l = Tk2Listing(id: 'z', property: BrokerProperty(id: 'z', name: 'VIVID', address: 'Flat 1203, 12th floor, Vivid Heights, Kondapur, Hyderabad', rooms: '3 BHK', floor: 12, totalFloors: 20, furnishing: 'Full'));
+      final l = Tk2Listing(
+        id: 'z',
+        property: BrokerProperty(
+          id: 'z',
+          name: 'VIVID',
+          address: 'Flat 1203, 12th floor, Vivid Heights, Kondapur, Hyderabad',
+          rooms: '3 BHK',
+          floor: 12,
+          totalFloors: 20,
+          furnishing: 'Full',
+        ),
+      );
       expect(tk2PublicAddress(l), 'Vivid Heights, Kondapur, Hyderabad');
       expect(tk2CardHeading(l), 'Kondapur');
       expect(tk2CardHeading(l.copyWith(society: 'Vivid Heights')), 'Vivid Heights');
-      expect(tk2PublicAddress(Tk2Listing(id: 'h', property: BrokerProperty(id: 'h', address: 'H.No 5-6-7, Road 3, Jubilee Hills', rooms: '2 BHK', floor: 0, totalFloors: 1, furnishing: 'Semi'))), 'Jubilee Hills');
+      expect(
+        tk2PublicAddress(
+          Tk2Listing(
+            id: 'h',
+            property: BrokerProperty(id: 'h', address: 'H.No 5-6-7, Road 3, Jubilee Hills', rooms: '2 BHK', floor: 0, totalFloors: 1, furnishing: 'Semi'),
+          ),
+        ),
+        'Jubilee Hills',
+      );
     });
 
     test('money in Indian style', () {
@@ -387,7 +446,7 @@ void main() {
   });
 
   testWidgets('welcome → example home → customer books → broker gets paid', (tester) async {
-    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.physicalSize = const Size(1800, 2532); // test font is wider than Roboto (4 tabs)
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     final store = Tk2Store.forTest();
@@ -464,7 +523,7 @@ void main() {
   });
 
   testWidgets('login keeps name and number, then opens home', (tester) async {
-    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.physicalSize = const Size(1800, 2532); // test font is wider than Roboto (4 tabs)
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     final store = Tk2Store.forTest();

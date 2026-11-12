@@ -69,11 +69,25 @@ Future<void> openDealTask(
       },
     ),
     'fee' => DealPay(
+      title: 'Pay before the keys',
+      intro: 'One payment. The keys are handed over to the tenant after this.',
+      lines: [
+        if (d.o['brokPaid'] != true && d.ownerBrokerage > 0) ('Brokerage', d.ownerBrokerage),
+        if (d.o['feePaid'] != true) ('Agreement fee · your half', Tk2Deal.feeShare),
+      ],
+      onPaid: () {
+        final at = DateTime.now().millisecondsSinceEpoch;
+        if (d.o['feePaid'] != true) d.o.addAll({'feePaid': true, 'feeAt': at});
+        d.o.addAll({'brokPaid': true, 'paidAt': at});
+        return save(DealRole.owner);
+      },
+    ),
+    'feeEarly' => DealPay(
       title: 'Agreement fee',
       intro: 'The rent agreement costs ${Tk2Store.money(Tk2Deal.agreementFee)}: stamp paper, drafting and e-sign. You and the tenant pay half each.',
       lines: const [('Agreement fee · your half', Tk2Deal.feeShare)],
       onPaid: () {
-        d.o['feePaid'] = true;
+        d.o.addAll({'feePaid': true, 'feeAt': DateTime.now().millisecondsSinceEpoch});
         return save(DealRole.owner);
       },
     ),
@@ -1009,7 +1023,7 @@ class _DealSignState extends State<DealSign> {
 
   Future<void> _sign() async {
     if (name.text.trim().length < 3) return setState(() => error = 'Type your full name to sign');
-    widget.deal.part(widget.role)['signed'] = name.text.trim();
+    widget.deal.part(widget.role).addAll({'signed': name.text.trim(), 'signedAt': DateTime.now().millisecondsSinceEpoch});
     await widget.store.saveDeal(widget.deal, widget.role);
     if (mounted) Navigator.of(context).pop();
   }

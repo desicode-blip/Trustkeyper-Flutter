@@ -1,6 +1,6 @@
 # TrustKeeper 2 – backend handoff (for Ajay)
 
-Updated: 12 Nov 2026 · Branch: `staging` · Code: Change 93 · Firebase project: **trustkeyper-app-staging only**
+Updated: 12 Nov 2026 · Branch: `staging` · Code: Change 94 · Firebase project: **trustkeyper-app-staging only**
 
 Read this first. It says what TrustKeeper 2 (TK2) is, what is already built and
 tested, and the few steps left for you to make it live on staging. Nothing here
@@ -224,8 +224,9 @@ Next:
 Everything after a tenant picks a house is one **deal**, shared by all three apps.
 The ten stages: token → documents → agreement draft → changes and approval → stamp
 paper and signing → payments → key handover → 7-day repairs → society move-in →
-living there. The product description is the Claude Doc "TrustKeyper: from finalised
-to moved in".
+living there. **What each stage does and every product decision live only in the
+Claude Doc "TrustKeyper: from finalised to moved in"
+(https://claude.ai/artifact/BXGQJ9RPdwzHVAcaECvba8).** This section covers the code.
 
 | File | What it does |
 | --- | --- |
@@ -260,7 +261,8 @@ rules tests in `functions/rules-test/tk2.test.mjs` (8 in all).
 
 Still test-only or pending in the deal:
 
-1. **All deal payments** (token, move-in, owner's ₹250, repairs) are test payments.
+1. **All deal payments** (token, tenant's move-in, owner's brokerage + ₹250 or the ₹250
+   alone, repairs) are test payments.
    Razorpay: one order per payment; token refund/split on a broken deal
    (`Tk2Deal.tokenSplit`); payout of repair costs to the broker.
 2. **E-sign:** signing is a typed name. Connect Leegality (decision: Leegality); keep
@@ -270,13 +272,28 @@ Still test-only or pending in the deal:
    that only the deal's broker can use, with the fixed template and a rate limit.
 4. **Messages:** the broker's "Remind" opens WhatsApp/SMS by hand. Automatic reminders
    and "owner is told when the house is blocked" need the messaging provider.
-5. **Rules are by part, not by field.** A tenant can write any key inside `t` (for
+5. **Owner's brokerage** is a top-level field of the deal doc (`ownerBrokerage`), so the
+   tenant could read it from Firestore (the app never shows it to them). If that matters,
+   move it to a broker/owner-only sub-doc.
+6. **Rules are by part, not by field.** A tenant can write any key inside `t` (for
    example `paid: true`). Once Razorpay is in, payment flags must be written by the
    server only (move them out of `t`/`o` or check them in a function).
-6. **The agreement template** was made from one signed TrustKeyper agreement. Have a
+7. **The agreement template** was made from one signed TrustKeyper agreement. Have a
    lawyer review `rent_leave_licence.md` before real use. Aadhaar/PAN numbers are not
    printed in it yet.
-7. **PDF** of the signed agreement is not generated.
+8. **PDF** of the signed agreement is not generated.
+
+### Payments tab and notifications (broker app, Change 94)
+
+- `lib/src/tk2/tk2_money.dart`: `tk2Ledger` builds every payment from visits and deals
+  (nothing new is stored); `Tk2Payments` is the tab, `Tk2TxnDetail` one payment.
+- `lib/src/tk2/tk2_notes.dart`: `tk2Notes` builds notifications from visits, deals and
+  listings; `Tk2Store.notesReadBefore / notesRead / notesMuted` are saved on the phone only.
+- For phone alerts later: a Cloud Function on `tk2Visits` / `tk2Deals` writes can send the
+  same events (the titles in `tk2Notes` are the copy). Respect the broker's turned-off kinds
+  (move `notesMuted` to `tk2Brokers` then).
+- Visit status changes keep `changedAt` on the phone; the backend does not store it yet, so
+  synced visits fall back to the visit time.
 
 ## 7. How to change things safely
 

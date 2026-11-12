@@ -274,48 +274,17 @@ class Tk2InactiveBanner extends StatelessWidget {
 }
 
 /// Bell: "check with the owner" reminders, then visits.
-Future<void> showTk2Updates(BuildContext context, Tk2Store store, {required VoidCallback onOpenVisits}) => showModalBottomSheet<void>(
+/// "This property might be available": turn it on, remind later, or call the owner.
+Future<void> showTk2Reminder(BuildContext context, Tk2Store store, Tk2Listing listing) => showModalBottomSheet<void>(
   context: context,
   isScrollControlled: true,
   showDragHandle: true,
   backgroundColor: Colors.white,
-  builder: (sheet) => ListenableBuilder(
-    listenable: store,
-    builder: (sheet, _) {
-      final due = store.remindersDue();
-      final upcoming = store.upcoming.length;
-      return SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Updates',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heading),
-              ),
-              const SizedBox(height: 14),
-              for (final l in due) _Reminder(store: store, listing: l),
-              Material(
-                color: AppColors.surfaceMuted,
-                borderRadius: BorderRadius.circular(16),
-                child: ListTile(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  leading: const Icon(Icons.event_available_outlined, color: AppColors.primaryDark),
-                  title: Text(upcoming == 0 ? 'No visits coming up' : '$upcoming visit${upcoming == 1 ? '' : 's'} coming up'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.pop(sheet);
-                    onOpenVisits();
-                  },
-                ),
-              ),
-              if (due.isEmpty) ...[const SizedBox(height: 12), const Text('Nothing else for now.', style: TextStyle(fontSize: 14.5, color: AppColors.muted))],
-            ],
-          ),
-        ),
-      );
-    },
+  builder: (sheet) => SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+      child: _Reminder(store: store, listing: listing),
+    ),
   ),
 );
 
@@ -359,7 +328,13 @@ class _Reminder extends StatelessWidget {
                 },
                 child: const Text('It is available'),
               ),
-              OutlinedButton(onPressed: () => store.remindLater(listing.id), child: const Text('Still not free · remind later')),
+              OutlinedButton(
+                onPressed: () {
+                  store.remindLater(listing.id);
+                  Navigator.pop(context);
+                },
+                child: const Text('Still not free · remind later'),
+              ),
               if (listing.ownerPhone.isNotEmpty)
                 TextButton.icon(
                   onPressed: () => launchUrl(Uri.parse('tel:${listing.ownerPhone.replaceAll(' ', '')}')).then((_) {}, onError: (_) {}),

@@ -112,6 +112,9 @@ class Tk2Sync {
   /// Houses an owner added from an invite (kept on every later save).
   final _addedBy = <String, ({String ownerUid, String? inviteId})>{};
 
+  /// The house owner filled this listing in from the broker's invite link.
+  bool addedByOwner(String listingId) => _addedBy.containsKey(listingId);
+
   /// Saves one listing: photos first, then the public and private documents.
   void listing(String id) {
     final l = store.listing(id);

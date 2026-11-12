@@ -42,6 +42,7 @@ class Tk2Deal {
     required this.deposit,
     required this.createdAt,
     this.brokerage = 0,
+    this.ownerBrokerage = 0,
     this.maintenance = 0,
     this.brokerUid = '',
     this.tenantUid = '',
@@ -68,8 +69,9 @@ class Tk2Deal {
   final String brokerUid, tenantUid;
   String? ownerUid;
 
-  /// Money fixed when the house was blocked. [maintenance] is per month, 0 when included in rent.
-  final int token, rent, deposit, brokerage, maintenance;
+  /// Money fixed when the house was blocked. [brokerage] is the tenant's,
+  /// [ownerBrokerage] the owner's. [maintenance] is per month, 0 when included in rent.
+  final int token, rent, deposit, brokerage, ownerBrokerage, maintenance;
   final int createdAt;
 
   /// Broker's, tenant's and owner's parts.
@@ -78,6 +80,9 @@ class Tk2Deal {
   static const agreementFee = 500;
   static const feeShare = agreementFee ~/ 2;
   static const repairDays = 7;
+
+  /// Tasks that never hold the deal up (the person may do them, or not).
+  static const optional = {'raise', 'feeEarly'};
 
   Map<String, dynamic> part(DealRole r) => switch (r) {
     DealRole.broker => b,
@@ -157,10 +162,51 @@ class Tk2Deal {
   /// half the agreement fee, minus the token already paid.
   int get moveInTotal => deposit + rent + maintenance + brokerage + feeShare - token;
 
+  /// What the owner still has to pay before the keys: their half of the
+  /// agreement fee (unless paid early) and their brokerage.
+  int get ownerDue => (o['feePaid'] == true ? 0 : feeShare) + (o['brokPaid'] == true ? 0 : ownerBrokerage);
+
+  /// "brokerage and agreement fee" / "brokerage" / "agreement fee", for what the owner still owes.
+  String ownerFeeWhat() {
+    final fee = o['feePaid'] != true, brok = o['brokPaid'] != true && ownerBrokerage > 0;
+    return fee && brok ? 'brokerage and agreement fee' : (brok ? 'brokerage' : 'agreement fee');
+  }
+
   /// Token when the deal breaks before signing: owner backs out → all of it
   /// back to the tenant; tenant backs out → half to the owner, half to the broker.
   static ({int tenant, int owner, int broker}) tokenSplit(int token, String endedBy) =>
       endedBy == 'owner' ? (tenant: token, owner: 0, broker: 0) : (tenant: 0, owner: token ~/ 2, broker: token - token ~/ 2);
+
+  /// When both had signed (ms), 0 if not yet.
+  int get signedAt {
+    if (!signed(DealRole.tenant) || !signed(DealRole.owner)) return 0;
+    final a = t['signedAt'] as int? ?? 0, b = o['signedAt'] as int? ?? 0;
+    return a > b ? a : b;
+  }
+
+  /// The newest time anything in the deal happened (ms), for notifications.
+  int get lastAt {
+    var last = createdAt;
+    void scan(Object? v) {
+      if (v is Map) {
+        for (final e in v.entries) {
+          final k = '${e.key}', v = e.value;
+          if (v is int && (k.endsWith('At') || k == 'at' || k == 'done')) {
+            if (v > last) last = v;
+          } else {
+            scan(e.value);
+          }
+        }
+      } else if (v is List) {
+        v.forEach(scan);
+      }
+    }
+
+    scan(b);
+    scan(t);
+    scan(o);
+    return last;
+  }
 
   // -------------------------------------------------------------- repairs
 
@@ -208,7 +254,7 @@ class Tk2Deal {
 
   // ---------------------------------------------------------------- stage
 
-  bool _paid() => t['paid'] == true && o['feePaid'] == true;
+  bool _paid() => t['paid'] == true && ownerDue == 0;
   bool get handedOver => handoverAt > 0 && itemsChecked && t['keysOk'] == true;
 
   /// Where the deal stands (the first stage not finished yet).
@@ -225,11 +271,11 @@ class Tk2Deal {
     return DealStage.living;
   }
 
-  /// done · now · later, for the tracker. Society runs beside handover and
-  /// repairs: it opens as soon as everything is paid.
+  /// done · now · later, for the tracker. Society runs beside payments,
+  /// handover and repairs: the society is told as soon as both have signed.
   String stageState(DealStage s, DateTime now) {
     final at = stage(now);
-    if (s == DealStage.society && at.index >= DealStage.handover.index) return societyDone ? 'done' : 'now';
+    if (s == DealStage.society && at.index >= DealStage.payment.index) return societyDone ? 'done' : 'now';
     if (s == DealStage.repairs && at == DealStage.society) return 'done';
     return s.index < at.index ? 'done' : (s == at ? 'now' : 'later');
   }
@@ -261,12 +307,16 @@ class Tk2Deal {
         if (!isBroker && hasStamp && !signed(r)) add('sign', 'Sign the agreement');
       case DealStage.payment:
         if (isTenant && t['paid'] != true) add('pay', 'Pay ${Tk2Store.money(moveInTotal)} to move in');
-        if (isOwner && o['feePaid'] != true) add('fee', 'Pay ${Tk2Store.money(feeShare)} agreement fee');
+        if (isOwner && ownerDue > 0) add('fee', 'Pay ${Tk2Store.money(ownerDue)} ${ownerFeeWhat()}');
       case DealStage.handover:
         if (isBroker && handoverAt == 0) add('handover', 'Hand over the keys');
         if (isTenant && handoverAt > 0) add('check', 'Check the house and keys');
       case DealStage.repairs || DealStage.society || DealStage.living:
         break;
+    }
+    // The owner may pay their half of the agreement fee any time before signing.
+    if (isOwner && o['feePaid'] != true && at.index > DealStage.token.index && at.index < DealStage.payment.index) {
+      add('feeEarly', 'Pay the ${Tk2Store.money(feeShare)} agreement fee now', DealStage.payment);
     }
     if (handoverAt > 0) {
       if (!isBroker && !editOk(r)) add('edit', 'Approve a change to the handover', DealStage.handover);
@@ -276,7 +326,7 @@ class Tk2Deal {
       }
       if (isTenant && handedOver && repairWindowOpen(now)) add('raise', 'Report something broken', DealStage.repairs);
     }
-    if (at.index >= DealStage.handover.index && !societyDone) {
+    if (at.index >= DealStage.payment.index && !societyDone) {
       if (societySteps.isEmpty) {
         if (isBroker) add('playbook', 'Set the society steps', DealStage.society);
       } else {
@@ -291,7 +341,7 @@ class Tk2Deal {
   /// "Waiting for …" lines and the broker's nudge buttons.
   List<DealRole> holders(DateTime now) => [
     for (final r in DealRole.values)
-      if (tasks(r, now).any((x) => x.key != 'raise')) r,
+      if (tasks(r, now).any((x) => !optional.contains(x.key))) r,
   ];
 
   // ------------------------------------------------------------ demo help
@@ -299,7 +349,7 @@ class Tk2Deal {
   /// Demo build only (no backend): does [r]'s next step with sample answers,
   /// so one phone can walk the whole journey. Returns false when [r] has nothing to do.
   bool demoDo(DealRole r, DateTime now) {
-    final todo = tasks(r, now).where((x) => x.key != 'raise').firstOrNull;
+    final todo = tasks(r, now).where((x) => !optional.contains(x.key)).firstOrNull;
     if (todo == null) return false;
     final me = part(r), ms = now.millisecondsSinceEpoch;
     final id = todo.key.contains(':') ? todo.key.split(':').last : '';
@@ -317,11 +367,11 @@ class Tk2Deal {
       case 'stamp':
         b['stamp'] = 'demo';
       case 'sign':
-        me['signed'] = nameOf(r);
+        me.addAll({'signed': nameOf(r), 'signedAt': ms});
       case 'pay':
         t.addAll({'paid': true, 'paidAt': ms});
       case 'fee':
-        o['feePaid'] = true;
+        o.addAll({'feePaid': true, 'brokPaid': true, 'paidAt': ms});
       case 'handover':
         b['handover'] = {
           'photos': const <String>[],
@@ -335,6 +385,7 @@ class Tk2Deal {
         t.addAll({
           'items': {for (final i in items) i.name: 'ok'},
           'keysOk': true,
+          'keysAt': ms,
         });
       case 'edit':
         me['editOk'] = edit!['v'];
@@ -345,7 +396,7 @@ class Tk2Deal {
       case 'fixed':
         b['quotes'] = _map(b, 'quotes')..[id] = {..._map(_map(b, 'quotes'), id), 'done': ms, 'photo': 'demo', 'amount': 650};
       case 'payrepair':
-        o['rep'] = _map(o, 'rep')..[id] = {..._map(_map(o, 'rep'), id), 'paid': true};
+        o['rep'] = _map(o, 'rep')..[id] = {..._map(_map(o, 'rep'), id), 'paid': true, 'at': ms};
       case 'playbook':
         b['soc'] = {'name': 'Sample society', 'steps': Tk2SocietyStep.starter};
       case 'soc':
@@ -447,6 +498,7 @@ class Tk2Deal {
     'rent': rent,
     'deposit': deposit,
     'brokerage': brokerage,
+    'ownerBrokerage': ownerBrokerage,
     'maintenance': maintenance,
     'createdAt': createdAt,
     'b': b,
@@ -475,6 +527,7 @@ class Tk2Deal {
       rent: n('rent'),
       deposit: n('deposit'),
       brokerage: n('brokerage'),
+      ownerBrokerage: n('ownerBrokerage'),
       maintenance: n('maintenance'),
       createdAt: n('createdAt'),
       b: m('b'),
@@ -505,6 +558,7 @@ class Tk2Repair {
   bool get approved => answer['ok'] == true;
   bool get fixed => (quote['done'] as int? ?? 0) > 0;
   bool get paid => answer['paid'] == true;
+  int get paidAt => answer['at'] as int? ?? (quote['done'] as int? ?? at);
   int get amount => (quote['amount'] as num?)?.toInt() ?? 0;
   String get donePhoto => quote['photo'] as String? ?? '';
   String get range => '${Tk2Store.money((quote['min'] as num?)?.toInt() ?? 0)} – ${Tk2Store.money((quote['max'] as num?)?.toInt() ?? 0)}';

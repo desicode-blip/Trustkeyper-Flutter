@@ -38,7 +38,7 @@ class Tk2DealPage extends StatelessWidget {
       }
       final now = DateTime.now();
       final mine = d.tasks(role, now);
-      final main = mine.where((x) => x.key != 'raise').toList();
+      final main = mine.where((x) => !Tk2Deal.optional.contains(x.key)).toList();
       final others = d.holders(now).where((r) => r != role).toList();
       return OnbPage(
         title: d.title,
@@ -123,6 +123,16 @@ class Tk2DealPage extends StatelessWidget {
           title: 'Report something broken',
           subtitle: '${d.repairDaysLeft(now)} ${d.repairDaysLeft(now) == 1 ? 'day' : 'days'} left · the owner pays for old problems',
           onTap: () => openDealTask(context, store, d, role, 'raise'),
+        ),
+      ),
+    if (d.tasks(role, now).any((x) => x.key == 'feeEarly'))
+      Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: OnbRow(
+          icon: Icons.currency_rupee,
+          title: 'Pay the ${Tk2Store.money(Tk2Deal.feeShare)} agreement fee now',
+          subtitle: d.ownerBrokerage > 0 ? 'Or pay it with your brokerage after signing' : 'Or pay it after signing',
+          onTap: () => openDealTask(context, store, d, role, 'feeEarly'),
         ),
       ),
     // The broker can remind whoever is holding things up.
@@ -245,7 +255,7 @@ class _StageRow extends StatelessWidget {
     if (state == 'later') return '';
     final who = [
       for (final r in DealRole.values)
-        if (deal.tasks(r, now).any((x) => x.stage == stage && x.key != 'raise')) r == role ? 'you' : 'the ${Tk2Deal.who(r)}',
+        if (deal.tasks(r, now).any((x) => x.stage == stage && !Tk2Deal.optional.contains(x.key))) r == role ? 'you' : 'the ${Tk2Deal.who(r)}',
     ];
     if (stage == DealStage.repairs && who.isEmpty) return '${deal.repairDaysLeft(now)} days left';
     return who.isEmpty ? 'In progress' : 'Waiting for ${who.join(' and ')}';
@@ -318,7 +328,7 @@ class Tk2DealCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final mine = deal.tasks(role, now).where((x) => x.key != 'raise').toList();
+    final mine = deal.tasks(role, now).where((x) => !Tk2Deal.optional.contains(x.key)).toList();
     final others = deal.holders(now).where((r) => r != role).toList();
     final stage = deal.stage(now);
     return Padding(

@@ -464,6 +464,7 @@ class Tk2Visit {
     this.createdAt = 0,
     this.gatePass = '',
     this.customerUid = '',
+    this.changedAt = 0,
   });
 
   final String id;
@@ -486,6 +487,12 @@ class Tk2Visit {
 
   /// Backend: the customer's login, so a deal can be started for them.
   final String customerUid;
+
+  /// When the status last changed (ms); 0 = never (still booked, or older data).
+  final int changedAt;
+
+  /// When the visit ended (done, cancelled…), for payments and notifications.
+  int get endedAt => changedAt > 0 ? changedAt : (status == VisitStatus.done || status == VisitStatus.noShow ? at : createdAt);
 
   bool get upcoming => status == VisitStatus.booked;
 
@@ -531,9 +538,9 @@ class Tk2Visit {
     return !now.isBefore(t.subtract(codeWindow)) && !now.isAfter(t.add(codeWindow));
   }
 
-  Tk2Visit withStatus(String next) => _copy(status: next);
+  Tk2Visit withStatus(String next, {DateTime? now}) => _copy(status: next, changedAt: (now ?? DateTime.now()).millisecondsSinceEpoch);
 
-  Tk2Visit _copy({String? status, String? gatePass, String? code}) => Tk2Visit(
+  Tk2Visit _copy({String? status, String? gatePass, String? code, int? changedAt}) => Tk2Visit(
     id: id,
     listingId: listingId,
     customerName: customerName,
@@ -545,6 +552,7 @@ class Tk2Visit {
     createdAt: createdAt,
     gatePass: gatePass ?? this.gatePass,
     customerUid: customerUid,
+    changedAt: changedAt ?? this.changedAt,
   );
 
   Map<String, Object?> toJson() => {
@@ -559,6 +567,7 @@ class Tk2Visit {
     'createdAt': createdAt,
     'gatePass': gatePass,
     'customerUid': customerUid,
+    'changedAt': changedAt,
   };
 
   factory Tk2Visit.fromJson(Map<String, dynamic> json) => Tk2Visit(
@@ -573,6 +582,7 @@ class Tk2Visit {
     createdAt: (json['createdAt'] as num?)?.toInt() ?? 0,
     gatePass: json['gatePass'] as String? ?? '',
     customerUid: json['customerUid'] as String? ?? '',
+    changedAt: (json['changedAt'] as num?)?.toInt() ?? 0,
   );
 }
 
@@ -728,6 +738,13 @@ class Tk2Store extends ChangeNotifier {
             for (final v in (json['visits'] as List? ?? const []))
               if (v is Map) Tk2Visit.fromJson(Map<String, dynamic>.from(v)),
           ]);
+        notesReadBefore = (json['notesReadBefore'] as num?)?.toInt() ?? 0;
+        notesRead
+          ..clear()
+          ..addAll([for (final n in (json['notesRead'] as List? ?? const [])) '$n']);
+        notesMuted
+          ..clear()
+          ..addAll([for (final n in (json['notesMuted'] as List? ?? const [])) '$n']);
       } catch (_) {
         // A broken save starts fresh rather than crashing the app.
       }
@@ -753,6 +770,9 @@ class Tk2Store extends ChangeNotifier {
         'visits': [for (final v in _visits) v.toJson()],
         'deals': [for (final d in _deals) d.toJson()],
         'playbooks': playbooks,
+        'notesReadBefore': notesReadBefore,
+        'notesRead': notesRead.toList(),
+        'notesMuted': notesMuted.toList(),
       }),
     );
     notifyListeners();
@@ -774,7 +794,14 @@ class Tk2Store extends ChangeNotifier {
   /// Starts a deal for [tenant] on a house. Money is fixed here from the
   /// listing. [paid] = the tenant has just paid the token (web); the broker
   /// can also start one and the tenant pays from their link.
-  Future<Tk2Deal> startDeal(Tk2Listing l, {required String tenantName, required String tenantPhone, bool paid = false, String tenantUid = '', DateTime? now}) async {
+  Future<Tk2Deal> startDeal(
+    Tk2Listing l, {
+    required String tenantName,
+    required String tenantPhone,
+    bool paid = false,
+    String tenantUid = '',
+    DateTime? now,
+  }) async {
     final existing = dealFor(l.id);
     if (existing != null) return existing;
     final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
@@ -793,7 +820,8 @@ class Tk2Store extends ChangeNotifier {
       token: l.tokenOr(defaultToken),
       rent: l.rent,
       deposit: l.deposit,
-      brokerage: l.brokeragePayer == 'owner' ? 0 : l.brokerage,
+      brokerage: l.brokerage,
+      ownerBrokerage: l.ownerBrokerage,
       maintenance: l.maintenanceIncluded ? 0 : l.maintenance,
       createdAt: at,
       t: paid ? {'tokenPaid': true, 'tokenAt': at} : null,
@@ -849,8 +877,35 @@ class Tk2Store extends ChangeNotifier {
   /// The deal broke before signing. [by] = 'owner' or 'tenant'; the token
   /// follows [Tk2Deal.tokenSplit] and the house goes back on the market.
   Future<void> endDeal(Tk2Deal d, String by) {
-    d.b['ended'] = by;
+    d.b.addAll({'ended': by, 'endedAt': DateTime.now().millisecondsSinceEpoch});
     return saveDeal(d, DealRole.broker);
+  }
+
+  // ------------------------------------------------------- notifications
+
+  /// Everything up to this time (ms) is read ("Mark all as read").
+  int notesReadBefore = 0;
+
+  /// Single notifications opened since then.
+  final Set<String> notesRead = {};
+
+  /// Kinds the broker turned off (no badge, no phone alerts): visits · money · deals · houses.
+  final Set<String> notesMuted = {};
+
+  Future<void> readNote(String id) {
+    notesRead.add(id);
+    return _save();
+  }
+
+  Future<void> readAllNotes({DateTime? now}) {
+    notesReadBefore = (now ?? DateTime.now()).millisecondsSinceEpoch;
+    notesRead.clear();
+    return _save();
+  }
+
+  Future<void> muteNotes(String kind, {required bool off}) {
+    off ? notesMuted.add(kind) : notesMuted.remove(kind);
+    return _save();
   }
 
   /// Keeps a society's steps for the next tenant moving in there.
@@ -982,8 +1037,11 @@ class Tk2Store extends ChangeNotifier {
 
   /// Owner invite link for "Send link to owner" (saved as an invite when the
   /// backend is on).
-  String ownerLink(String houseName, String ownerName) =>
-      tk2OwnerLink(brokerName, houseName, inviteId: sync?.invite(houseName: houseName, ownerName: ownerName));
+  String ownerLink(String houseName, String ownerName) => tk2OwnerLink(
+    brokerName,
+    houseName,
+    inviteId: sync?.invite(houseName: houseName, ownerName: ownerName),
+  );
 
   static String _id(String prefix) => '$prefix${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${Random().nextInt(999)}';
 
@@ -1082,7 +1140,10 @@ class Tk2Store extends ChangeNotifier {
   /// Off-market properties whose 10 months are up (the "check with the owner" updates).
   List<Tk2Listing> remindersDue([DateTime? now]) {
     final t = now ?? DateTime.now();
-    return [for (final l in _listings) if (_inactive[l.id]?.due(t) ?? false) l];
+    return [
+      for (final l in _listings)
+        if (_inactive[l.id]?.due(t) ?? false) l,
+    ];
   }
 
   Future<void> removeListing(String id) async {
@@ -1168,7 +1229,7 @@ class Tk2Store extends ChangeNotifier {
     }
     if (at < 0 || _visits[at].code != code.trim()) return 'wrong';
     if (!_visits[at].codeWorks(now ?? DateTime.now())) return 'window';
-    _visits[at] = _visits[at].withStatus(VisitStatus.done);
+    _visits[at] = _visits[at].withStatus(VisitStatus.done, now: now);
     await _save();
     return null;
   }
@@ -1179,7 +1240,7 @@ class Tk2Store extends ChangeNotifier {
     final at = _visits.indexWhere((v) => v.id == visitId);
     if (at < 0 || !_visits[at].upcoming) return false;
     final inTime = _visits[at].inRefundWindow(now ?? DateTime.now());
-    _visits[at] = _visits[at].withStatus(inTime ? VisitStatus.customerCancelled : VisitStatus.customerCancelledLate);
+    _visits[at] = _visits[at].withStatus(inTime ? VisitStatus.customerCancelled : VisitStatus.customerCancelledLate, now: now);
     sync?.visitStatus(visitId, _visits[at].status);
     await _save();
     return true;

@@ -24,7 +24,8 @@ import 'tk2_designs.dart';
 import 'tk2_invite.dart';
 import 'tk2_token.dart';
 import 'tk2_listing.dart';
-import 'tk2_status.dart';
+import 'tk2_money.dart';
+import 'tk2_notes.dart';
 import 'tk2_store.dart';
 import 'tk2_visits.dart';
 
@@ -49,7 +50,8 @@ class _TrustKeeper2AppState extends State<TrustKeeper2App> {
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp.router(title: 'TrustKeeper 2', debugShowCheckedModeBanner: false, theme: AppTheme.light, routerConfig: router);
+  Widget build(BuildContext context) =>
+      MaterialApp.router(title: 'TrustKeeper 2', debugShowCheckedModeBanner: false, theme: AppTheme.light, routerConfig: router);
 }
 
 GoRouter buildTk2Router(Tk2Store store) => GoRouter(
@@ -74,7 +76,8 @@ GoRouter buildTk2Router(Tk2Store store) => GoRouter(
     ),
     GoRoute(
       path: '/login',
-      builder: (context, state) => Tk2Login(store: store, onBack: state.uri.queryParameters['from'] == 'onboarding' ? () => context.go('/onboarding?page=3') : null),
+      builder: (context, state) =>
+          Tk2Login(store: store, onBack: state.uri.queryParameters['from'] == 'onboarding' ? () => context.go('/onboarding?page=3') : null),
     ),
     GoRoute(
       path: '/home',
@@ -233,7 +236,7 @@ class _Tk2LoginState extends State<Tk2Login> {
   );
 }
 
-/// Main app's floating bottom bar: Home · Visits · Profile.
+/// Main app's floating bottom bar: Home · Visits · Payments · Profile.
 class Tk2Shell extends StatefulWidget {
   const Tk2Shell({required this.store, super.key});
   final Tk2Store store;
@@ -254,8 +257,15 @@ class _Tk2ShellState extends State<Tk2Shell> {
       builder: (context, _) {
         final profile = BrokerProfile(displayName: store.brokerName, email: '', phone: store.brokerPhone, approvalStatus: 'approved');
         final pages = [
-          Tk2Home(store: store, profile: profile, onOpenProfile: () => setState(() => tab = 2), onOpenVisits: () => setState(() => tab = 1)),
+          Tk2Home(
+            store: store,
+            profile: profile,
+            onOpenProfile: () => setState(() => tab = 3),
+            onOpenVisits: () => setState(() => tab = 1),
+            onOpenPayments: () => setState(() => tab = 2),
+          ),
           Tk2Visits(store: store, onShare: () => setState(() => tab = 0)),
+          Tk2Payments(store: store),
           // The main app's profile, as is: My details, Bank, Language, Help,
           // Log out and Delete account, backed by the phone's store.
           AccountProfilePanel(
@@ -289,8 +299,8 @@ class _Tk2ShellState extends State<Tk2Shell> {
           ),
           bottomNavigationBar: ApprovedBrokerNavigation(
             selectedIndex: tab,
-            labels: const ['Home', 'Visits', 'Profile'],
-            icons: const ['home', 'records', 'profile'],
+            labels: const ['Home', 'Visits', 'Payments', 'Profile'],
+            icons: const ['home', 'visits', 'payments', 'profile'],
             onSelected: (i) => setState(() => tab = i),
           ),
         );
@@ -302,11 +312,12 @@ class _Tk2ShellState extends State<Tk2Shell> {
 /// The main app's broker home, with "Add property" as the main action and
 /// the property list below it.
 class Tk2Home extends StatefulWidget {
-  const Tk2Home({required this.store, required this.profile, required this.onOpenProfile, required this.onOpenVisits, super.key});
+  const Tk2Home({required this.store, required this.profile, required this.onOpenProfile, required this.onOpenVisits, required this.onOpenPayments, super.key});
   final Tk2Store store;
   final BrokerProfile profile;
   final VoidCallback onOpenProfile;
   final VoidCallback onOpenVisits;
+  final VoidCallback onOpenPayments;
 
   @override
   State<Tk2Home> createState() => _Tk2HomeState();
@@ -336,6 +347,8 @@ class _Tk2HomeState extends State<Tk2Home> {
   Widget build(BuildContext context) {
     final store = widget.store;
     final upcoming = store.upcoming.length;
+    final unread = tk2UnreadNotes(store, DateTime.now());
+    final earned = tk2MoneyTotals(store, tk2Ledger(store), DateTime.now()).received;
     return ApprovedBrokerHome(
       profile: widget.profile,
       approvalPending: false,
@@ -344,11 +357,11 @@ class _Tk2HomeState extends State<Tk2Home> {
       // Onboarding in progress (owner link sent, papers, agreement) – same panel as the main app.
       savedDrafts: BrokerDraftSection(repository: _NoAgreementDrafts()),
       trailing: Badge(
-        isLabelVisible: upcoming + store.remindersDue().length > 0,
-        label: Text('${upcoming + store.remindersDue().length}'),
+        isLabelVisible: unread > 0,
+        label: Text(unread > 99 ? '99+' : '$unread'),
         child: IconButton(
-          tooltip: 'Updates',
-          onPressed: () => showTk2Updates(context, store, onOpenVisits: widget.onOpenVisits),
+          tooltip: 'Notifications',
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => Tk2Notifications(store: store))),
           icon: const Icon(Icons.notifications_none, color: AppColors.heading),
         ),
       ),
@@ -364,7 +377,7 @@ class _Tk2HomeState extends State<Tk2Home> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: HomeTile(icon: 'bank', label: 'Fees ${Tk2Store.money(store.releasedTotal)}', onPressed: widget.onOpenVisits),
+                child: HomeTile(icon: 'bank', label: 'Fees ${Tk2Store.money(earned)}', onPressed: widget.onOpenPayments),
               ),
             ],
           ),
@@ -383,7 +396,11 @@ class _Tk2HomeState extends State<Tk2Home> {
             Tk2DealCard(
               deal: d,
               role: DealRole.broker,
-              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => Tk2DealPage(store: store, dealId: d.id, role: DealRole.broker))),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => Tk2DealPage(store: store, dealId: d.id, role: DealRole.broker),
+                ),
+              ),
             ),
         ],
         const SizedBox(height: 28),

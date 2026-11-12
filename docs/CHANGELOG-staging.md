@@ -1533,3 +1533,22 @@ decisions (Aman, 12 Nov): stamp paper and Leegality cost inside the ₹500 fee; 
 verification: flutter analyze clean; test/tk2 41/41; tk2 rules 8/8; functions npm test; headless-browser walk of broker app (all ten stages) and tenant web (visit → token → agreement → sign → pay → check → repair)
 deploy: NOT deployed. Payments, e-sign, society email and automatic messages are test-only (BACKEND §8).
 ```
+
+## Change 94 – Payments tab, notifications, owner payment and society timing
+Date: 2026-11-12 · Status: on staging and Aman's Mac; Aman runs it on the phone; web app republished
+- **Bottom bar:** Home · Visits · Payments · Profile. Visits has a calendar-with-tick icon (`assets/design/nav-visits.svg`).
+- **Payments tab** (`tk2_money.dart`): total earned, this month, "Coming to you"; filters All / Received / On hold / Refunded; group by month, property or type. Every payment opens to amount, status, what it was for, where the money went, what happened and when, and a reference. Covers visit fees (held, yours, half, refunded, kept), token, move-in payment, owner payment, early agreement fee and repairs. The Fees card on Home opens it and shows the same total.
+- **Notifications** (`tk2_notes.dart`), laid out like WashKrew's: filters (Visits, Payments, Moving in, Properties), unread count, Mark all as read, Today / Earlier, unread dot. Covers bookings, visit in 2 hours, enter the code, no-show, cancellations, fees, brokerage, repairs, token, signing, keys, the deal off, moved in, "Your turn" steps, owner-added houses and the 10-month reminder. Gear: turn a kind off (no badge; phone alerts once the backend is on). Replaces the old "Updates" sheet.
+- **Owner payment (Aman, 12 Nov):** the owner pays ₹250 any time after the token ("Pay the ₹250 agreement fee now", optional), or with his brokerage after signing and before the keys. Keys wait for tenant and owner. The deal now keeps the owner's brokerage.
+- **Society (Aman, 12 Nov):** the society steps open the moment both have signed, beside payments, keys and repairs.
+- Visits keep when their status changed; deals keep sign, keys-checked, repair-paid and ended times, for payments and notifications.
+- The Claude Doc "TrustKeyper: from finalised to moved in" is now the one source for product decisions; the repo notes link to it.
+```
+AGENT RECORD – Change 94
+id: CHG-094
+date: 2026-11-12
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/{tk2_money,tk2_notes}.dart (new), apps/flutter_app/assets/design/nav-visits.svg (new), apps/flutter_app/lib/src/tk2/{tk2_app,tk2_deal,tk2_deal_page,tk2_deal_screens,tk2_deal_move,tk2_status,tk2_store,tk2_sync}.dart, apps/flutter_app/test/tk2/{tk2_money_test.dart (new),tk2_deal_test.dart,tk2_test.dart}, docs/{TRUSTKEEPER2-BACKEND,TRUSTKEEPER2-START-HERE,CHANGELOG-staging}.md
+verification: flutter analyze clean; test/tk2 46/46; headless-browser check of Payments, payment details, grouping and notifications
+deploy: NOT deployed. All payments are test payments.
+```

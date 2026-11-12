@@ -1,6 +1,6 @@
 # TrustKeeper 2 – start here (read first in every new chat)
 
-Last updated: 12 Nov 2026 · Branch: `staging` only (never `main`) · Last change: 93
+Last updated: 12 Nov 2026 · Branch: `staging` only (never `main`) · Last change: 94
 
 ## What it is
 Three apps that work together:
@@ -15,10 +15,10 @@ What the broker does:
 After a visit the tenant blocks the house with a token. From there one shared **deal** runs in all three apps (Change 93):
 token → documents → agreement → approval → stamp paper and signing → payments → key handover → 7-day repairs → society move-in → living there.
 - Model and rules: `lib/src/tk2/tk2_deal.dart`. Deal page: `tk2_deal_page.dart`. Screens: `tk2_deal_screens.dart`, `tk2_deal_move.dart`. Web host: `lib/src/tkweb/tkweb_deal.dart`.
-- Product description: Claude Doc "TrustKeyper: from finalised to moved in" (https://claude.ai/artifact/BXGQJ9RPdwzHVAcaECvba8).
+- **Product source of truth:** Claude Doc "TrustKeyper: from finalised to moved in" (https://claude.ai/artifact/BXGQJ9RPdwzHVAcaECvba8). Every product decision lives there only; this note and the backend handoff link to it instead of repeating it.
 - Demo build: "Demo: do the …'s step" buttons play the other people on one phone.
 
-Tests: `apps/flutter_app/test/tk2/` (41: `tk2_test.dart`, `tk2_deal_test.dart`). History: `docs/CHANGELOG-staging.md`. Journeys: `docs/TRUSTKEEPER2-JOURNEYS.md`.
+Tests: `apps/flutter_app/test/tk2/` (46: `tk2_test.dart`, `tk2_deal_test.dart`, `tk2_money_test.dart`). History: `docs/CHANGELOG-staging.md`. Journeys: `docs/TRUSTKEEPER2-JOURNEYS.md`.
 
 ## Backend (Change 92)
 - **Demo build** (default, what Aman tests on his phone): no Firebase; data stays on the device; OTP 123456.
@@ -39,6 +39,8 @@ Tests: `apps/flutter_app/test/tk2/` (41: `tk2_test.dart`, `tk2_deal_test.dart`).
   - it is filled in per property, and each property can change it;
   - the tenant pays that property's token.
 - Counters: tap the number to type it.
+- Bottom bar: Home · Visits · Payments · Profile. **Payments** (`tk2_money.dart`) lists every transaction; the Fees card on Home opens it.
+- **Notifications** (`tk2_notes.dart`): the bell opens one list, laid out like WashKrew's, worked out from visits, deals and properties; only read state and turned-off kinds are saved.
 - Visits: held / yours totals; the code check (server-side with the backend); cancel / did not come; gate pass.
 
 ## Product rules (don't break)
@@ -87,7 +89,4 @@ The originals are in `~/Documents/tk1-ios-backup/`.
 - Test-only until connected: Razorpay (all payments; real money needs Aman's sign-off), Leegality e-sign, society email from a TrustKeyper address, automatic WhatsApp/SMS, signed-agreement PDF.
 - The rent agreement template needs a lawyer's review.
 - A TK2 iOS flavor (today only Aman's Mac switch builds it).
-- To confirm with Aman:
-  - the owner's ₹250 must be paid before the keys (as built), or taken from the first payout?
-  - society steps open after payments, beside handover (as built), not after the 7 days.
-- Decided 12 Nov: stamp paper and e-sign cost are inside the ₹500 fee; the owner pays repairs in the app; three users only.
+- Product decisions (owner's ₹250, society timing, fees…): see the Claude Doc above.
