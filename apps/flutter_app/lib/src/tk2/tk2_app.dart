@@ -17,6 +17,8 @@ import '../features/broker/presentation/broker_property_screen.dart';
 import '../tkweb/tkweb_auth.dart';
 import 'tk2_cloud.dart';
 import 'tk2_customer.dart';
+import 'tk2_deal.dart';
+import 'tk2_deal_page.dart';
 import 'tk2_account.dart';
 import 'tk2_designs.dart';
 import 'tk2_invite.dart';
@@ -369,6 +371,21 @@ class _Tk2HomeState extends State<Tk2Home> {
         ],
       ),
       below: [
+        // Finalised houses: token paid (or asked for) → documents → agreement → keys.
+        if (store.deals.isNotEmpty) ...[
+          const SizedBox(height: 28),
+          const Text(
+            'Moving in',
+            style: TextStyle(fontSize: 18, height: 24 / 18, fontWeight: FontWeight.w600, color: AppColors.heading),
+          ),
+          const SizedBox(height: 10),
+          for (final d in store.deals.where((d) => d.ended == null || d == store.deals.first).take(5))
+            Tk2DealCard(
+              deal: d,
+              role: DealRole.broker,
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => Tk2DealPage(store: store, dealId: d.id, role: DealRole.broker))),
+            ),
+        ],
         const SizedBox(height: 28),
         Row(
           children: [

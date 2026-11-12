@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/broker/data/broker_property_repository.dart';
 import 'tk2_cloud.dart';
+import 'tk2_deal.dart';
 import 'tk2_link.dart';
 import 'tk2_sync.dart';
 
@@ -462,6 +463,7 @@ class Tk2Visit {
     this.status = VisitStatus.booked,
     this.createdAt = 0,
     this.gatePass = '',
+    this.customerUid = '',
   });
 
   final String id;
@@ -481,6 +483,9 @@ class Tk2Visit {
   /// Gate pass the broker uploaded (file path / URL). The backend sends it to
   /// the customer on WhatsApp. Empty = not added yet.
   final String gatePass;
+
+  /// Backend: the customer's login, so a deal can be started for them.
+  final String customerUid;
 
   bool get upcoming => status == VisitStatus.booked;
 
@@ -539,6 +544,7 @@ class Tk2Visit {
     status: status ?? this.status,
     createdAt: createdAt,
     gatePass: gatePass ?? this.gatePass,
+    customerUid: customerUid,
   );
 
   Map<String, Object?> toJson() => {
@@ -552,6 +558,7 @@ class Tk2Visit {
     'status': status,
     'createdAt': createdAt,
     'gatePass': gatePass,
+    'customerUid': customerUid,
   };
 
   factory Tk2Visit.fromJson(Map<String, dynamic> json) => Tk2Visit(
@@ -565,6 +572,7 @@ class Tk2Visit {
     status: json['status'] as String? ?? VisitStatus.booked,
     createdAt: (json['createdAt'] as num?)?.toInt() ?? 0,
     gatePass: json['gatePass'] as String? ?? '',
+    customerUid: json['customerUid'] as String? ?? '',
   );
 }
 
@@ -593,6 +601,9 @@ class Tk2Inactive {
     'Being sold or repaired',
     'Other reason',
   ];
+
+  /// Set by the app when a tenant pays the token (not in the broker's list of reasons).
+  static const blocked = 'Blocked with a token';
 
   static bool isRented(String reason) => reason.startsWith('Rented out');
 
@@ -702,6 +713,15 @@ class Tk2Store extends ChangeNotifier {
             for (final l in (json['listings'] as List? ?? const []))
               if (l is Map) Tk2Listing.fromJson(Map<String, dynamic>.from(l)),
           ]);
+        _deals
+          ..clear()
+          ..addAll([
+            for (final d in (json['deals'] as List? ?? const []))
+              if (d is Map) Tk2Deal.fromJson(Map<String, dynamic>.from(d)),
+          ]);
+        playbooks
+          ..clear()
+          ..addAll({for (final e in (json['playbooks'] as Map? ?? const {}).entries) e.key as String: List<dynamic>.from(e.value as List)});
         _visits
           ..clear()
           ..addAll([
@@ -731,9 +751,113 @@ class Tk2Store extends ChangeNotifier {
         'inactive': {for (final e in _inactive.entries) e.key: e.value.toJson()},
         'listings': [for (final l in _listings) l.toJson()],
         'visits': [for (final v in _visits) v.toJson()],
+        'deals': [for (final d in _deals) d.toJson()],
+        'playbooks': playbooks,
       }),
     );
     notifyListeners();
+  }
+
+  // ------------------------------------------------------------------ deals
+
+  final List<Tk2Deal> _deals = [];
+
+  /// Finalised houses (token onwards), newest first.
+  List<Tk2Deal> get deals => List.unmodifiable(_deals);
+  Tk2Deal? deal(String id) => _deals.where((d) => d.id == id).firstOrNull;
+  Tk2Deal? dealFor(String listingId) => _deals.where((d) => d.listingId == listingId && d.ended == null).firstOrNull;
+
+  /// Society move-in steps a broker has written, by society name (lower case).
+  /// Reused for every tenant moving into that society.
+  final Map<String, List<dynamic>> playbooks = {};
+
+  /// Starts a deal for [tenant] on a house. Money is fixed here from the
+  /// listing. [paid] = the tenant has just paid the token (web); the broker
+  /// can also start one and the tenant pays from their link.
+  Future<Tk2Deal> startDeal(Tk2Listing l, {required String tenantName, required String tenantPhone, bool paid = false, String tenantUid = '', DateTime? now}) async {
+    final existing = dealFor(l.id);
+    if (existing != null) return existing;
+    final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
+    final d = Tk2Deal(
+      id: tenantUid.isEmpty ? _id('d') : '${tenantUid}_${l.id}',
+      listingId: l.id,
+      title: l.publicTitle,
+      tenantName: tenantName.trim(),
+      tenantPhone: tenantPhone.trim(),
+      ownerName: l.ownerName,
+      ownerPhone: l.ownerPhone,
+      brokerName: brokerName,
+      brokerPhone: brokerPhone,
+      brokerUid: sync?.brokerUidFor(l.id) ?? '',
+      tenantUid: tenantUid,
+      token: l.tokenOr(defaultToken),
+      rent: l.rent,
+      deposit: l.deposit,
+      brokerage: l.brokeragePayer == 'owner' ? 0 : l.brokerage,
+      maintenance: l.maintenanceIncluded ? 0 : l.maintenance,
+      createdAt: at,
+      t: paid ? {'tokenPaid': true, 'tokenAt': at} : null,
+    );
+    _deals.insert(0, d);
+    await _save();
+    sync?.createDeal(d);
+    await _block(d);
+    return d;
+  }
+
+  /// A paid token takes the house off the market (shared links stop working);
+  /// a broken deal puts it back.
+  Future<void> _block(Tk2Deal d) async {
+    if (listing(d.listingId) == null || listing(d.listingId)!.sample) return;
+    final blocked = d.t['tokenPaid'] == true && d.ended == null;
+    if (blocked && isActive(d.listingId)) {
+      await deactivate(d.listingId, reason: Tk2Inactive.blocked, note: 'Token paid by ${d.tenantName}');
+    } else if (!blocked && inactive(d.listingId)?.reason == Tk2Inactive.blocked) {
+      await activate(d.listingId);
+    }
+  }
+
+  /// Saves what [role] just did on a deal (only that person's part is sent to the backend).
+  Future<void> saveDeal(Tk2Deal d, DealRole role) async {
+    if (!_deals.contains(d)) _deals.insert(0, d);
+    await _save();
+    sync?.dealPart(d, role);
+    if (role != DealRole.owner) await _block(d);
+  }
+
+  /// A deal opened from a link, or arriving from the backend.
+  Future<void> putDeal(Tk2Deal d) async {
+    _deals
+      ..removeWhere((x) => x.id == d.id)
+      ..insert(0, d);
+    await _save();
+  }
+
+  /// Backend → this device.
+  void applyDeals(List<Tk2Deal> deals, {bool block = false}) {
+    _deals
+      ..clear()
+      ..addAll(deals..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
+    _save();
+    if (block) {
+      for (final d in deals) {
+        _block(d);
+      }
+    }
+  }
+
+  /// The deal broke before signing. [by] = 'owner' or 'tenant'; the token
+  /// follows [Tk2Deal.tokenSplit] and the house goes back on the market.
+  Future<void> endDeal(Tk2Deal d, String by) {
+    d.b['ended'] = by;
+    return saveDeal(d, DealRole.broker);
+  }
+
+  /// Keeps a society's steps for the next tenant moving in there.
+  Future<void> savePlaybook(String society, List<dynamic> steps) {
+    playbooks[society.trim().toLowerCase()] = steps;
+    sync?.playbook(society.trim(), steps);
+    return _save();
   }
 
   /// Profile details for the main app's account screens (email, city, bank,
@@ -834,6 +958,8 @@ class Tk2Store extends ChangeNotifier {
     _contacts.clear();
     _listings.clear();
     _visits.clear();
+    _deals.clear();
+    playbooks.clear();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);
     notifyListeners();

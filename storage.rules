@@ -238,6 +238,22 @@ service firebase.storage {
       allow delete: if false;
     }
 
+    // Deal files (documents, stamp paper, handover photos and video, repairs):
+    // only the deal's broker, tenant and owner.
+    match /tk2/deals/{dealId}/{file} {
+      function deal() {
+        return firestore.get(/databases/(default)/documents/tk2Deals/$(dealId)).data;
+      }
+      function party() {
+        return request.auth.uid in [deal().brokerUid, deal().tenantUid, deal().get('ownerUid', '')];
+      }
+      allow read: if signedIn() && party();
+      allow create: if signedIn() && party() && request.resource.size > 0
+        && (request.resource.size <= 10 * 1024 * 1024 && request.resource.contentType.matches('image/(jpeg|png|webp|heic)|application/pdf')
+          || request.resource.size <= 200 * 1024 * 1024 && request.resource.contentType.matches('video/.*'));
+      allow update, delete: if false;
+    }
+
     // Owner and tenant documents (ID proof, ownership papers): private to the person.
     match /tk2/people/{uid}/{allPaths=**} {
       allow read: if signedIn() && request.auth.uid == uid;

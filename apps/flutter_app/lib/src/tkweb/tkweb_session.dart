@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../tk2/tk2_cloud.dart';
+import '../tk2/tk2_deal.dart';
 import '../tk2/tk2_store.dart';
 
 /// What the tenant/owner web app remembers in this browser. With the backend
@@ -26,6 +27,21 @@ class TkwSession extends ChangeNotifier {
   /// Owner answers (owners, papers, keys) per house id.
   final Map<String, Map<String, dynamic>> owners = {};
 
+  /// Demo build: which side of each deal this browser is on ('tenant' or
+  /// 'owner'), by deal id. With the backend the login decides.
+  final Map<String, String> roles = {};
+
+  /// This person's side of [d], or null when the deal is not theirs.
+  DealRole? roleIn(Tk2Deal d) {
+    final sync = Tk2Store.instance.sync;
+    if (sync != null) return sync.roleIn(d);
+    return switch (roles[d.id]) {
+      'owner' => DealRole.owner,
+      'tenant' => DealRole.tenant,
+      _ => null,
+    };
+  }
+
   Future<void> load() async {
     try {
       final raw = (await SharedPreferences.getInstance()).getString(_key);
@@ -39,6 +55,9 @@ class TkwSession extends ChangeNotifier {
       owners
         ..clear()
         ..addAll({for (final e in (j['owners'] as Map? ?? {}).entries) e.key as String: Map<String, dynamic>.from(e.value as Map)});
+      roles
+        ..clear()
+        ..addAll({for (final e in (j['roles'] as Map? ?? {}).entries) e.key as String: '${e.value}'});
     } catch (_) {
       // A broken save starts fresh.
     }
@@ -48,7 +67,7 @@ class TkwSession extends ChangeNotifier {
     notifyListeners();
     Tk2Store.instance.sync?.session(trips, owners, name: name, contact: contact);
     try {
-      await (await SharedPreferences.getInstance()).setString(_key, jsonEncode({'name': name, 'contact': contact, 'trips': trips, 'owners': owners}));
+      await (await SharedPreferences.getInstance()).setString(_key, jsonEncode({'name': name, 'contact': contact, 'trips': trips, 'owners': owners, 'roles': roles}));
     } catch (_) {}
   }
 
@@ -74,6 +93,7 @@ class TkwSession extends ChangeNotifier {
     contact = '';
     trips.clear();
     owners.clear();
+    roles.clear();
     await save();
   }
 }

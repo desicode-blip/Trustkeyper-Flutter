@@ -573,6 +573,7 @@ class _TkwOwnerDocsState extends State<TkwOwnerDocs> {
       });
     if (bad.isNotEmpty) return setState(() {});
     a['docsSent'] = true;
+    a['docsSentAt'] = DateTime.now().millisecondsSinceEpoch;
     TkwSession.instance.save();
     Navigator.of(context).pop();
   }

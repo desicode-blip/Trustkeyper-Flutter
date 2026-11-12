@@ -1507,3 +1507,29 @@ files: apps/flutter_app/lib/src/tk2/{tk2_cloud,tk2_sync}.dart (new), apps/flutte
 verification: flutter analyze clean; test/tk2 33/33; functions npm test 259/259; tk2 rules 6/6 (full rules suite 56/57, #46 fails identically without this change); end-to-end on emulators (broker OTP → house + photo → tenant link → OTP → book → broker live → server code check; owner invite → claim → house under broker)
 deploy: NOT deployed. Ajay follows docs/TRUSTKEEPER2-BACKEND.md §5 on trustkeyper-app-staging only.
 ```
+
+## Change 93 – After the token: the whole move-in, in all three apps
+Date: 2026-11-12 · Status: broker app built to Aman's iPhone; web app published; backend parts not deployed (Ajay)
+One shared "deal" per finalised house, with the same deal page for broker (app), tenant and owner (web): your next step, who everyone is waiting for, and the ten stages.
+- **1 Token:** tenant pays the property's token → house goes off the market and shared links close. Broker can also start it from a finished visit ("Ravi wants this house"). "The deal is off": owner backed out → token back to tenant; tenant backed out → half to owner, half to broker; house back on the market.
+- **2 Documents:** tenant (main app's document screens + details) and owner (existing owner documents screen). Broker checks each person: "Documents are fine" or "Something is wrong" with a note.
+- **3–4 Agreement:** broker fills terms once (house, money, dates, move-out rules, people, pets, things in the house). The agreement is written from TrustKeyper's leave & licence template. Owner and tenant: "Looks good" or "Ask for a change". A new version resets replies and lists what changed.
+- **5 Stamp paper and signing:** broker's stamp-paper photo is required first; then both sign (typed name for now).
+- **6 Payments:** tenant pays deposit + first rent + brokerage + ₹250, minus the token; owner pays ₹250. Stamp paper and e-sign are inside the ₹500 fee.
+- **7 Key handover:** broker records photos, video, meter readings and key count with photo; tenant ticks each thing and confirms the keys. Later changes need owner and tenant approval.
+- **8 7-day repairs:** tenant reports with a photo → broker adds cost and time → owner approves (or declines) → broker fixes with photo and exact amount → owner pays in the app. Tenant sees the time, owner the cost. Owner and tenant can talk; the broker reads along.
+- **9 Society move-in:** broker writes the society's steps once (email, approval, reply, visit, upload, gate app, fee); reused for the next tenant there. Opens once payments are done, beside handover.
+- **Home:** broker sees "Moving in" cards; the web's start page lists a person's houses in progress.
+- Demo build: "Demo: do the tenant's/owner's/broker's step" buttons, since phones share nothing without the backend.
+- Removed the old placeholder tenant steps (owner/agreement/sign/pay/keys) from the web.
+- Backend: `tk2Deals`, `tk2Playbooks`, Storage `tk2/deals/…`, rules + tests. Docs: `docs/TRUSTKEEPER2-BACKEND.md` §8.
+```
+AGENT RECORD – Change 93
+id: CHG-093
+date: 2026-11-12
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/{tk2_deal,tk2_deal_page,tk2_deal_screens,tk2_deal_move,tk2_agreement}.dart (new), apps/flutter_app/lib/src/tkweb/tkweb_deal.dart (new), apps/flutter_app/assets/agreements/rent_leave_licence.md (new), apps/flutter_app/lib/src/tk2/{tk2_store,tk2_sync,tk2_cloud,tk2_link,tk2_invite,tk2_visits,tk2_app}.dart, apps/flutter_app/lib/src/tkweb/{tkweb_app,tkweb_tenant,tkweb_owner,tkweb_session}.dart, apps/flutter_app/test/tk2/tk2_deal_test.dart (new), firestore.rules, storage.rules, functions/rules-test/tk2.test.mjs, docs/{TRUSTKEEPER2-BACKEND,TRUSTKEEPER2-START-HERE,CHANGELOG-staging}.md
+decisions (Aman, 12 Nov): stamp paper and Leegality cost inside the ₹500 fee; owner pays repairs in the app; three users only (no captain app)
+verification: flutter analyze clean; test/tk2 41/41; tk2 rules 8/8; functions npm test; headless-browser walk of broker app (all ten stages) and tenant web (visit → token → agreement → sign → pay → check → repair)
+deploy: NOT deployed. Payments, e-sign, society email and automatic messages are test-only (BACKEND §8).
+```

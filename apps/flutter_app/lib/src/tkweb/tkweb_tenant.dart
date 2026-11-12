@@ -10,15 +10,20 @@ import '../features/broker/presentation/onboarding_widgets.dart';
 import '../features/broker/presentation/private_documents_screen.dart';
 import '../features/document_requests/data/document_request_repository.dart';
 import '../features/document_requests/presentation/recipient_document_layout.dart';
+import '../tk2/tk2_cloud.dart';
 import '../tk2/tk2_customer.dart';
+import '../tk2/tk2_deal.dart';
 import '../tk2/tk2_designs.dart';
 import '../tk2/tk2_store.dart';
 import '../tk2/tk2_widgets.dart';
 import 'tkweb_auth.dart';
+import 'tkweb_deal.dart';
 import 'tkweb_session.dart';
 
-/// Tenant journey on the web, in order. Index = step number in the session.
-const tkwTenantSteps = ['visit', 'block', 'docs', 'details', 'owner', 'agreement', 'sign', 'pay', 'keys', 'home'];
+/// Tenant steps on the web's own screens, in order (index = step number in
+/// the session). After the token the deal page takes over ([TkwDeal]); it
+/// comes back here for documents and details.
+const tkwTenantSteps = ['visit', 'block', 'docs', 'details'];
 
 /// Token for old links that don't carry the broker's amount.
 const tkwToken = 15000;
@@ -39,14 +44,17 @@ class TkwProperty extends StatelessWidget {
     builder: (context, _) {
       final trip = TkwSession.instance.trips[listingId];
       final step = trip?['step'] as int?;
+      final deal = Tk2Store.instance.dealFor(listingId);
       return Tk2CustomerPage(
         store: Tk2Store.instance,
         id: listingId,
         preview: false,
-        bookLabel: step == null ? null : 'See your visit',
-        onBook: () => step == null
+        bookLabel: deal != null ? 'See your move-in' : (step == null ? null : 'See your visit'),
+        onBook: () => deal != null
+            ? Navigator.of(context).push(_route(TkwDeal(dealId: deal.id, role: DealRole.tenant), 'deal'))
+            : step == null
             ? tkwStartBooking(context, listingId)
-            : Navigator.of(context).push(_route(TkwStep(listingId: listingId, index: step.clamp(0, tkwTenantSteps.length - 1)))),
+            : Navigator.of(context).push(_route(TkwStep(listingId: listingId, index: step.clamp(0, 1)))),
       );
     },
   );
@@ -246,36 +254,48 @@ class _TkwStepState extends State<TkwStep> {
     super.dispose();
   }
 
-  int get _moveIn => l.deposit + l.rent + (l.maintenanceIncluded ? 0 : l.maintenance) + l.brokerage;
-
   Future<void> _complete() async {
-    if (done) return _goNext();
+    if (done && key == 'visit') return _goNext();
     // After the visit: ask if they liked it before blocking.
     if (key == 'visit') {
       await Navigator.of(context).push(_route(TkwLiked(listingId: widget.listingId, index: widget.index)));
       if (mounted) setState(() {});
       return;
     }
+    final nav = Navigator.of(context);
+    final store = Tk2Store.instance;
     if (key == 'details') {
       bad
         ..clear()
         ..addAll({if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$').hasMatch(email.text.trim())) 'email', if (address.text.trim().length < 8) 'address'});
       if (bad.isNotEmpty) return setState(() {});
-      trip.addAll({'email': email.text.trim(), 'address': address.text.trim(), 'work': work.text.trim(), 'people': people.text.trim()});
-    }
-    if (key == 'sign' && sign.text.trim().length < 3) return setState(() => bad.add('sign'));
-    if (key == 'home') {
-      Navigator.of(context).popUntil((r) => r.isFirst);
+      final details = {'email': email.text.trim(), 'address': address.text.trim(), 'work': work.text.trim(), 'people': people.text.trim()};
+      trip.addAll(details);
+      await s.save();
+      // Documents and details go to the deal; the broker checks them next.
+      final deal = store.dealFor(widget.listingId);
+      if (deal != null) {
+        deal.t.addAll({'docsAt': DateTime.now().millisecondsSinceEpoch, 'docs': trip['docs'] is Map ? trip['docs'] : const {'Documents': 'Received'}, 'details': details});
+        await store.saveDeal(deal, DealRole.tenant);
+      }
+      nav.popUntil((r) => r.settings.name == 'deal' || r.isFirst);
       return;
     }
+    // Block: pay the token (test payment), then the deal page takes over.
     setState(() => busy = true);
-    // Payments wait a moment like a real gateway would.
-    if (key == 'block' || key == 'pay') await Future<void>.delayed(const Duration(milliseconds: 900));
+    await Future<void>.delayed(const Duration(milliseconds: 900));
     trip['step'] = widget.index + 1;
     await s.save();
+    final deal = await store.startDeal(l, tenantName: s.name, tenantPhone: s.contact, paid: true, tenantUid: Tk2Cloud.uid ?? '');
+    if (deal.t['tokenPaid'] != true) {
+      deal.t.addAll({'tokenPaid': true, 'tokenAt': DateTime.now().millisecondsSinceEpoch});
+      await store.saveDeal(deal, DealRole.tenant);
+    }
+    s.roles[deal.id] = 'tenant';
+    await s.save();
     if (!mounted) return;
-    setState(() => busy = false);
-    _goNext();
+    nav.popUntil((r) => r.isFirst);
+    nav.push(_route(TkwDeal(dealId: deal.id, role: DealRole.tenant), 'deal'));
   }
 
   void _goNext() => Navigator.of(context).push(_route(TkwStep(listingId: widget.listingId, index: widget.index + 1)));
@@ -321,7 +341,6 @@ class _TkwStepState extends State<TkwStep> {
         trip: trip,
         onExit: () => Navigator.of(context).maybePop(),
         onSent: () async {
-          trip['step'] = widget.index + 1;
           await s.save();
           if (mounted) _goNext();
         },
@@ -330,24 +349,17 @@ class _TkwStepState extends State<TkwStep> {
     final (title, action, children) = switch (key) {
       'visit' => _visitStep(),
       'block' => ('Block this house', 'Pay ${Tk2Store.money(l.tokenOr(tkwToken))} and block', _blockStep()),
-      'details' => ('Your details for rental agreement', 'Send my details', _detailsStep()),
-      'owner' => ('Owner details', 'Demo: owner shared details', _ownerStep()),
-      'agreement' => ('Rent agreement', 'Demo: broker approved', _agreementStep(final_: false)),
-      'sign' => ('Sign the agreement', 'Sign', _signStep()),
-      'pay' => ('Pay to move in', 'Pay ${Tk2Store.money(_moveIn)}', _payStep()),
-      'keys' => ('Get your keys', 'Demo: I got the keys', _keysStep()),
-      _ => ('Welcome home', 'Done', _homeStep()),
+      _ => ('Your details for rental agreement', 'Send my details', _detailsStep()),
     };
     return OnbPage(
       title: title,
-      step: key == 'visit' || key == 'home' ? null : 'Step ${widget.index} of ${tkwTenantSteps.length - 2}',
+      step: key == 'details' ? 'Step 2 of 2' : null,
       subtitle: l.publicTitle,
       onBack: () => Navigator.of(context).maybePop(),
       footer: [
-        if (action.isNotEmpty) PrimaryButton(label: done ? 'Continue' : action, icon: Icons.chevron_right, loading: busy, onPressed: busy ? null : _complete),
+        if (action.isNotEmpty) PrimaryButton(label: done && key == 'visit' ? 'Continue' : action, icon: Icons.chevron_right, loading: busy, onPressed: busy ? null : _complete),
       ],
       children: [
-        if (done && key != 'visit') ...[const OnbBanner('Done', kind: 'ok', icon: Icons.check_circle_outline), const SizedBox(height: 16)],
         ...children,
       ],
     );
@@ -606,8 +618,6 @@ class _TkwStepState extends State<TkwStep> {
   ];
 
   List<Widget> _detailsStep() => [
-    const OnbBanner('Documents received', kind: 'ok', icon: Icons.check_circle_outline),
-    const SizedBox(height: 16),
     const Text(
       'A few more details for the agreement. The owner is asked for theirs at the same time.',
       style: TextStyle(fontSize: 15.5, height: 22 / 15.5, color: AppColors.muted),
@@ -633,91 +643,6 @@ class _TkwStepState extends State<TkwStep> {
     OnbTextField(label: 'Work: company or what you do', controller: work, capitalization: TextCapitalization.words),
     const SizedBox(height: 12),
     OnbTextField(label: 'How many people will live here', controller: people, keyboard: TextInputType.number),
-  ];
-
-  List<Widget> _ownerStep() => [
-    const OnbCentered(
-      icon: Icons.hourglass_top,
-      kind: 'wait',
-      loading: true,
-      title: 'Waiting for the owner',
-      message: 'We have asked the owner for their details. When both are in, the rent agreement is made for you, the owner and the broker.',
-    ),
-    const SizedBox(height: 24),
-    const OnbBanner('Demo build: tap below to pretend the owner has shared their details.', kind: 'wait', icon: Icons.science_outlined),
-  ];
-
-  List<Widget> _agreementStep({required bool final_}) => [
-    OnbBanner(
-      final_ ? 'Final agreement' : 'Ready · the broker is checking it',
-      kind: final_ ? 'ok' : 'wait',
-      icon: final_ ? Icons.verified_outlined : Icons.hourglass_top,
-    ),
-    const SizedBox(height: 16),
-    OnbCard(
-      child: Column(
-        children: [
-          OnbKeyValue('Tenant', trip['fullName'] as String? ?? s.name),
-          OnbKeyValue('House', '${l.property.rooms} · ${l.publicTitle}'),
-          OnbKeyValue('Rent', '${Tk2Store.money(l.rent)} / month'),
-          OnbKeyValue('Maintenance', l.maintenanceIncluded || l.maintenance == 0 ? 'Included' : '${Tk2Store.money(l.maintenance)} / month'),
-          OnbKeyValue('Security deposit', Tk2Store.money(l.deposit)),
-          const OnbKeyValue('Term', '11 months'),
-          const OnbKeyValue('Notice', '1 month', last: true),
-        ],
-      ),
-    ),
-    const SizedBox(height: 14),
-    _rule(Icons.edit_note, 'Only the broker can change the agreement. Talk to them for any change.'),
-  ];
-
-  List<Widget> _signStep() => [
-    ..._agreementStep(final_: true),
-    const SizedBox(height: 10),
-    const Text('The owner signs too. Type your full name to sign.', style: TextStyle(fontSize: 15.5, color: AppColors.body)),
-    const SizedBox(height: 12),
-    OnbTextField(
-      label: 'Your full name',
-      controller: sign,
-      capitalization: TextCapitalization.words,
-      error: bad.contains('sign') ? 'Type your full name to sign' : null,
-      onChanged: (_) => setState(() => bad.remove('sign')),
-    ),
-    const SizedBox(height: 12),
-    const OnbBanner('Demo build: the real e-sign link comes on WhatsApp and email.', kind: 'wait', icon: Icons.science_outlined),
-  ];
-
-  List<Widget> _payStep() => [
-    const OnbBanner('Signed by you and the owner', kind: 'ok', icon: Icons.draw_outlined),
-    const SizedBox(height: 16),
-    OnbCard(
-      child: Column(
-        children: [
-          OnbKeyValue('Security deposit', Tk2Store.money(l.deposit)),
-          OnbKeyValue('First month rent', Tk2Store.money(l.rent + (l.maintenanceIncluded ? 0 : l.maintenance))),
-          if (l.brokerage > 0) OnbKeyValue('Brokerage', Tk2Store.money(l.brokerage)),
-          OnbKeyValue('Total', Tk2Store.money(_moveIn), last: true),
-        ],
-      ),
-    ),
-    const SizedBox(height: 12),
-    const OnbBanner('Demo build: test payment. No money moves.', kind: 'wait', icon: Icons.science_outlined),
-  ];
-
-  List<Widget> _keysStep() => [
-    const OnbBanner('Paid', kind: 'ok', icon: Icons.check_circle_outline),
-    const SizedBox(height: 16),
-    _rule(Icons.key_outlined, 'The broker meets you at the house and hands over the keys.'),
-    _rule(Icons.receipt_long_outlined, 'Your agreement and receipts stay here.'),
-  ];
-
-  List<Widget> _homeStep() => const [
-    OnbCentered(
-      icon: Icons.home_outlined,
-      kind: 'ok',
-      title: 'Welcome home!',
-      message: 'Your agreement and payment receipts are saved here. We will remind you before rent is due.',
-    ),
   ];
 }
 
@@ -936,7 +861,15 @@ class _TkwTenantDocsState extends State<TkwTenantDocs> {
     onSubmit: () async {
       setState(() => busy = true);
       await Future<void>.delayed(const Duration(milliseconds: 700));
-      widget.trip['docs'] = true;
+      // Names only; with the backend on, the files themselves are uploaded for the broker.
+      final sent = <String, String>{};
+      final deal = Tk2Store.instance.dealFor(widget.listing.id);
+      for (final e in files.entries) {
+        sent[tkwDocName(e.key)] = deal == null ? 'Received' : await tkwUploadDoc(deal.id, e.value);
+      }
+      if (bank != null) sent['Bank details'] = 'Received';
+      if (linkedIn != null) sent['LinkedIn'] = '${linkedIn!['url'] ?? linkedIn!['linkedIn'] ?? 'Received'}';
+      widget.trip['docs'] = sent;
       if (!mounted) return;
       setState(() => busy = false);
       await widget.onSent();

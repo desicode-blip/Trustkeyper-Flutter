@@ -6,6 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/app_colors.dart';
 import '../core/widgets/primary_button.dart';
 import 'tk2_listing.dart';
+import 'tk2_deal.dart';
+import 'tk2_deal_page.dart';
 import 'tk2_store.dart';
 import 'tk2_widgets.dart';
 
@@ -288,6 +290,36 @@ class _VisitSheetState extends State<_VisitSheet> {
                   ),
                 ),
               ),
+            // After the visit: the customer wants the house → the move-in steps start.
+            if (v.status == VisitStatus.done && l != null && !l.sample) ...[
+              const SizedBox(height: 10),
+              Builder(
+                builder: (context) {
+                  final deal = widget.store.dealFor(l.id);
+                  final theirs = deal != null && deal.tenantPhone == v.customerPhone;
+                  if (deal != null && !theirs) return const SizedBox();
+                  return PrimaryButton(
+                    label: theirs ? 'See the move-in steps' : '${v.customerName.split(' ').first} wants this house',
+                    icon: Icons.chevron_right,
+                    onPressed: () async {
+                      final nav = Navigator.of(context);
+                      final d = deal ?? await widget.store.startDeal(l, tenantName: v.customerName, tenantPhone: v.customerPhone, tenantUid: v.customerUid);
+                      nav.pop();
+                      nav.push(MaterialPageRoute<void>(builder: (_) => Tk2DealPage(store: widget.store, dealId: d.id, role: DealRole.broker)));
+                    },
+                  );
+                },
+              ),
+              if (widget.store.dealFor(l.id) == null)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'They pay the token from their link. Then documents, agreement and keys follow.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13.5, color: AppColors.muted),
+                  ),
+                ),
+            ],
             if (v.upcoming) ...[
               const SizedBox(height: 10),
               _GatePassRow(sent: (widget.store.visits.where((x) => x.id == v.id).firstOrNull ?? v).gatePass.isNotEmpty, onTap: _gatePass),

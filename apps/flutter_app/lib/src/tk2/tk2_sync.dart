@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import 'tk2_cloud.dart';
+import 'tk2_deal.dart';
 import 'tk2_link.dart';
 import 'tk2_store.dart';
 
@@ -82,6 +83,7 @@ class Tk2Sync {
       }, onError: (Object e) => error.value = 'listings: $e'),
     );
     _subs.add(_visits(_db.collection('tk2Visits').where('brokerUid', isEqualTo: _uid)));
+    _subs.add(_deals('brokerUid', block: true));
     return saved != null && (saved['name'] as String? ?? '').isNotEmpty;
   }
 
@@ -205,7 +207,12 @@ class Tk2Sync {
   /// Tenant link #l-ID: the public listing (null when removed or turned off).
   Future<Tk2Listing?> openListing(String id) async {
     final j = (await _db.doc('tk2Listings/$id').get()).data();
-    if (j == null || j['active'] == false) return null; // removed or off the market
+    if (j == null) return null;
+    // Off the market: only the tenant who blocked it can still open it.
+    if (j['active'] == false) {
+      final mine = _uid.isNotEmpty && await _db.doc('tk2Deals/${_uid}_$id').get().then((d) => d.exists).catchError((Object _) => false);
+      if (!mine) return null;
+    }
     brokerOf[id] = j['brokerUid'] as String? ?? '';
     store.brokerName = j['bn'] as String? ?? '';
     store.brokerPhone = j['bp'] as String? ?? '';
@@ -231,12 +238,90 @@ class Tk2Sync {
     await _db.doc('tk2Invites/$inviteId').update({'ownerUid': _uid, 'ownerName': ownerName, 'updatedAt': FieldValue.serverTimestamp()});
   }
 
-  /// Tenant: follow own visits (with their codes) after signing in.
+  /// Web: follow own visits (with their codes) and own deals after signing in.
+  /// One person can be a tenant in one deal and an owner in another.
   void startTenant() {
     if (_uid.isEmpty) return;
     stop();
     _subs.add(_visits(_db.collection('tk2Visits').where('customerUid', isEqualTo: _uid), withCodes: true));
+    _subs.add(_deals('tenantUid'));
+    _subs.add(_deals('ownerUid'));
   }
+
+  // ------------------------------------------------------------------ deals
+  // tk2Deals/{id}: one document per finalised house. Each person writes only
+  // their own part ('b' broker, 't' tenant, 'o' owner); the rules enforce it.
+
+  final _dealsBy = <String, List<Tk2Deal>>{};
+
+  StreamSubscription<Object?> _deals(String field, {bool block = false}) => _db.collection('tk2Deals').where(field, isEqualTo: _uid).snapshots().listen((q) {
+    _dealsBy[field] = [
+      for (final d in q.docs) Tk2Deal.fromJson({...d.data(), 'id': d.id, 'createdAt': Tk2Cloud.millis(d.data()['createdAt'])}),
+    ];
+    final all = {
+      for (final list in _dealsBy.values)
+        for (final d in list) d.id: d,
+    };
+    store.applyDeals(all.values.toList(), block: block);
+  }, onError: (Object e) => error.value = 'deals: $e');
+
+  /// Whose listing this is (the broker's own, or the one a tenant opened).
+  String brokerUidFor(String listingId) => brokerOf[listingId] ?? (inviteId == null ? _uid : _inviteBrokerUid);
+
+  /// Which side of [d] the signed-in person is on (web).
+  DealRole roleIn(Tk2Deal d) => d.tenantUid == _uid ? DealRole.tenant : (d.brokerUid == _uid ? DealRole.broker : DealRole.owner);
+
+  void createDeal(Tk2Deal d) =>
+      _try(() => _db.doc('tk2Deals/${d.id}').set({...d.toJson()..remove('id'), 'createdAt': FieldValue.serverTimestamp()}), 'deal ${d.id}');
+
+  /// Sends what [role] changed. The broker may also correct the owner's name and number, and end the deal.
+  void dealPart(Tk2Deal d, DealRole role) => _try(
+    () => _db.doc('tk2Deals/${d.id}').update({
+      Tk2Deal.who(role)[0]: d.part(role),
+      if (role == DealRole.broker) ...{'ownerName': d.ownerName, 'ownerPhone': d.ownerPhone},
+      'updatedAt': FieldValue.serverTimestamp(),
+    }),
+    'deal ${d.id}',
+  );
+
+  /// Web link #d-ID: the deal, for its tenant or its owner. The first owner to
+  /// open it (matching the owner's phone, when the broker saved one) claims it.
+  Future<Tk2Deal?> openDeal(String id) async {
+    if (_uid.isEmpty) return null;
+    final ref = _db.doc('tk2Deals/$id');
+    var j = (await ref.get()).data();
+    if (j == null) return null;
+    if (j['tenantUid'] != _uid && j['ownerUid'] == null) {
+      await ref.update({'ownerUid': _uid, 'updatedAt': FieldValue.serverTimestamp()});
+      j = (await ref.get()).data()!;
+    }
+    final d = Tk2Deal.fromJson({...j, 'id': id, 'createdAt': Tk2Cloud.millis(j['createdAt'])});
+    brokerOf[d.listingId] = d.brokerUid;
+    await store.putDeal(d);
+    return d;
+  }
+
+  static String _slug(String society) => society.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+
+  /// A society's shared steps (null when no broker has written them yet).
+  Future<List<dynamic>?> fetchPlaybook(String society) async {
+    if (_slug(society).length < 2) return null;
+    final j = (await _db.doc('tk2Playbooks/${_slug(society)}').get()).data();
+    return j == null ? null : List<dynamic>.from(j['steps'] as List? ?? const []);
+  }
+
+  /// Shares a society's steps with other brokers. The first broker creates
+  /// the playbook; later edits are kept as 'proposed' until TrustKeyper checks
+  /// them (the team copies them into 'steps').
+  void playbook(String society, List<dynamic> steps) => _try(() async {
+    final ref = _db.doc('tk2Playbooks/${_slug(society)}');
+    final mine = {'brokerUid': _uid, 'steps': steps, 'at': FieldValue.serverTimestamp()};
+    if ((await ref.get()).exists) {
+      await ref.update({'proposed': mine, 'updatedAt': FieldValue.serverTimestamp()});
+    } else {
+      await ref.set({'name': society.trim(), 'steps': steps, 'brokerUid': _uid, 'checked': false, 'updatedAt': FieldValue.serverTimestamp()});
+    }
+  }, 'playbook $society');
 
   /// Tenant books: the visit, then its code (only the tenant can read it).
   /// Payment is still a test (see docs).

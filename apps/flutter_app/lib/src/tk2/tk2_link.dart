@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../features/broker/data/broker_property_repository.dart';
 
 import 'tk2_cloud.dart';
+import 'tk2_deal.dart';
 import 'tk2_designs.dart';
 import 'tk2_store.dart';
 
@@ -49,6 +50,13 @@ Map<String, Object?> tk2PublicPayload(Tk2Listing l, String brokerName, [String b
 String tk2PropertyLink(Tk2Listing l, String brokerName, [String brokerPhone = '']) => Tk2Cloud.on
     ? '${Tk2Cloud.webUrl}#l-${l.id}'
     : '$tk2WebApp#p-${tk2Base32(jsonEncode(tk2PublicPayload(l, brokerName, brokerPhone)))}';
+
+/// Link to a deal for the tenant or the owner (broker reminders). Backend:
+/// a short link (#d-ID). Demo build: the deal itself rides in the link
+/// (#deal-…) with who it is for and the public listing, as the phones share nothing.
+String tk2DealLink(Tk2Deal d, DealRole to, Tk2Listing? l) => Tk2Cloud.on
+    ? '${Tk2Cloud.webUrl}#d-${d.id}'
+    : '$tk2WebApp#deal-${tk2Base32(jsonEncode({'r': Tk2Deal.who(to), 'd': d.toJson(), if (l != null) 'l': tk2PublicPayload(l, d.brokerName, d.brokerPhone)}))}';
 
 /// Owner invite link: the owner signs up and adds the house. With the backend
 /// on it points to an invite saved in Firestore (#i-ID), else the details

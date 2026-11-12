@@ -12,7 +12,7 @@ import 'tk2_widgets.dart';
 /// Text message opens Messages, Copy link covers anything else.
 /// Returns how it was sent ('whatsapp' · 'sms' · 'copy'), or null when the
 /// sheet was closed without picking (nothing is sent, the broker stays put).
-Future<String?> showTk2OwnerInvite(BuildContext context, {required String ownerName, required String phone, required String message}) async {
+Future<String?> showTk2OwnerInvite(BuildContext context, {required String ownerName, required String phone, required String message, String? title}) async {
   final digits = phone.replaceAll(RegExp(r'\D'), '');
   final full = digits.length == 10 ? '91$digits' : digits;
   final first = ownerName.trim().split(' ').first;
@@ -56,7 +56,7 @@ Future<String?> showTk2OwnerInvite(BuildContext context, {required String ownerN
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               tk2SheetTitle(
-                'Send the invite to ${first.isEmpty ? 'the owner' : first}',
+                title ?? 'Send the invite to ${first.isEmpty ? 'the owner' : first}',
                 '+${full.length == 12 ? '${full.substring(0, 2)} ${full.substring(2, 7)} ${full.substring(7)}' : full}',
               ),
               tk2SheetRow(leading: tk2WhatsAppLogo(size: 28), title: 'WhatsApp', onTap: () => pick('whatsapp')),

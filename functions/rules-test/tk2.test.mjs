@@ -87,3 +87,42 @@ test('broker profile is private to the broker', async () => {
   await assertSucceeds(setDoc(doc(db('broker'), 'tk2Brokers/broker'), { name: 'Suresh', defaultToken: 15000 }));
   await assertFails(getDoc(doc(db('other'), 'tk2Brokers/broker')));
 });
+
+test('deal: tenant starts it at the listed token; each person writes only their own part; owner claims once', async () => {
+  await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'tk2Listings/d1'), { ...pub, id: 'd1', tk: 20000 }));
+  const deal = { listingId: 'd1', brokerUid: 'broker', tenantUid: 'tenant', ownerUid: null, title: '2 BHK', token: 20000, rent: 30000, deposit: 60000, b: {}, t: { tokenPaid: true }, o: {} };
+  await assertFails(setDoc(doc(db('tenant'), 'tk2Deals/tenant_d1'), { ...deal, token: 100 }));
+  await assertFails(setDoc(doc(db('tenant'), 'tk2Deals/tenant_d1'), { ...deal, brokerUid: 'other' }));
+  await assertFails(setDoc(doc(db('tenant'), 'tk2Deals/tenant_d1'), { ...deal, b: { docsOk: { tenant: true } } }));
+  await assertFails(setDoc(doc(db('tenant'), 'tk2Deals/other_d1'), deal));
+  await assertSucceeds(setDoc(doc(db('tenant'), 'tk2Deals/tenant_d1'), deal));
+  // Own part only.
+  await assertSucceeds(updateDoc(doc(db('tenant'), 'tk2Deals/tenant_d1'), { t: { tokenPaid: true, docsAt: 5 } }));
+  await assertFails(updateDoc(doc(db('tenant'), 'tk2Deals/tenant_d1'), { b: { docsOk: { tenant: true } } }));
+  await assertFails(updateDoc(doc(db('tenant'), 'tk2Deals/tenant_d1'), { token: 1 }));
+  await assertSucceeds(updateDoc(doc(db('broker'), 'tk2Deals/tenant_d1'), { b: { docsOk: { tenant: true } }, ownerName: 'Hari' }));
+  await assertFails(updateDoc(doc(db('broker'), 'tk2Deals/tenant_d1'), { t: { paid: true } }));
+  await assertFails(updateDoc(doc(db('broker'), 'tk2Deals/tenant_d1'), { o: { feePaid: true } }));
+  // Owner: claims from the link once, then writes only 'o'.
+  await assertFails(updateDoc(doc(db('tenant'), 'tk2Deals/tenant_d1'), { ownerUid: 'tenant' }));
+  await assertFails(updateDoc(doc(db('owner'), 'tk2Deals/tenant_d1'), { o: { feePaid: true } }));
+  await assertSucceeds(getDoc(doc(db('owner'), 'tk2Deals/tenant_d1')));
+  await assertSucceeds(updateDoc(doc(db('owner'), 'tk2Deals/tenant_d1'), { ownerUid: 'owner' }));
+  await assertFails(updateDoc(doc(db('stranger'), 'tk2Deals/tenant_d1'), { ownerUid: 'stranger' }));
+  await assertFails(getDoc(doc(db('stranger'), 'tk2Deals/tenant_d1')));
+  await assertSucceeds(updateDoc(doc(db('owner'), 'tk2Deals/tenant_d1'), { o: { reply: { v: 1, ok: true } } }));
+  await assertFails(updateDoc(doc(db('owner'), 'tk2Deals/tenant_d1'), { t: { paid: true } }));
+  await assertFails(deleteDoc(doc(db('broker'), 'tk2Deals/tenant_d1')));
+  // The broker can start one after a visit, with nothing filled for the others.
+  await assertSucceeds(setDoc(doc(db('broker'), 'tk2Deals/b1'), { ...deal, tenantUid: 'tenant2', t: {} }));
+  await assertFails(setDoc(doc(db('broker'), 'tk2Deals/b2'), { ...deal, tenantUid: 'tenant2' }));
+});
+
+test('society playbook: first broker creates it; later edits only propose', async () => {
+  await assertSucceeds(setDoc(doc(db('broker'), 'tk2Playbooks/prestige-highfield'), { name: 'Prestige Highfield', brokerUid: 'broker', checked: false, steps: [{ k: 'email' }] }));
+  await assertFails(setDoc(doc(db('other'), 'tk2Playbooks/x'), { name: 'X', brokerUid: 'other', checked: true, steps: [] }));
+  await assertSucceeds(getDoc(doc(db('other'), 'tk2Playbooks/prestige-highfield')));
+  await assertFails(updateDoc(doc(db('other'), 'tk2Playbooks/prestige-highfield'), { steps: [] }));
+  await assertFails(updateDoc(doc(db('other'), 'tk2Playbooks/prestige-highfield'), { checked: true }));
+  await assertSucceeds(updateDoc(doc(db('other'), 'tk2Playbooks/prestige-highfield'), { proposed: { brokerUid: 'other', steps: [{ k: 'visit' }] } }));
+});

@@ -207,13 +207,23 @@ class Tk2Cloud {
     return l.copyWith(photos: out);
   }
 
+  /// A photo or video of a deal (stamp paper, handover, repairs, documents);
+  /// only the deal's broker, tenant and owner can open it.
+  static Future<String> uploadDealFile(String dealId, String path) => _upload('tk2/deals/$dealId/${_name()}', path);
+
   /// Gate pass picture/PDF for one visit; returns its web address.
   static Future<String> uploadGatePass(String visitId, String path) => _upload('tk2/visits/$visitId/${_name()}', path);
 
+  /// A document already read into memory (ID proof picked on the web).
+  static Future<String> uploadDealBytes(String dealId, Uint8List bytes) => _put('tk2/deals/$dealId/${_name()}', bytes, null);
+
   static Future<String> _upload(String where, String path) async {
     final file = XFile(path);
-    final bytes = await file.readAsBytes();
-    final type = _type(bytes, file.mimeType);
+    return _put(where, await file.readAsBytes(), file.mimeType);
+  }
+
+  static Future<String> _put(String where, Uint8List bytes, String? hint) async {
+    final type = _type(bytes, hint);
     final ref = FirebaseStorage.instance.ref('$where.${type.split('/').last}');
     await ref.putData(bytes, SettableMetadata(contentType: type));
     return ref.getDownloadURL();
@@ -223,7 +233,8 @@ class Tk2Cloud {
   static String _type(Uint8List b, String? hint) {
     if (b.length > 4 && b[0] == 0x89 && b[1] == 0x50) return 'image/png';
     if (b.length > 4 && b[0] == 0x25 && b[1] == 0x50 && b[2] == 0x44 && b[3] == 0x46) return 'application/pdf';
-    if (hint == 'image/webp' || hint == 'image/heic') return hint!;
+    if (hint == 'image/webp' || hint == 'image/heic' || (hint ?? '').startsWith('video/')) return hint!;
+    if (b.length > 12 && b[4] == 0x66 && b[5] == 0x74 && b[6] == 0x79 && b[7] == 0x70) return 'video/mp4'; // ....ftyp
     return 'image/jpeg';
   }
 

@@ -9,8 +9,11 @@ import '../core/theme/app_theme.dart';
 import '../features/auth/presentation/approved_auth_widgets.dart';
 import '../features/broker/presentation/onboarding_widgets.dart';
 import '../tk2/tk2_cloud.dart';
+import '../tk2/tk2_deal.dart';
+import '../tk2/tk2_deal_page.dart';
 import '../tk2/tk2_link.dart';
 import '../tk2/tk2_store.dart';
+import 'tkweb_deal.dart';
 import 'tkweb_owner.dart';
 import 'tkweb_keyboard.dart';
 import 'tkweb_session.dart';
@@ -36,6 +39,32 @@ sealed class TkwStart {
         if (invite == null) return const TkwOpenHome(gone: true);
         if (TkwSession.instance.signedIn) await sync.claimInvite(TkwSession.instance.name);
         return TkwOpenOwner(invite.brokerName, invite.houseName);
+      }
+      // Deal links from the broker's reminders: #d-ID (backend), #deal-… (demo).
+      if (sync != null && fragment.startsWith('d-')) {
+        final id = fragment.substring(2);
+        final d = Tk2Cloud.uid == null ? null : await sync.openDeal(id);
+        return TkwOpenDeal(id, d == null ? null : sync.roleIn(d), signedIn: d != null);
+      }
+      if (fragment.startsWith('deal-')) {
+        final j = jsonDecode(tk2Base32Decode(fragment.substring(5))) as Map<String, dynamic>;
+        final role = j['r'] == 'owner' ? DealRole.owner : DealRole.tenant;
+        final store = Tk2Store.instance;
+        final d = Tk2Deal.fromJson(Map<String, dynamic>.from(j['d'] as Map));
+        // This person's own part on this device is newer than the link's copy.
+        final mine = store.deal(d.id)?.part(role);
+        if (mine != null && mine.isNotEmpty) {
+          d.part(role)
+            ..clear()
+            ..addAll(mine);
+        }
+        if (j['l'] is Map && store.listing(d.listingId) == null) await store.putListing(tk2ListingFromPublic(Map<String, dynamic>.from(j['l'] as Map)));
+        await store.putDeal(d);
+        TkwSession.instance.roles[d.id] = Tk2Deal.who(role);
+        await TkwSession.instance.save();
+        store.brokerName = d.brokerName;
+        store.brokerPhone = d.brokerPhone;
+        return TkwOpenDeal(d.id, role, signedIn: TkwSession.instance.signedIn);
       }
       if (fragment.startsWith('p-')) {
         final listing = tk2ListingFromPublic(jsonDecode(tk2Base32Decode(fragment.substring(2))) as Map<String, dynamic>);
@@ -72,6 +101,13 @@ class TkwOpenOwner extends TkwStart {
   final String houseName;
 }
 
+class TkwOpenDeal extends TkwStart {
+  const TkwOpenDeal(this.dealId, this.role, {required this.signedIn});
+  final String dealId;
+  final DealRole? role;
+  final bool signedIn;
+}
+
 class TkwOpenHome extends TkwStart {
   const TkwOpenHome({this.gone = false});
 
@@ -97,6 +133,8 @@ class _TkWebAppState extends State<TkWebApp> {
   static Widget _first(TkwStart start) => switch (start) {
     TkwOpenProperty(:final listingId) => TkwProperty(listingId: listingId),
     TkwOpenOwner(:final brokerName, :final houseName) => TkwOwnerInvite(brokerName: brokerName, houseName: houseName),
+    TkwOpenDeal(:final dealId, :final role, :final signedIn) =>
+      signedIn && role != null ? TkwDeal(dealId: dealId, role: role) : TkwDealStart(dealId: dealId, role: role),
     TkwOpenHome(:final gone) => TkwHome(gone: gone),
   };
 
@@ -178,6 +216,33 @@ class TkwHome extends StatelessWidget {
         Text(
           gone ? 'This link is no longer active. Ask your broker for a new one.' : 'Tenants and house owners open these pages from a WhatsApp link.',
           style: const TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted),
+        ),
+        // Back on the plain address: this person's houses in progress.
+        ListenableBuilder(
+          listenable: Tk2Store.instance,
+          builder: (context, _) {
+            final mine = [
+              for (final d in Tk2Store.instance.deals)
+                if (TkwSession.instance.signedIn && TkwSession.instance.roleIn(d) != null && TkwSession.instance.roleIn(d) != DealRole.broker) d,
+            ];
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (mine.isNotEmpty) const SizedBox(height: 18),
+                for (final d in mine)
+                  Tk2DealCard(
+                    deal: d,
+                    role: TkwSession.instance.roleIn(d)!,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => TkwDeal(dealId: d.id, role: TkwSession.instance.roleIn(d)!),
+                        settings: const RouteSettings(name: 'deal'),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
         // Live site: no demo journeys, just the note above.
         if (!Tk2Cloud.on) ..._demo(context),

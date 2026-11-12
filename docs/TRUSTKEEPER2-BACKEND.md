@@ -1,6 +1,6 @@
 # TrustKeeper 2 – backend handoff (for Ajay)
 
-Updated: 10 Nov 2026 · Branch: `staging` · Code: Change 92 · Firebase project: **trustkeyper-app-staging only**
+Updated: 12 Nov 2026 · Branch: `staging` · Code: Change 93 · Firebase project: **trustkeyper-app-staging only**
 
 Read this first. It says what TrustKeeper 2 (TK2) is, what is already built and
 tested, and the few steps left for you to make it live on staging. Nothing here
@@ -218,6 +218,65 @@ Next:
 8. **App Check, analytics, crash reports:** not on for TK2.
 9. **Owner-added houses:** if the owner restarts, a second house is created for the
    same invite (one invite → many houses). Fine for now.
+
+## 8. After the token: the deal (Change 93)
+
+Everything after a tenant picks a house is one **deal**, shared by all three apps.
+The ten stages: token → documents → agreement draft → changes and approval → stamp
+paper and signing → payments → key handover → 7-day repairs → society move-in →
+living there. The product description is the Claude Doc "TrustKeyper: from finalised
+to moved in".
+
+| File | What it does |
+| --- | --- |
+| `lib/src/tk2/tk2_deal.dart` | `Tk2Deal`: the data, the stage, each person's tasks, money rules. No UI. Start here |
+| `lib/src/tk2/tk2_deal_page.dart` | The deal page (next step, who we wait for, the ten stages). Same widget for broker, tenant, owner |
+| `lib/src/tk2/tk2_deal_screens.dart` | Stages 1–6: pay, document review, terms, agreement, stamp paper, sign |
+| `lib/src/tk2/tk2_deal_move.dart` | Stages 7–9: handover, tenant's check, record, repairs, society steps |
+| `lib/src/tk2/tk2_agreement.dart` + `assets/agreements/rent_leave_licence.md` | Agreement text from TrustKeyper's leave & licence template |
+| `lib/src/tkweb/tkweb_deal.dart` | Web host: deal links, sign-in, document screens |
+
+How it works:
+
+- **One document per deal**, `tk2Deals/{id}`, with three parts: `b` (broker), `t`
+  (tenant), `o` (owner). Each person writes only their own part; the rules enforce it.
+  The stage and "who is holding it up" are computed (`Tk2Deal.stage`, `tasks`), never
+  stored. Tenant-started deals have id `<tenantUid>_<listingId>`.
+- **Starting:** the tenant pays the token on the web, or the broker taps "… wants this
+  house" on a finished visit and the tenant pays from their link. A paid token turns the
+  listing off (`active: false`); ending the deal turns it on again.
+- **Links:** `#d-<dealId>` (backend) for tenant and owner. The owner claims the deal the
+  first time they open it. Demo build: `#deal-…` carries a copy of the deal.
+- **Files:** `tk2/deals/{dealId}/…` in Storage (documents, stamp paper, handover photos
+  and video, repairs), readable by the three parties only.
+- **Society playbooks:** `tk2Playbooks/{society-slug}`, shared by brokers. The first
+  broker creates it; later edits land in `proposed`. **The TrustKeyper team copies
+  `proposed.steps` into `steps` from the console** once checked.
+- **Demo build:** "Demo: do the tenant's step" buttons play the other people's steps on
+  one phone (`Tk2Deal.demoDo`). They are hidden when the backend is on.
+
+Tests: `test/tk2/tk2_deal_test.dart` (8, including a full ten-stage walk) and two more
+rules tests in `functions/rules-test/tk2.test.mjs` (8 in all).
+
+Still test-only or pending in the deal:
+
+1. **All deal payments** (token, move-in, owner's ₹250, repairs) are test payments.
+   Razorpay: one order per payment; token refund/split on a broken deal
+   (`Tk2Deal.tokenSplit`); payout of repair costs to the broker.
+2. **E-sign:** signing is a typed name. Connect Leegality (decision: Leegality); keep
+   `t.signed` / `o.signed` as the result.
+3. **Society email:** opens the sender's mail app (`mailto`, tenant in CC). Decision:
+   send from a TrustKeyper address with broker, owner and tenant in CC. Needs a callable
+   that only the deal's broker can use, with the fixed template and a rate limit.
+4. **Messages:** the broker's "Remind" opens WhatsApp/SMS by hand. Automatic reminders
+   and "owner is told when the house is blocked" need the messaging provider.
+5. **Rules are by part, not by field.** A tenant can write any key inside `t` (for
+   example `paid: true`). Once Razorpay is in, payment flags must be written by the
+   server only (move them out of `t`/`o` or check them in a function).
+6. **The agreement template** was made from one signed TrustKeyper agreement. Have a
+   lawyer review `rent_leave_licence.md` before real use. Aadhaar/PAN numbers are not
+   printed in it yet.
+7. **PDF** of the signed agreement is not generated.
 
 ## 7. How to change things safely
 

@@ -481,6 +481,51 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // One finalised house, token to moved in (docs/TRUSTKEEPER2-BACKEND.md §8).
+    // Each person writes only their own part: 'b' broker, 't' tenant, 'o' owner.
+    match /tk2Deals/{id} {
+      function listingDoc() {
+        return get(/databases/$(database)/documents/tk2Listings/$(request.resource.data.listingId)).data;
+      }
+      function onlyKeys(keys) {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+      }
+      function mine() {
+        return tk2Uid() in [resource.data.brokerUid, resource.data.tenantUid, resource.data.get('ownerUid', null)];
+      }
+      allow get: if signedIn() && (mine() || resource.data.get('ownerUid', null) == null);
+      allow list: if signedIn() && mine();
+      // The tenant starts it by paying the token; the broker can start it after a visit.
+      allow create: if signedIn()
+        && request.resource.data.brokerUid == listingDoc().brokerUid
+        && request.resource.data.token is int && request.resource.data.token > 0
+        && request.resource.data.get('ownerUid', null) in [null, listingDoc().get('ownerUid', null)]
+        && (request.resource.data.tenantUid == tk2Uid() && id == tk2Uid() + '_' + request.resource.data.listingId
+              && request.resource.data.token == listingDoc().get('tk', request.resource.data.token)
+              && request.resource.data.b.size() == 0 && request.resource.data.o.size() == 0
+            || request.resource.data.brokerUid == tk2Uid() && request.resource.data.t.size() == 0 && request.resource.data.o.size() == 0);
+      allow update: if signedIn() && (
+        resource.data.brokerUid == tk2Uid() && onlyKeys(['b', 'ownerName', 'ownerPhone', 'updatedAt'])
+        || resource.data.tenantUid == tk2Uid() && onlyKeys(['t', 'updatedAt'])
+        || resource.data.get('ownerUid', null) == tk2Uid() && onlyKeys(['o', 'updatedAt'])
+        // The owner claims the deal from the broker's link, once.
+        || resource.data.get('ownerUid', null) == null && tk2Uid() != resource.data.tenantUid && tk2Uid() != resource.data.brokerUid
+          && request.resource.data.ownerUid == tk2Uid() && onlyKeys(['ownerUid', 'updatedAt']));
+      allow delete: if false;
+    }
+
+    // A society's move-in steps, shared by brokers. The first broker creates
+    // it; later edits wait in 'proposed' until the TrustKeyper team checks
+    // them (the team writes 'steps' and 'checked' from the console).
+    match /tk2Playbooks/{slug} {
+      allow get: if signedIn();
+      allow create: if signedIn() && request.resource.data.brokerUid == tk2Uid() && request.resource.data.checked == false
+        && request.resource.data.steps is list && request.resource.data.steps.size() <= 30;
+      allow update: if signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['proposed', 'updatedAt'])
+        && request.resource.data.proposed.brokerUid == tk2Uid() && request.resource.data.proposed.steps.size() <= 30;
+      allow delete, list: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
