@@ -1,10 +1,10 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/widgets/primary_button.dart';
@@ -105,7 +105,7 @@ Future<void> openDealTask(
 }
 
 /// Take a photo or pick one (or a video). With the backend on it is uploaded
-/// and the web address comes back; in the demo build it is the file on this device.
+/// and the authenticated path comes back; in the demo build it is the local file.
 Future<String?> dealPickPhoto(BuildContext context, Tk2Deal d, {bool video = false}) async {
   final source = kIsWeb
       ? ImageSource.gallery
@@ -150,28 +150,63 @@ Future<String?> dealPickPhoto(BuildContext context, Tk2Deal d, {bool video = fal
 
 /// A photo from a deal: a web address, or a file picked on this device.
 /// Photos added on someone else's phone in the demo build show a placeholder.
-class DealPhoto extends StatelessWidget {
+class DealPhoto extends StatefulWidget {
   const DealPhoto(this.path, {this.size = 76, super.key});
   final String path;
   final double size;
 
   @override
+  State<DealPhoto> createState() => _DealPhotoState();
+}
+
+class _DealPhotoState extends State<DealPhoto> {
+  late Future<Uint8List>? bytes = _load();
+
+  Future<Uint8List>? _load() => Tk2Cloud.isPrivateFile(widget.path) ? Tk2Cloud.readPrivateFile(widget.path) : null;
+
+  @override
+  void didUpdateWidget(DealPhoto oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.path != oldWidget.path) bytes = _load();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final web = path.startsWith('http') || path.startsWith('blob:');
-    Widget none(BuildContext _, Object _, StackTrace? _) => const Icon(Icons.image_outlined, color: AppColors.muted);
+    final path = widget.path;
+    const placeholder = Icon(Icons.image_outlined, color: AppColors.muted);
+    Widget none(BuildContext _, Object _, StackTrace? _) => placeholder;
+    final Widget photo;
+    if (bytes != null) {
+      photo = FutureBuilder<Uint8List>(
+        future: bytes,
+        builder: (context, snapshot) => snapshot.hasData ? Image.memory(snapshot.data!, fit: BoxFit.cover, errorBuilder: none) : placeholder,
+      );
+    } else if (!Tk2Cloud.on && (path.startsWith('http') || path.startsWith('blob:'))) {
+      photo = Image.network(path, fit: BoxFit.cover, errorBuilder: none);
+    } else if (!Tk2Cloud.on && !kIsWeb && path.isNotEmpty && path != 'demo') {
+      photo = Image.file(File(path), fit: BoxFit.cover, errorBuilder: none);
+    } else {
+      photo = placeholder;
+    }
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        width: size,
-        height: size,
+        width: widget.size,
+        height: widget.size,
         color: AppColors.surfaceMuted,
-        child: web
-            ? Image.network(path, fit: BoxFit.cover, errorBuilder: none)
-            : (kIsWeb || path.isEmpty || path == 'demo'
-                  ? const Icon(Icons.image_outlined, color: AppColors.muted)
-                  : Image.file(File(path), fit: BoxFit.cover, errorBuilder: none)),
+        child: photo,
       ),
     );
+  }
+}
+
+Future<void> saveTk2PrivateFile(BuildContext context, String path, {int maxBytes = 10 * 1024 * 1024}) async {
+  try {
+    final bytes = await Tk2Cloud.readPrivateFile(path, maxBytes: maxBytes);
+    await FilePicker.saveFile(fileName: path.split('/').last, bytes: bytes);
+  } catch (_) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not save the file. Try again.')));
   }
 }
 
@@ -263,7 +298,7 @@ class _DealPayState extends State<DealPay> {
   Widget build(BuildContext context) => OnbPage(
     title: widget.title,
     onBack: () => Navigator.of(context).maybePop(),
-    footer: [PrimaryButton(label: 'Pay ${Tk2Store.money(total)}', icon: Icons.chevron_right, loading: busy, onPressed: busy ? null : _pay)],
+    footer: [PrimaryButton(label: 'Pay ${Tk2Store.money(total)}', icon: Icons.chevron_right, loading: busy, onPressed: busy || Tk2Cloud.on ? null : _pay)],
     children: [
       dealText(widget.intro),
       const SizedBox(height: 16),
@@ -276,7 +311,10 @@ class _DealPayState extends State<DealPay> {
         ),
       ),
       const SizedBox(height: 12),
-      dealDemoPay,
+      if (Tk2Cloud.on)
+        const OnbBanner('Payments are unavailable during the staging pilot.', kind: 'wait', icon: Icons.info_outline)
+      else
+        dealDemoPay,
     ],
   );
 }
@@ -421,10 +459,10 @@ class _DealReviewDocsState extends State<DealReviewDocs> {
             child: OnbRow(
               icon: Icons.description_outlined,
               title: e.key,
-              subtitle: '${e.value}'.startsWith('http') ? 'Tap to open' : 'Received',
+              subtitle: Tk2Cloud.isPrivateFile('${e.value}') ? 'Tap to save' : 'Received',
               tone: 'ok',
-              chevron: '${e.value}'.startsWith('http'),
-              onTap: '${e.value}'.startsWith('http') ? () => launchUrl(Uri.parse('${e.value}'), mode: LaunchMode.externalApplication) : null,
+              chevron: Tk2Cloud.isPrivateFile('${e.value}'),
+              onTap: Tk2Cloud.isPrivateFile('${e.value}') ? () => saveTk2PrivateFile(context, '${e.value}') : null,
             ),
           ),
         if (details.isNotEmpty) ...[
@@ -1036,7 +1074,7 @@ class _DealSignState extends State<DealSign> {
       title: 'Sign the agreement',
       subtitle: 'Version ${d.version} · on stamp paper',
       onBack: () => Navigator.of(context).maybePop(),
-      footer: [PrimaryButton(label: 'Sign', icon: Icons.draw_outlined, onPressed: _sign)],
+      footer: [PrimaryButton(label: 'Sign', icon: Icons.draw_outlined, onPressed: Tk2Cloud.on ? null : _sign)],
       children: [
         const OnbBanner('Final agreement. You and the other person both said yes.', kind: 'ok', icon: Icons.verified_outlined),
         const SizedBox(height: 12),
@@ -1055,7 +1093,10 @@ class _DealSignState extends State<DealSign> {
           onChanged: (_) => setState(() => error = null),
         ),
         const SizedBox(height: 12),
-        const OnbBanner('Demo build: the real e-sign link comes on WhatsApp and email.', kind: 'wait', icon: Icons.science_outlined),
+        if (Tk2Cloud.on)
+          const OnbBanner('Agreement signing is unavailable during the staging pilot.', kind: 'wait', icon: Icons.info_outline)
+        else
+          const OnbBanner('Demo build: the real e-sign link comes on WhatsApp and email.', kind: 'wait', icon: Icons.science_outlined),
       ],
     );
   }

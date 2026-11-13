@@ -184,7 +184,12 @@ class Tk2DealPage extends StatelessWidget {
       messenger.showSnackBar(SnackBar(behavior: SnackBarBehavior.floating, content: Text('Reminder copied. Paste it to $first.')));
       return;
     }
-    await showTk2OwnerInvite(context, ownerName: d.nameOf(to), phone: phone, message: message, title: 'Remind $first');
+    try {
+      await showTk2OwnerInvite(context, ownerName: d.nameOf(to), phone: phone, message: () async => message, title: 'Remind $first');
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open the sharing app. Try Copy link.')));
+    }
   }
 }
 

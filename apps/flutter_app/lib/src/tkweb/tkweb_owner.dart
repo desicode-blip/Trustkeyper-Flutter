@@ -8,6 +8,7 @@ import '../features/auth/presentation/approved_auth_widgets.dart';
 import '../features/broker/data/broker_property_repository.dart';
 import '../features/broker/presentation/broker_property_screen.dart';
 import '../features/broker/presentation/onboarding_widgets.dart';
+import '../tk2/tk2_cloud.dart';
 import '../tk2/tk2_listing.dart';
 import '../tk2/tk2_store.dart';
 import 'tkweb_auth.dart';
@@ -17,10 +18,69 @@ import 'tkweb_session.dart';
 Route<void> _route(Widget page) => MaterialPageRoute<void>(builder: (_) => page);
 
 /// Owner opens the broker's invite (WhatsApp link): what we ask, then sign up.
-class TkwOwnerInvite extends StatelessWidget {
-  const TkwOwnerInvite({required this.brokerName, required this.houseName, super.key});
+class TkwOwnerInvite extends StatefulWidget {
+  const TkwOwnerInvite({required this.brokerName, required this.houseName, this.inviteId, super.key});
   final String brokerName;
   final String houseName;
+  final String? inviteId;
+
+  @override
+  State<TkwOwnerInvite> createState() => _TkwOwnerInviteState();
+}
+
+class _TkwOwnerInviteState extends State<TkwOwnerInvite> {
+  bool busy = false;
+  bool submitted = false;
+  String? error;
+
+  Future<void> _begin() async {
+    final nav = Navigator.of(context);
+    final id = widget.inviteId;
+    var brokerName = widget.brokerName;
+    if (id != null) {
+      setState(() {
+        busy = true;
+        error = null;
+      });
+      try {
+        final result = await Tk2Store.instance.sync!.claimInvite(id, TkwSession.instance.name);
+        brokerName = result.brokerName;
+        if (result.submitted) {
+          if (!mounted) return;
+          nav.popUntil((r) => r.isFirst);
+          setState(() {
+            busy = false;
+            submitted = true;
+          });
+          return;
+        }
+      } catch (_) {
+        if (!mounted) return;
+        nav.popUntil((r) => r.isFirst);
+        setState(() {
+          busy = false;
+          error = 'Use the phone number or email your broker sent this link to.';
+        });
+        return;
+      }
+    }
+    if (!mounted) return;
+    setState(() => busy = false);
+    nav.popUntil((r) => r.isFirst);
+    nav.push(_route(TkwOwnerCount(brokerName: brokerName)));
+  }
+
+  void _start() {
+    if (TkwSession.instance.signedIn && error == null) {
+      _begin();
+      return;
+    }
+    Navigator.of(context).push(_route(TkwSignUp(
+      allowEmail: true,
+      subtitle: 'Your name, and your phone or email. We send a code to check it is you.',
+      onDone: _begin,
+    )));
+  }
 
   @override
   Widget build(BuildContext context) => ApprovedAuthScaffold(
@@ -29,23 +89,8 @@ class TkwOwnerInvite extends StatelessWidget {
     footer: PrimaryButton(
       label: 'Start',
       icon: Icons.chevron_right,
-      onPressed: () {
-        final nav = Navigator.of(context);
-        void begin() => nav.push(_route(TkwOwnerCount(brokerName: brokerName)));
-        if (TkwSession.instance.signedIn) return begin();
-        nav.push(
-          _route(
-            TkwSignUp(
-              allowEmail: true,
-              subtitle: 'Your name, and your phone or email. We send a code to check it is you.',
-              onDone: () {
-                nav.popUntil((r) => r.isFirst);
-                begin();
-              },
-            ),
-          ),
-        );
-      },
+      loading: busy,
+      onPressed: busy || submitted ? null : _start,
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -56,18 +101,20 @@ class TkwOwnerInvite extends StatelessWidget {
           TextSpan(
             children: [
               TextSpan(
-                text: brokerName.isEmpty ? 'Your broker' : brokerName,
+                text: widget.brokerName.isEmpty ? 'Your broker' : widget.brokerName,
                 style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.heading),
               ),
               TextSpan(
-                text: houseName.isEmpty
+                text: widget.houseName.isEmpty
                     ? ' asked you to add your house on TrustKeyper. It takes about 5 minutes.'
-                    : ' asked you to add $houseName on TrustKeyper. It takes about 5 minutes.',
+                    : ' asked you to add ${widget.houseName} on TrustKeyper. It takes about 5 minutes.',
               ),
             ],
           ),
           style: const TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.muted),
         ),
+        if (error != null) ...[const SizedBox(height: 12), OnbBanner(error!, kind: 'need', icon: Icons.error_outline)],
+        if (submitted) ...[const SizedBox(height: 12), const OnbBanner('Your house details were already sent.', kind: 'ok', icon: Icons.check_circle_outline)],
         const SizedBox(height: 18),
         for (final (icon, title, sub) in const [
           (Icons.home_work_outlined, 'About the house', 'Address, rooms, size, furnishing'),
@@ -296,6 +343,8 @@ class _TkwOwnerKeysState extends State<TkwOwnerKeys> {
   late final note = TextEditingController(text: a['keyNote'] as String? ?? '');
   String dial = '+91';
   final Set<String> bad = {};
+  bool sending = false;
+  String? sendError;
 
   @override
   void dispose() {
@@ -312,7 +361,7 @@ class _TkwOwnerKeysState extends State<TkwOwnerKeys> {
     bad.clear();
   });
 
-  void _send() {
+  Future<void> _send() async {
     final digits = phone.text.replaceAll(RegExp(r'\D'), '');
     bad
       ..clear()
@@ -328,7 +377,24 @@ class _TkwOwnerKeysState extends State<TkwOwnerKeys> {
       ..['keyName'] = _needsPerson ? name.text.trim() : ''
       ..['keyPhone'] = _needsPerson ? PhoneCountry.format(dial, digits) : ''
       ..['keyNote'] = note.text.trim();
-    TkwSession.instance.save();
+    setState(() {
+      sending = true;
+      sendError = null;
+    });
+    final session = TkwSession.instance;
+    try {
+      await session.save();
+      await Tk2Store.instance.sync?.submitOwnerListing(widget.houseId, a, name: session.name, contact: session.contact);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        sending = false;
+        sendError = 'We could not send the house details. Try again.';
+      });
+      return;
+    }
+    if (!mounted) return;
+    setState(() => sending = false);
     Navigator.of(context).push(_route(TkwOwnerDone(houseId: widget.houseId, brokerName: widget.brokerName)));
   }
 
@@ -438,7 +504,8 @@ class _TkwOwnerKeysState extends State<TkwOwnerKeys> {
     subtitle: 'Who has the keys? We need them when someone visits.',
     onBack: () => Navigator.of(context).maybePop(),
     footer: [
-      PrimaryButton(label: 'Send to ${widget.brokerName.isEmpty ? 'broker' : widget.brokerName.split(' ').first}', icon: Icons.chevron_right, onPressed: _send),
+      if (sendError != null) OnbBanner(sendError!, kind: 'need', icon: Icons.error_outline),
+      PrimaryButton(label: 'Send to ${widget.brokerName.isEmpty ? 'broker' : widget.brokerName.split(' ').first}', icon: Icons.chevron_right, loading: sending, onPressed: sending ? null : _send),
     ],
     children: [
       AnimatedContainer(
@@ -497,7 +564,7 @@ class _TkwOwnerDoneState extends State<TkwOwnerDone> {
       showBack: false,
       footer: [
         PrimaryButton(label: 'Done', onPressed: _done),
-        if (!docs) ...[
+        if (!docs && !Tk2Cloud.on) ...[
           const SizedBox(height: 10),
           OnbSecondaryButton(
             label: 'Upload documents now',
@@ -513,11 +580,11 @@ class _TkwOwnerDoneState extends State<TkwOwnerDone> {
           icon: Icons.check,
           kind: 'ok',
           title: 'Thank you, ${TkwSession.instance.name.split(' ').first}!',
-          message:
-              '${widget.brokerName.isEmpty ? 'Your broker' : widget.brokerName} can now share your house with tenants. We message you on WhatsApp when someone books a visit.',
+          message: '${widget.brokerName.isEmpty ? 'Your broker' : widget.brokerName} can now share your house with tenants.'
+              '${Tk2Cloud.on ? '' : ' We message you on WhatsApp when someone books a visit.'}',
         ),
         const SizedBox(height: 24),
-        docs
+        if (!Tk2Cloud.on) docs
             ? const OnbBanner(
                 'Documents received. We use them to make the rent agreement when a tenant blocks your house.',
                 kind: 'ok',

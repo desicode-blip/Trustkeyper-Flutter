@@ -13,6 +13,7 @@ import '../features/document_requests/presentation/recipient_document_layout.dar
 import '../tk2/tk2_cloud.dart';
 import '../tk2/tk2_customer.dart';
 import '../tk2/tk2_deal.dart';
+import '../tk2/tk2_deal_screens.dart' show saveTk2PrivateFile;
 import '../tk2/tk2_designs.dart';
 import '../tk2/tk2_store.dart';
 import '../tk2/tk2_widgets.dart';
@@ -44,7 +45,8 @@ class TkwProperty extends StatelessWidget {
     builder: (context, _) {
       final trip = TkwSession.instance.trips[listingId];
       final step = trip?['step'] as int?;
-      final deal = Tk2Store.instance.dealFor(listingId);
+      final current = Tk2Store.instance.dealFor(listingId);
+      final deal = !Tk2Cloud.on || current != null && TkwSession.instance.signedIn && TkwSession.instance.roleIn(current) == DealRole.tenant ? current : null;
       return Tk2CustomerPage(
         store: Tk2Store.instance,
         id: listingId,
@@ -69,7 +71,7 @@ void tkwStartBooking(BuildContext context, String listingId) {
         store: Tk2Store.instance,
         id: listingId,
         onPicked: (at) {
-          if (TkwSession.instance.signedIn) {
+          if (TkwSession.instance.signedIn && (!Tk2Cloud.on || Tk2Cloud.hasPhoneSession)) {
             nav.push(_route(TkwPay(listingId: listingId, at: at)));
             return;
           }
@@ -105,12 +107,26 @@ class TkwPay extends StatefulWidget {
 
 class _TkwPayState extends State<TkwPay> {
   bool paying = false;
+  String? error;
 
   Future<void> _pay() async {
-    setState(() => paying = true);
+    setState(() {
+      paying = true;
+      error = null;
+    });
     await Future<void>.delayed(const Duration(milliseconds: 900));
     final s = TkwSession.instance;
-    final visit = await Tk2Store.instance.bookVisit(listingId: widget.listingId, name: s.name, phone: s.contact, at: widget.at);
+    final Tk2Visit visit;
+    try {
+      visit = await Tk2Store.instance.bookVisit(listingId: widget.listingId, name: s.name, phone: s.contact, at: widget.at);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        paying = false;
+        error = 'We could not book this visit. Sign in with your phone number and try again.';
+      });
+      return;
+    }
     s.trips[widget.listingId] = {'step': 0, 'visitId': visit.id, 'bookedAt': DateTime.now().millisecondsSinceEpoch};
     await s.save();
     if (!mounted) return;
@@ -128,7 +144,7 @@ class _TkwPayState extends State<TkwPay> {
       onBack: () => Navigator.of(context).maybePop(),
       footer: [
         PrimaryButton(
-          label: l.visitFee == 0 ? 'Book visit' : 'Pay ${Tk2Store.money(l.visitFee)}',
+          label: Tk2Cloud.on ? 'Book test visit' : l.visitFee == 0 ? 'Book visit' : 'Pay ${Tk2Store.money(l.visitFee)}',
           icon: Icons.lock_outline,
           iconBeforeLabel: true,
           loading: paying,
@@ -164,12 +180,15 @@ class _TkwPayState extends State<TkwPay> {
         const SizedBox(height: 22),
         const Text('Good to know', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading)),
         const SizedBox(height: 6),
-        _rule(Icons.verified_user_outlined, 'Your payment is safe with us.'),
-        _rule(Icons.replay, 'If the broker or owner cancels, you get a full refund. If you cancel, there is no refund.'),
-        _rule(Icons.timer_outlined, 'Changed your mind? Cancel within 5 minutes for a full refund, minus a 2% platform fee.'),
+        if (!Tk2Cloud.on) ...[
+          _rule(Icons.verified_user_outlined, 'Your payment is safe with us.'),
+          _rule(Icons.replay, 'If the broker or owner cancels, you get a full refund. If you cancel, there is no refund.'),
+          _rule(Icons.timer_outlined, 'Changed your mind? Cancel within 5 minutes for a full refund, minus a 2% platform fee.'),
+        ],
         _rule(Icons.directions_walk, 'Please be on time. The agent waits 15 minutes, then the visit counts as cancelled.'),
         const SizedBox(height: 12),
-        const OnbBanner('Demo build: test payment. No money moves.', kind: 'wait', icon: Icons.science_outlined),
+        OnbBanner(Tk2Cloud.on ? 'Staging pilot: no money is collected.' : 'Demo build: test payment. No money moves.', kind: 'wait', icon: Icons.science_outlined),
+        if (error != null) OnbBanner(error!, kind: 'need', icon: Icons.error_outline),
       ],
     );
   }
@@ -244,10 +263,14 @@ class _TkwStepState extends State<TkwStep> {
   @override
   void initState() {
     super.initState();
+    if (key == 'visit') Tk2Store.instance.addListener(_visitUpdated);
   }
+
+  void _visitUpdated() => setState(() {});
 
   @override
   void dispose() {
+    if (key == 'visit') Tk2Store.instance.removeListener(_visitUpdated);
     for (final c in [email, address, work, people, sign]) {
       c.dispose();
     }
@@ -258,6 +281,7 @@ class _TkwStepState extends State<TkwStep> {
     if (done && key == 'visit') return _goNext();
     // After the visit: ask if they liked it before blocking.
     if (key == 'visit') {
+      if (Tk2Cloud.on) return;
       await Navigator.of(context).push(_route(TkwLiked(listingId: widget.listingId, index: widget.index)));
       if (mounted) setState(() {});
       return;
@@ -282,6 +306,7 @@ class _TkwStepState extends State<TkwStep> {
       return;
     }
     // Block: pay the token (test payment), then the deal page takes over.
+    if (Tk2Cloud.on) return;
     setState(() => busy = true);
     await Future<void>.delayed(const Duration(milliseconds: 900));
     trip['step'] = widget.index + 1;
@@ -305,7 +330,7 @@ class _TkwStepState extends State<TkwStep> {
     final sure = await onbConfirm(
       context,
       title: 'Cancel this visit?',
-      message: inTime
+      message: Tk2Cloud.on ? 'This will cancel your staging booking.' : inTime
           ? '${Tk2Store.money(Tk2Visit.refundAfterFee(l.visitFee))} comes back to you (2% platform fee).'
           : 'It has been more than 5 minutes since you booked, so the visit fee is not refunded.',
       yes: 'Keep visit',
@@ -313,7 +338,14 @@ class _TkwStepState extends State<TkwStep> {
     );
     if (sure || !mounted) return;
     final visitId = trip['visitId'] as String?;
-    if (visitId != null) await Tk2Store.instance.customerCancel(visitId);
+    if (visitId == null) return;
+    try {
+      if (!await Tk2Store.instance.customerCancel(visitId)) return;
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not cancel this visit. Try again.')));
+      return;
+    }
     trip['cancelled'] = true;
     trip['refund'] = inTime ? Tk2Visit.refundAfterFee(l.visitFee) : 0;
     await s.save();
@@ -357,7 +389,7 @@ class _TkwStepState extends State<TkwStep> {
       subtitle: l.publicTitle,
       onBack: () => Navigator.of(context).maybePop(),
       footer: [
-        if (action.isNotEmpty) PrimaryButton(label: done && key == 'visit' ? 'Continue' : action, icon: Icons.chevron_right, loading: busy, onPressed: busy ? null : _complete),
+        if (action.isNotEmpty) PrimaryButton(label: done && key == 'visit' ? 'Continue' : action, icon: Icons.chevron_right, loading: busy, onPressed: busy || (Tk2Cloud.on && key == 'block') ? null : _complete),
       ],
       children: [
         ...children,
@@ -367,7 +399,10 @@ class _TkwStepState extends State<TkwStep> {
 
   (String, String, List<Widget>) _visitStep() {
     final v = _visit;
-    if (trip['cancelled'] == true || v == null) {
+    if (v == null && Tk2Cloud.on && trip['cancelled'] != true) {
+      return ('Your visit', '', [const OnbBanner('Loading your booking…', kind: 'info', icon: Icons.event_outlined)]);
+    }
+    if (trip['cancelled'] == true || v == null || (!v.upcoming && v.status != VisitStatus.done)) {
       final refund = trip['refund'] as int? ?? Tk2Visit.refundAfterFee(l.visitFee);
       return (
         'Visit cancelled',
@@ -376,7 +411,7 @@ class _TkwStepState extends State<TkwStep> {
           OnbCentered(
             icon: Icons.event_busy_outlined,
             title: 'Visit cancelled',
-            message: refund > 0
+            message: Tk2Cloud.on ? 'This staging booking has ended.' : refund > 0
                 ? '${Tk2Store.money(refund)} comes back to you in 3–5 days.'
                 : 'The visit fee is not refunded, as it was more than 5 minutes after booking.',
           ),
@@ -398,10 +433,10 @@ class _TkwStepState extends State<TkwStep> {
     final address = tk2PublicAddress(l);
     return (
       'Your visit',
-      'I visited the place',
+      Tk2Cloud.on ? '' : 'I visited the place',
       [
         // 1. Status
-        Center(child: OnbPill(done ? 'Visit done' : 'Visit booked', 'ok', icon: Icons.check_circle_outline)),
+        Center(child: OnbPill(v.status == VisitStatus.done || done ? 'Visit done' : 'Visit booked', 'ok', icon: Icons.check_circle_outline)),
         const SizedBox(height: 14),
         // 2. When
         _block(
@@ -430,6 +465,8 @@ class _TkwStepState extends State<TkwStep> {
           ),
           action: ('Add to Google Calendar', Icons.calendar_month_outlined, () => launchUrl(_calendar(at), mode: LaunchMode.externalApplication)),
         ),
+        if (Tk2Cloud.isPrivateFile(v.gatePass))
+          OnbRow(icon: Icons.badge_outlined, title: 'Gate pass', subtitle: 'Tap to save', onTap: () => saveTk2PrivateFile(context, v.gatePass)),
         // 3. Where
         _block(
           'Where',
@@ -523,10 +560,10 @@ class _TkwStepState extends State<TkwStep> {
           style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.heading),
         ),
         const SizedBox(height: 4),
-        _rule(Icons.phone_in_talk_outlined, 'We call you and the broker 1 hour before the visit.'),
-        _rule(Icons.badge_outlined, 'Gated society? The broker sends your gate pass on WhatsApp before the visit.'),
+        if (!Tk2Cloud.on) _rule(Icons.phone_in_talk_outlined, 'We call you and the broker 1 hour before the visit.'),
+        _rule(Icons.badge_outlined, Tk2Cloud.on ? 'If the broker adds a gate pass, it appears here.' : 'Gated society? The broker sends your gate pass on WhatsApp before the visit.'),
         _rule(Icons.directions_walk, 'Please be on time. We wait 15 minutes.'),
-        if (!done) ...[
+        if (!done && v.upcoming) ...[
           const SizedBox(height: 8),
           // Small and out of the way: bottom right, under "Good to know".
           Align(
@@ -801,6 +838,7 @@ class _TkwTenantDocsState extends State<TkwTenantDocs> {
   Map<String, dynamic>? bank;
   Map<String, dynamic>? linkedIn;
   bool busy = false;
+  String? error;
 
   @override
   void dispose() {
@@ -845,7 +883,7 @@ class _TkwTenantDocsState extends State<TkwTenantDocs> {
     loading: false,
     busy: busy,
     progress: null,
-    error: null,
+    error: error,
     otpSent: false,
     cooldown: 0,
     code: code,
@@ -859,13 +897,26 @@ class _TkwTenantDocsState extends State<TkwTenantDocs> {
     onReload: () async {},
     onSignOut: () async => widget.onExit(),
     onSubmit: () async {
-      setState(() => busy = true);
+      setState(() {
+        busy = true;
+        error = null;
+      });
       await Future<void>.delayed(const Duration(milliseconds: 700));
       // Names only; with the backend on, the files themselves are uploaded for the broker.
       final sent = <String, String>{};
       final deal = Tk2Store.instance.dealFor(widget.listing.id);
-      for (final e in files.entries) {
-        sent[tkwDocName(e.key)] = deal == null ? 'Received' : await tkwUploadDoc(deal.id, e.value);
+      try {
+        if (Tk2Cloud.on && deal == null) throw StateError('A deal is required');
+        for (final e in files.entries) {
+          sent[tkwDocName(e.key)] = deal == null ? 'Received' : await tkwUploadDoc(deal.id, e.value);
+        }
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          busy = false;
+          error = 'We could not upload your documents. Try again.';
+        });
+        return;
       }
       if (bank != null) sent['Bank details'] = 'Received';
       if (linkedIn != null) sent['LinkedIn'] = '${linkedIn!['url'] ?? linkedIn!['linkedIn'] ?? 'Received'}';

@@ -20,11 +20,8 @@ String tkwDocName(DocumentKind kind) => kind.label;
 /// it stays on this device and only "Received" is recorded.
 Future<String> tkwUploadDoc(String dealId, DocumentFile file) async {
   if (!Tk2Cloud.on) return 'Received';
-  try {
-    return await Tk2Cloud.uploadDealBytes(dealId, file.bytes);
-  } catch (_) {
-    return 'Received';
-  }
+  file.validate();
+  return Tk2Cloud.uploadDealBytes(dealId, file.bytes);
 }
 
 /// The deal page on the web, for the tenant or the owner. Documents use the
@@ -106,7 +103,8 @@ class _TkwDealStartState extends State<TkwDealStart> {
     if (!mounted) return;
     setState(() => busy = false);
     if (role == null || store.deal(widget.dealId) == null) {
-      return setState(() => error = 'This link is not for this phone number. Ask your broker for a new one.');
+      nav.popUntil((r) => r.isFirst);
+      return setState(() => error = 'Use the phone number or email your broker has for this deal.');
     }
     nav.popUntil((r) => r.isFirst);
     nav.pushReplacement(
@@ -118,7 +116,7 @@ class _TkwDealStartState extends State<TkwDealStart> {
   }
 
   void _start() {
-    if (TkwSession.instance.signedIn) {
+    if (TkwSession.instance.signedIn && error == null) {
       _open();
       return;
     }

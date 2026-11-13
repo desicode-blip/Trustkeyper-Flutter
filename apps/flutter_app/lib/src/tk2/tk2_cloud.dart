@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:typed_data' show BytesBuilder;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -7,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import 'tk2_link.dart';
@@ -56,10 +58,16 @@ class Tk2Cloud {
         };
 
   static bool get configured => _apiKey.isNotEmpty && _projectId.isNotEmpty && _appId.isNotEmpty;
+  static bool get hasPhoneSession => on && (auth.currentUser?.phoneNumber?.isNotEmpty ?? false);
 
   /// Call once before runApp. Does nothing in the demo build.
   static Future<void> start() async {
-    if (!configured) return;
+    if ([_apiKey, _projectId, _appId].every((value) => value.isEmpty)) return;
+    if (!configured || _bucket.isEmpty) throw StateError('Complete the TK2 Firebase settings for this build');
+    if (_emulator.isEmpty && _projectId != 'trustkeyper-app-staging') {
+      throw StateError('The TK2 cloud pilot uses trustkeyper-app-staging');
+    }
+    if (_emulator.isNotEmpty && !_projectId.startsWith('demo-')) throw StateError('Use a demo Firebase project with the emulators');
     await Firebase.initializeApp(
       options: FirebaseOptions(
         apiKey: _apiKey,
@@ -209,24 +217,53 @@ class Tk2Cloud {
 
   /// A photo or video of a deal (stamp paper, handover, repairs, documents);
   /// only the deal's broker, tenant and owner can open it.
-  static Future<String> uploadDealFile(String dealId, String path) => _upload('tk2/deals/$dealId/${_name()}', path);
+  static Future<String> uploadDealFile(String dealId, String path) => _upload('tk2/deals/$dealId/${_name()}', path, private: true);
 
-  /// Gate pass picture/PDF for one visit; returns its web address.
-  static Future<String> uploadGatePass(String visitId, String path) => _upload('tk2/visits/$visitId/${_name()}', path);
+  /// Gate pass picture/PDF for one visit; returns its authenticated path.
+  static Future<String> uploadGatePass(String visitId, String path) => _upload('tk2/visits/$visitId/${_name()}', path, private: true);
 
   /// A document already read into memory (ID proof picked on the web).
-  static Future<String> uploadDealBytes(String dealId, Uint8List bytes) => _put('tk2/deals/$dealId/${_name()}', bytes, null);
+  static Future<String> uploadDealBytes(String dealId, Uint8List bytes) => _put('tk2/deals/$dealId/${_name()}', bytes, null, private: true);
 
-  static Future<String> _upload(String where, String path) async {
-    final file = XFile(path);
-    return _put(where, await file.readAsBytes(), file.mimeType);
+  static bool isPrivateFile(String path) => on && RegExp(r'^tk2/(deals|visits)/[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+$').hasMatch(path);
+
+  static Future<Uint8List> readPrivateFile(String path, {int maxBytes = 10 * 1024 * 1024}) async {
+    if (!isPrivateFile(path)) throw ArgumentError('Invalid TK2 file path');
+    final token = await auth.currentUser?.getIdToken();
+    if (token == null) throw StateError('Sign in to open this file');
+    final endpoint = '/v0/b/$_bucket/o/${Uri.encodeComponent(path)}?alt=media';
+    final uri = Uri.parse('${_emulator.isEmpty ? 'https://firebasestorage.googleapis.com' : 'http://$_emulator:9199'}$endpoint');
+    final client = http.Client();
+    try {
+      final request = http.Request('GET', uri)..headers['Authorization'] = 'Firebase $token';
+      final response = await client.send(request).timeout(const Duration(seconds: 30));
+      if (response.statusCode != 200 || (response.contentLength ?? 0) > maxBytes) throw StateError('File unavailable');
+      final bytes = BytesBuilder(copy: false);
+      await for (final chunk in response.stream.timeout(const Duration(seconds: 30))) {
+        if (bytes.length + chunk.length > maxBytes) throw StateError('File is too large');
+        bytes.add(chunk);
+      }
+      return bytes.takeBytes();
+    } finally {
+      client.close();
+    }
   }
 
-  static Future<String> _put(String where, Uint8List bytes, String? hint) async {
+  static Future<String> _upload(String where, String path, {bool private = false}) async {
+    final file = XFile(path);
+    return _put(where, await file.readAsBytes(), file.mimeType, private: private);
+  }
+
+  static Future<String> _put(String where, Uint8List bytes, String? hint, {bool private = false}) async {
     final type = _type(bytes, hint);
-    final ref = FirebaseStorage.instance.ref('$where.${type.split('/').last}');
-    await ref.putData(bytes, SettableMetadata(contentType: type));
-    return ref.getDownloadURL();
+    final path = '$where.${type.split('/').last}';
+    final uid = Tk2Cloud.uid;
+    if (private && uid == null) throw StateError('Sign in to add this file');
+    final ref = FirebaseStorage.instance.ref(private ? 'tk2Uploads/$uid/$path' : path);
+    await ref.putData(bytes, SettableMetadata(contentType: type, cacheControl: private ? 'private, no-store' : null));
+    if (!private) return ref.getDownloadURL();
+    await FirebaseFunctions.instanceFor(region: _region).httpsCallable('tk2FinalizeFile').call<Map<String, dynamic>>({'path': path});
+    return path;
   }
 
   /// Content type from the first bytes (JPEG, PNG, PDF); JPEG when unsure.

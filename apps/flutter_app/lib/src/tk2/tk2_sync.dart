@@ -26,6 +26,7 @@ class Tk2Sync {
 
   /// Listings being uploaded: a live update must not undo them on screen.
   final _pending = <String>{};
+  final _queuedListings = <String>{};
 
   /// Broker of each listing opened on the web (needed to book a visit).
   final brokerOf = <String, String>{};
@@ -41,8 +42,9 @@ class Tk2Sync {
   void _try(Future<void> Function() job, String what) {
     unawaited(
       job().then((_) => error.value = null).catchError((Object e) {
-        error.value = '$what: $e';
-        debugPrint('TK2 sync – ${error.value}');
+        final code = e is FirebaseException ? e.code : 'failed';
+        error.value = '$what: $code';
+        debugPrint('TK2 sync: ${error.value}');
       }),
     );
   }
@@ -52,6 +54,15 @@ class Tk2Sync {
       s.cancel();
     }
     _subs.clear();
+    _dealsBy.clear();
+  }
+
+  void clearWebSession() {
+    stop();
+    inviteId = null;
+    _inviteBroker = '';
+    _inviteBrokerPhone = '';
+    _inviteBrokerUid = '';
   }
 
   // ------------------------------------------------------------- broker app
@@ -98,7 +109,14 @@ class Tk2Sync {
           code = (await d.reference.collection('secret').doc('code').get()).data()?['code'] as String? ?? '';
         } catch (_) {}
       }
-      visits.add(Tk2Visit.fromJson({...j, 'id': d.id, 'code': code, 'createdAt': Tk2Cloud.millis(j['createdAt']), 'at': Tk2Cloud.millis(j['at'])}));
+      visits.add(Tk2Visit.fromJson({
+        ...j,
+        'id': d.id,
+        'code': code,
+        'createdAt': Tk2Cloud.millis(j['createdAt']),
+        'at': Tk2Cloud.millis(j['at']),
+        'changedAt': j['status'] == VisitStatus.done ? Tk2Cloud.millis(j['doneAt']) : Tk2Cloud.millis(j['updatedAt']),
+      }));
     }
     store.applyVisits(visits);
   }, onError: (Object e) => error.value = 'visits: $e');
@@ -115,46 +133,69 @@ class Tk2Sync {
   /// The house owner filled this listing in from the broker's invite link.
   bool addedByOwner(String listingId) => _addedBy.containsKey(listingId);
 
-  /// Saves one listing: photos first, then the public and private documents.
+  /// Saves a broker listing. The owner submits their draft at the last step.
   void listing(String id) {
     final l = store.listing(id);
-    if (l == null || l.sample || _uid.isEmpty) return;
-    _pending.add(id);
+    if (l == null || l.sample || _uid.isEmpty || inviteId != null) return;
+    if (!_pending.add(id)) {
+      _queuedListings.add(id);
+      return;
+    }
     _try(() async {
       try {
-        final up = await Tk2Cloud.uploadPhotos(l);
-        if (!identical(up, l)) store.replacePhotos(id, up.photos);
-        final owner = inviteId != null;
-        final brokerUid = owner ? _inviteBrokerUid : _uid;
-        if (owner) brokerOf[id] = brokerUid;
-        final added = owner ? (ownerUid: _uid, inviteId: inviteId) : _addedBy[id];
-        await _db
-            .doc('tk2Listings/$id')
-            .set(
-              Tk2Cloud.publicDoc(
-                up.copyWith(token: up.tokenOr(store.defaultToken)),
-                brokerUid: brokerUid,
-                brokerName: owner ? _inviteBroker : store.brokerName,
-                brokerPhone: owner ? _inviteBrokerPhone : store.brokerPhone,
-                active: store.isActive(id),
-                ownerUid: added?.ownerUid,
-                inviteId: added?.inviteId,
-              ),
-            );
-        // Private doc after the public one (the rules check the listing exists).
-        await _db.doc('tk2Private/$id').set({
-          'brokerUid': brokerUid,
-          if (added != null) 'ownerUid': added.ownerUid,
-          if (added?.inviteId != null) 'inviteId': added!.inviteId,
-          'listing': up.toJson(),
-          'inactive': store.inactive(id)?.toJson(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-        if (owner) await _db.doc('tk2Invites/$inviteId').update({'ownerUid': _uid, 'listingId': id, 'updatedAt': FieldValue.serverTimestamp()});
+        await _writeListing(l, added: _addedBy[id]);
       } finally {
         _pending.remove(id);
+        if (_queuedListings.remove(id)) listing(id);
       }
     }, 'listing $id');
+  }
+
+  Future<void> submitOwnerListing(String id, Map<String, dynamic> answers, {required String name, required String contact}) async {
+    final invite = inviteId;
+    final listing = store.listing(id);
+    if (invite == null || listing == null || _uid.isEmpty) throw StateError('An owner invite is required');
+    await _writeListing(listing, added: (ownerUid: _uid, inviteId: invite), ownerAnswers: {...answers, 'ownerName': name, 'ownerContact': contact});
+  }
+
+  Future<void> _writeListing(Tk2Listing listing, {required ({String ownerUid, String? inviteId})? added, Map<String, dynamic>? ownerAnswers}) async {
+    final id = listing.id;
+    final owner = ownerAnswers != null;
+    final brokerUid = owner ? _inviteBrokerUid : _uid;
+    final ref = _db.doc('tk2Listings/$id');
+    Map<String, Object?> publicDoc(Tk2Listing l, {required bool active}) => Tk2Cloud.publicDoc(
+      l.copyWith(token: l.tokenOr(store.defaultToken)),
+      brokerUid: brokerUid,
+      brokerName: owner ? _inviteBroker : store.brokerName,
+      brokerPhone: owner ? _inviteBrokerPhone : store.brokerPhone,
+      active: active,
+      ownerUid: added?.ownerUid,
+      inviteId: added?.inviteId,
+    );
+
+    // Storage checks the listing's ownership. A new draft stays inactive until
+    // its photos and private answers have been saved.
+    if (listing.photos.any((p) => !p.startsWith('http')) && !(await ref.get(const GetOptions(source: Source.server))).exists) {
+      await ref.set(publicDoc(listing, active: false));
+    }
+    final uploaded = await Tk2Cloud.uploadPhotos(listing);
+    final batch = _db.batch()
+      ..set(ref, publicDoc(uploaded, active: store.isActive(id)))
+      ..set(_db.doc('tk2Private/$id'), {
+        'brokerUid': brokerUid,
+        if (added != null) 'ownerUid': added.ownerUid,
+        if (added?.inviteId != null) 'inviteId': added!.inviteId,
+        if (added == null && !owner) 'ownerContact': _recipient(listing.ownerPhone),
+        if (owner) 'ownerAnswers': ownerAnswers,
+        'listing': uploaded.toJson(),
+        'inactive': store.inactive(id)?.toJson(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    if (owner) {
+      batch.update(_db.doc('tk2Invites/${added!.inviteId}'), {'ownerUid': _uid, 'listingId': id, 'updatedAt': FieldValue.serverTimestamp()});
+    }
+    await batch.commit();
+    if (!identical(uploaded, listing) && identical(store.listing(id), listing)) store.replacePhotos(id, uploaded.photos);
   }
 
   void removeListing(String id) => _try(() async {
@@ -163,24 +204,29 @@ class Tk2Sync {
   }, 'remove $id');
 
   /// "Send link to owner": saves the invite and returns its id for the link.
-  String invite({required String houseName, required String ownerName}) {
+  Future<String> invite({required String houseName, required String ownerName, required String recipient}) async {
     final ref = _db.collection('tk2Invites').doc();
-    _try(
-      () => ref.set({
-        'brokerUid': _uid,
-        'brokerName': store.brokerName,
-        'brokerPhone': store.brokerPhone,
-        'houseName': houseName,
-        'ownerName': ownerName,
-        'createdAt': FieldValue.serverTimestamp(),
-      }),
-      'invite',
-    );
+    await ref.set({
+      'brokerUid': _uid,
+      'brokerName': store.brokerName,
+      'brokerPhone': store.brokerPhone,
+      'houseName': houseName,
+      'ownerName': ownerName,
+      'recipient': _recipient(recipient),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
     return ref.id;
   }
 
-  void visitStatus(String id, String status) =>
-      _try(() => _db.doc('tk2Visits/$id').update({'status': status, 'updatedAt': FieldValue.serverTimestamp()}), 'visit $id');
+  static String _recipient(String value) {
+    final text = value.trim().toLowerCase();
+    if (text.isEmpty || text.contains('@')) return text;
+    final digits = text.replaceAll(RegExp(r'\D'), '');
+    return !text.startsWith('+') && digits.length == 10 ? '+91$digits' : '+$digits';
+  }
+
+  Future<void> visitStatus(String id, String status) =>
+      _db.doc('tk2Visits/$id').update({'status': status, 'updatedAt': FieldValue.serverTimestamp()});
 
   Future<String> gatePass(String visitId, String path) async {
     final url = await Tk2Cloud.uploadGatePass(visitId, path);
@@ -222,23 +268,25 @@ class Tk2Sync {
     return tk2ListingFromPublic(j);
   }
 
-  /// Owner link #i-ID: the broker and house name (null when not found).
-  Future<({String brokerName, String houseName})?> openInvite(String id) async {
-    final j = (await _db.doc('tk2Invites/$id').get()).data();
-    if (j == null) return null;
+  String _inviteBrokerUid = '';
+
+  /// Verify ownership before using any invite details in this session.
+  Future<({String brokerName, bool submitted})> claimInvite(String id, String ownerName) async {
+    if (_uid.isEmpty) throw StateError('Sign in to open this invite');
+    final ref = _db.doc('tk2Invites/$id');
+    final j = await _db.runTransaction((tx) async {
+      final data = (await tx.get(ref)).data();
+      if (data == null || data['brokerUid'] == _uid) throw StateError('Invite unavailable');
+      if (data['ownerUid'] != _uid) {
+        tx.update(ref, {'ownerUid': _uid, 'ownerName': ownerName, 'updatedAt': FieldValue.serverTimestamp()});
+      }
+      return data;
+    });
     inviteId = id;
     _inviteBroker = j['brokerName'] as String? ?? '';
     _inviteBrokerPhone = j['brokerPhone'] as String? ?? '';
     _inviteBrokerUid = j['brokerUid'] as String? ?? '';
-    return (brokerName: _inviteBroker, houseName: j['houseName'] as String? ?? '');
-  }
-
-  String _inviteBrokerUid = '';
-
-  /// After the owner signs in: claim the invite, so the house they add is the broker's.
-  Future<void> claimInvite(String ownerName) async {
-    if (inviteId == null || _uid.isEmpty) return;
-    await _db.doc('tk2Invites/$inviteId').update({'ownerUid': _uid, 'ownerName': ownerName, 'updatedAt': FieldValue.serverTimestamp()});
+    return (brokerName: _inviteBroker, submitted: j['listingId'] != null);
   }
 
   /// Web: follow own visits (with their codes) and own deals after signing in.
@@ -248,7 +296,7 @@ class Tk2Sync {
     stop();
     _subs.add(_visits(_db.collection('tk2Visits').where('customerUid', isEqualTo: _uid), withCodes: true));
     _subs.add(_deals('tenantUid'));
-    _subs.add(_deals('ownerUid'));
+    _subs.add(_deals('verifiedOwnerUid'));
   }
 
   // ------------------------------------------------------------------ deals
@@ -259,7 +307,7 @@ class Tk2Sync {
 
   StreamSubscription<Object?> _deals(String field, {bool block = false}) => _db.collection('tk2Deals').where(field, isEqualTo: _uid).snapshots().listen((q) {
     _dealsBy[field] = [
-      for (final d in q.docs) Tk2Deal.fromJson({...d.data(), 'id': d.id, 'createdAt': Tk2Cloud.millis(d.data()['createdAt'])}),
+      for (final d in q.docs) _dealFromCloud(d.id, d.data()),
     ];
     final all = {
       for (final list in _dealsBy.values)
@@ -272,36 +320,87 @@ class Tk2Sync {
   String brokerUidFor(String listingId) => brokerOf[listingId] ?? (inviteId == null ? _uid : _inviteBrokerUid);
 
   /// Which side of [d] the signed-in person is on (web).
-  DealRole roleIn(Tk2Deal d) => d.tenantUid == _uid ? DealRole.tenant : (d.brokerUid == _uid ? DealRole.broker : DealRole.owner);
-
-  void createDeal(Tk2Deal d) =>
-      _try(() => _db.doc('tk2Deals/${d.id}').set({...d.toJson()..remove('id'), 'createdAt': FieldValue.serverTimestamp()}), 'deal ${d.id}');
+  DealRole? roleIn(Tk2Deal d) {
+    if (_uid.isEmpty) return null;
+    if (d.tenantUid == _uid) return DealRole.tenant;
+    if (d.brokerUid == _uid) return DealRole.broker;
+    return d.ownerUid == _uid ? DealRole.owner : null;
+  }
 
   /// Sends what [role] changed. The broker may also correct the owner's name and number, and end the deal.
   void dealPart(Tk2Deal d, DealRole role) => _try(
     () => _db.doc('tk2Deals/${d.id}').update({
-      Tk2Deal.who(role)[0]: d.part(role),
+      Tk2Deal.who(role)[0]: _clientDealPart(d, role),
       if (role == DealRole.broker) ...{'ownerName': d.ownerName, 'ownerPhone': d.ownerPhone},
       'updatedAt': FieldValue.serverTimestamp(),
     }),
     'deal ${d.id}',
   );
 
-  /// Web link #d-ID: the deal, for its tenant or its owner. The first owner to
-  /// open it (matching the owner's phone, when the broker saved one) claims it.
+  /// Try to open as a party first. A verified owner can claim using only the
+  /// id, so the deal contents remain private until the claim succeeds.
   Future<Tk2Deal?> openDeal(String id) async {
     if (_uid.isEmpty) return null;
     final ref = _db.doc('tk2Deals/$id');
-    var j = (await ref.get()).data();
-    if (j == null) return null;
-    if (j['tenantUid'] != _uid && j['ownerUid'] == null) {
-      await ref.update({'ownerUid': _uid, 'updatedAt': FieldValue.serverTimestamp()});
-      j = (await ref.get()).data()!;
+    const server = GetOptions(source: Source.server);
+    Map<String, dynamic>? j;
+    try {
+      j = (await ref.get(server)).data();
+    } on FirebaseException catch (e) {
+      if (e.code != 'permission-denied') rethrow;
+      try {
+        await ref.update({'verifiedOwnerUid': _uid, 'updatedAt': FieldValue.serverTimestamp()});
+      } on FirebaseException catch (e) {
+        if (e.code != 'permission-denied' && e.code != 'not-found') rethrow;
+      }
+      j = (await ref.get(server)).data();
     }
-    final d = Tk2Deal.fromJson({...j, 'id': id, 'createdAt': Tk2Cloud.millis(j['createdAt'])});
+    if (j == null) return null;
+    final d = _dealFromCloud(id, j);
     brokerOf[d.listingId] = d.brokerUid;
     await store.putDeal(d);
     return d;
+  }
+
+  static const _completionFields = {
+    DealRole.tenant: {'tokenPaid', 'tokenAt', 'paid', 'paidAt', 'signed', 'signedAt'},
+    DealRole.owner: {'feePaid', 'feeAt', 'brokPaid', 'paidAt', 'signed', 'signedAt'},
+  };
+
+  Map<String, dynamic> _clientDealPart(Tk2Deal deal, DealRole role) {
+    final client = {...deal.part(role)}..removeWhere((key, _) => _completionFields[role]?.contains(key) ?? false);
+    if (role == DealRole.owner) {
+      final replies = client.remove('rep') as Map? ?? const {};
+      client['repairApprovals'] = {
+        for (final entry in replies.entries)
+          if (entry.value is Map && entry.value['ok'] is bool) '${entry.key}': entry.value['ok'],
+      };
+    }
+    return client;
+  }
+
+  Tk2Deal _dealFromCloud(String id, Map<String, dynamic> data) {
+    final completion = data['completion'] as Map? ?? const {};
+    final deal = {...data, 'id': id, 'ownerUid': data['verifiedOwnerUid'], 'createdAt': Tk2Cloud.millis(data['createdAt'])};
+    for (final entry in _completionFields.entries) {
+      final key = Tk2Deal.who(entry.key)[0];
+      final client = Map<String, dynamic>.from(data[key] as Map? ?? const {});
+      final server = completion[key] as Map? ?? const {};
+      client.removeWhere((key, _) => entry.value.contains(key));
+      if (entry.key == DealRole.owner) {
+        final approvals = client.remove('repairApprovals') as Map? ?? const {};
+        final payments = server['rep'] as Map? ?? const {};
+        client['rep'] = {
+          for (final id in {...approvals.keys, ...payments.keys})
+            '$id': {
+              if (approvals[id] is bool) 'ok': approvals[id],
+              if (payments[id] is Map && payments[id]['paid'] == true) ...{'paid': true, 'at': payments[id]['at']},
+            },
+        };
+      }
+      deal[key] = {...client, for (final field in entry.value) if (server.containsKey(field)) field: server[field]};
+    }
+    return Tk2Deal.fromJson(deal);
   }
 
   static String _slug(String society) => society.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
@@ -330,23 +429,26 @@ class Tk2Sync {
   /// Payment is still a test (see docs).
   Future<void> bookVisit(Tk2Visit v) async {
     final ref = _db.doc('tk2Visits/${v.id}');
-    await ref.set({
+    final phone = Tk2Cloud.auth.currentUser?.phoneNumber;
+    if (phone == null) throw StateError('A verified phone is required to book');
+    final batch = _db.batch();
+    batch.set(ref, {
       'listingId': v.listingId,
       'brokerUid': brokerOf[v.listingId] ?? '',
       'customerUid': _uid,
       'customerName': v.customerName,
-      'customerPhone': v.customerPhone,
+      'customerPhone': phone,
       'at': v.at,
       'fee': v.fee,
       'status': v.status,
       'createdAt': FieldValue.serverTimestamp(),
     });
-    await ref.collection('secret').doc('code').set({'code': v.code});
+    batch.set(ref.collection('secret').doc('code'), {'code': v.code});
+    await batch.commit();
   }
 
-  /// Tenant journey and owner answers kept by the web session. The owner's
-  /// name and number go with their answers, for the broker's private block.
-  void session(Map<String, Map<String, dynamic>> trips, Map<String, Map<String, dynamic>> owners, {String name = '', String contact = ''}) {
+  /// Tenant journeys kept by the web session.
+  void session(Map<String, Map<String, dynamic>> trips) {
     if (_uid.isEmpty) return;
     for (final e in trips.entries) {
       final broker = brokerOf[e.key];
@@ -360,16 +462,6 @@ class Tk2Sync {
           'updatedAt': FieldValue.serverTimestamp(),
         }),
         'trip ${e.key}',
-      );
-    }
-    for (final e in owners.entries) {
-      if (!brokerOf.containsKey(e.key)) continue;
-      _try(
-        () => _db.doc('tk2Private/${e.key}').update({
-          'ownerAnswers': {...e.value, 'ownerName': name, 'ownerContact': contact},
-          'updatedAt': FieldValue.serverTimestamp(),
-        }),
-        'owner ${e.key}',
       );
     }
   }

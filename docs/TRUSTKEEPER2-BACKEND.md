@@ -2,6 +2,16 @@
 
 Updated: 12 Nov 2026 · Branch: `staging` · Code: Change 94 · Firebase project: **trustkeyper-app-staging only**
 
+## Staging pilot scope (13 Nov 2026)
+
+The Firebase build supports broker phone sign-in, listing publication, verified owner onboarding, test bookings, gate passes and server-side visit confirmation. The pilot ends at visit confirmation. Token checkout, agreement signing, broker profile email verification and owner document collection are disabled in the pilot. The local demo still exercises the full journey.
+
+- Owner invites are readable only by the broker and the intended verified recipient. The invite grants access to one submitted listing. Brokers must reissue invites created before recipient verification was added.
+- An owner can claim an existing deal only through a verified listing invite or the verified contact in the private listing. For a manually entered listing, the broker can save the owner contact again to populate that field. Legacy deal claims give no owner access until the recipient re-verifies. Treat older records and files as unverified during staging inventory.
+- Firestore reserves new deal creation and payment/signing completion for the backend. Razorpay and signing providers have yet to be connected to those writes. Keep identity documents and real payment activity outside this pilot.
+- Gate passes appear in the tenant's booking. The client uploads to a staging path, then `tk2FinalizeFile` copies the file without a download token. Confirm the function's access to the staging project's default bucket, and verify that the `TK2_FIREBASE_STORAGE_BUCKET` in both builds matches it. Existing download URLs need a separate inventory and token revocation decision before using historical files.
+- The build accepts `trustkeyper-app-staging` for cloud testing and a `demo-*` project for emulators. Before deployment, verify Hosting and OTP with an authenticated staging account and review the project-wide rules diff. Run the cross-device pilot with synthetic records after deployment approval. For the full local rules suite, use `--project demo-trustkeyper-rules` so the Auth and Storage emulators match the main test fixtures.
+
 Read this first. It says what TrustKeeper 2 (TK2) is, what is already built and
 tested, and the few steps left for you to make it live on staging. Nothing here
 touches production (`trustkeyper`), and nothing moves real money.
@@ -145,9 +155,9 @@ All commands run from the repo root with `--project staging`
    firebase emulators:exec --only auth,firestore,storage --project demo-trustkeyper 'npm --prefix functions run test:rules'
    firebase deploy --only firestore:rules,storage --project staging
    ```
-5. **Function**, only the new one:
+5. **Functions**, only the TK2 functions:
    ```
-   firebase deploy --only functions:tk2ConfirmVisit --project staging
+   firebase deploy --only functions:tk2ConfirmVisit,functions:tk2FinalizeFile --project staging
    ```
    The predeploy runs `npm test`. Region `asia-south1`, like the others.
 6. **Web app:**
@@ -169,12 +179,14 @@ All commands run from the repo root with `--project staging`
    - adds a house with a photo;
    - shares it and opens the link on another phone;
    - the tenant books;
+   - the broker adds a gate pass and the tenant can retrieve it from the booking;
    - the broker confirms with the code;
    - the broker sends an owner link and the owner adds a house;
-   - the house shows up in the broker's list.
+   - the house shows up in the broker's list;
+   - a separate account opening the forwarded owner link cannot access or claim it.
 
-For local testing without staging, put `"TK2_EMULATOR_HOST": "127.0.0.1"` in the
-settings and run `firebase emulators:start --only auth,firestore,storage,functions
+For local testing, set `TK2_FIREBASE_PROJECT_ID` to `demo-tk2`, use its emulator bucket
+and put `"TK2_EMULATOR_HOST": "127.0.0.1"` in the settings. Run `firebase emulators:start --only auth,firestore,storage,functions
 --project demo-tk2`. OTP codes show at
 `http://127.0.0.1:9099/emulator/v1/projects/demo-tk2/verificationCodes`.
 

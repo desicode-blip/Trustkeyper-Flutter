@@ -137,7 +137,7 @@ class _BigTile extends StatelessWidget {
 /// Same flow as the rent agreement ("How many owners?", then Owner 1, Owner 2...).
 /// Sends the owner invite to a phone number with this message. Returns how
 /// ('whatsapp' · 'sms' · 'copy'), or null when the broker closed it unsent.
-typedef OwnerInviteSender = Future<String?> Function(BuildContext context, {required String ownerName, required String phone, required String message});
+typedef OwnerInviteSender = Future<String?> Function(BuildContext context, {required String ownerName, required String phone, required Future<String> Function() message});
 
 class OnboardNewScreen extends StatefulWidget {
   const OnboardNewScreen({this.label = '', this.ownerLink, this.inviteOwner, super.key});
@@ -147,7 +147,7 @@ class OnboardNewScreen extends StatefulWidget {
 
   /// TrustKeeper 2: the owner's web-app link. When set, sending opens WhatsApp
   /// (or email) with this link, so the owner can fill the house in on the web.
-  final String Function(String ownerName)? ownerLink;
+  final Future<String> Function(String ownerName, String recipient)? ownerLink;
 
   /// TrustKeeper 2: asks how to send the invite (WhatsApp / Text message / Copy link)
   /// and opens that app. Without it, a phone invite opens WhatsApp directly.
@@ -414,37 +414,42 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
             contact: o.channel == 'whatsapp' ? o.phone.text.trim() : o.email.text.trim(),
           ),
       ];
-      final link = widget.ownerLink?.call(_first.name.text.trim());
-      final first = _first.name.text.trim().split(' ').first;
-      final text = link == null ? '' : 'Hi $first, please add your house details for ${widget.label.isEmpty ? 'your house' : widget.label} here: $link';
+      final ownerName = _first.name.text.trim();
+      final recipient = _channel == 'email' ? contact : '+91${contact.replaceAll(RegExp(r'\D'), '')}';
+      Future<String> message() async {
+        final link = await widget.ownerLink!(ownerName, recipient);
+        return 'Hi ${ownerName.split(' ').first}, please add your house details for ${widget.label.isEmpty ? 'your house' : widget.label} here: $link';
+      }
       // TrustKeeper 2: ask how to send first. Closing the sheet sends nothing
       // and saves nothing – the broker stays on this screen.
-      if (link != null && _channel != 'email' && widget.inviteOwner != null) {
+      if (widget.ownerLink != null && _channel != 'email' && widget.inviteOwner != null) {
         if (!mounted) return;
-        final how = await widget.inviteOwner!(context, ownerName: _first.name.text.trim(), phone: contact, message: text);
+        final how = await widget.inviteOwner!(context, ownerName: ownerName, phone: recipient, message: message);
         if (how == null) {
           if (mounted) setState(() => _sending = false);
           return;
         }
         _sentBy = how;
       }
+      if (widget.ownerLink != null && _sentBy == null) {
+        final text = await message();
+        final digits = recipient.replaceAll(RegExp(r'\D'), '');
+        final opened = await launchUrl(
+          _channel == 'email'
+              ? Uri(scheme: 'mailto', path: contact, query: 'subject=${Uri.encodeComponent('Your house on TrustKeyper')}&body=${Uri.encodeComponent(text)}')
+              : Uri.parse('https://wa.me/$digits?text=${Uri.encodeComponent(text)}'),
+          mode: LaunchMode.externalApplication,
+        );
+        if (!opened) throw StateError('Could not open the sharing app');
+      }
       final created = await _store.create(
-        ownerName: _first.name.text.trim(),
+        ownerName: ownerName,
         channel: _channel,
         contact: contact,
         coOwners: others,
         carryFrom: _carryFrom,
         label: widget.label,
       );
-      if (link != null && _sentBy == null) {
-        final digits = contact.replaceAll(RegExp(r'\D'), '');
-        await launchUrl(
-          _channel == 'email'
-              ? Uri(scheme: 'mailto', path: contact, query: 'subject=${Uri.encodeComponent('Your house on TrustKeyper')}&body=${Uri.encodeComponent(text)}')
-              : Uri.parse('https://wa.me/${digits.length == 10 ? '91$digits' : digits}?text=${Uri.encodeComponent(text)}'),
-          mode: LaunchMode.externalApplication,
-        );
-      }
       if (!mounted) return;
       setState(() {
         _createdId = created.id;

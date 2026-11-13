@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/app_colors.dart';
 import '../core/widgets/primary_button.dart';
 import '../features/broker/presentation/onboarding_widgets.dart';
+import 'tk2_cloud.dart';
 import 'tk2_deal.dart';
 import 'tk2_deal_screens.dart';
 import 'tk2_send.dart';
@@ -408,9 +409,9 @@ class DealRecord extends StatelessWidget {
               child: OnbRow(
                 icon: Icons.play_circle_outline,
                 title: 'Video of the house',
-                subtitle: video.startsWith('http') ? 'Tap to play' : 'Saved on the broker\'s phone (demo build)',
-                chevron: video.startsWith('http'),
-                onTap: video.startsWith('http') ? () => launchUrl(Uri.parse(video), mode: LaunchMode.externalApplication) : null,
+                subtitle: Tk2Cloud.isPrivateFile(video) ? 'Tap to save' : 'Video unavailable on this device',
+                chevron: Tk2Cloud.isPrivateFile(video),
+                onTap: Tk2Cloud.isPrivateFile(video) ? () => saveTk2PrivateFile(context, video, maxBytes: 200 * 1024 * 1024) : null,
               ),
             ),
           OnbCard(

@@ -11,7 +11,8 @@ function fixture(visit = { brokerUid: 'broker', customerUid: 'tenant', status: '
       update: (path, values) => data.set(path, { ...data.get(path), ...values }),
     }),
   };
-  return { data, service: createTk2Service({ store, now: () => at + 60_000 }) };
+  let nowMs = at + 60_000;
+  return { data, service: createTk2Service({ store, now: () => nowMs }), advance: ms => { nowMs += ms; } };
 }
 
 test('code check: right code inside 24 h only, booked visits only', () => {
@@ -33,6 +34,20 @@ test('only the broker of the visit can confirm; success marks it done', async ()
   assert.equal(data.get('tk2Visits/v1').status, 'booked');
   assert.deepEqual(await service.confirmVisit({ uid: 'broker' }, { visitId: 'v1', code: '4821' }), { result: 'done' });
   assert.equal(data.get('tk2Visits/v1').status, 'done');
-  // A second try on a done visit does nothing.
-  assert.deepEqual(await service.confirmVisit({ uid: 'broker' }, { visitId: 'v1', code: '4821' }), { result: 'wrong' });
+  const doneAt = data.get('tk2Visits/v1').doneAt;
+  assert.deepEqual(await service.confirmVisit({ uid: 'broker' }, { visitId: 'v1', code: '4821' }), { result: 'done' });
+  assert.equal(data.get('tk2Visits/v1').doneAt, doneAt);
+});
+
+test('wrong visit codes lock confirmation until the cooldown expires', async () => {
+  const { advance, data, service } = fixture();
+  const broker = { uid: 'broker' };
+  for (let attempt = 0; attempt < 4; attempt++) {
+    assert.deepEqual(await service.confirmVisit(broker, { visitId: 'v1', code: '0000' }), { result: 'wrong' });
+  }
+  assert.deepEqual(await service.confirmVisit(broker, { visitId: 'v1', code: '0000' }), { result: 'locked' });
+  assert.deepEqual(await service.confirmVisit(broker, { visitId: 'v1', code: '4821' }), { result: 'locked' });
+  assert.equal(data.get('tk2Visits/v1').status, 'booked');
+  advance(15 * 60 * 1000);
+  assert.deepEqual(await service.confirmVisit(broker, { visitId: 'v1', code: '4821' }), { result: 'done' });
 });

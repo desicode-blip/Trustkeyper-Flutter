@@ -381,18 +381,45 @@ service cloud.firestore {
       allow read, write: if signedIn() && tk2Uid() == uid;
     }
 
-    // Owner invite from "Send link to owner". The id is the secret in the link.
-    // The owner claims it once (ownerUid) and links the house (listingId).
+    function tk2RecipientProof(recipient) {
+      return recipient is string && recipient != '' && (
+        verifiedPhoneProof(recipient)
+        || (request.auth.token.get('email_verified', false) == true
+          && request.auth.token.get('email', '').lower() == recipient));
+    }
+
+    function tk2BoundInvite(invite, broker, owner) {
+      return invite.get('recipient', '') != '' && invite.brokerUid == broker
+        && invite.get('ownerUid', null) == owner;
+    }
+
+    function tk2BoundListing(listingId, inviteId, broker, owner) {
+      let listing = getAfter(/databases/$(database)/documents/tk2Private/$(listingId)).data;
+      return listing.brokerUid == broker && listing.ownerUid == owner && listing.inviteId == inviteId;
+    }
+
+    // The link locates an invite. The broker's selected recipient verifies
+    // their identity before seeing its details or claiming it.
     match /tk2Invites/{id} {
-      allow get: if true;
+      allow get: if signedIn() && (resource.data.brokerUid == tk2Uid()
+        || resource.data.get('recipient', '') != ''
+          && (resource.data.get('ownerUid', null) == tk2Uid()
+            || resource.data.get('ownerUid', null) == null && tk2RecipientProof(resource.data.recipient)));
       allow list: if signedIn() && resource.data.brokerUid == tk2Uid();
       allow create: if signedIn() && request.resource.data.brokerUid == tk2Uid()
-        && request.resource.data.get('ownerUid', null) == null;
-      allow update: if signedIn() && (
-        resource.data.brokerUid == tk2Uid() && tk2Unchanged(['brokerUid', 'ownerUid'])
-        || resource.data.get('ownerUid', null) in [null, tk2Uid()]
-          && request.resource.data.ownerUid == tk2Uid()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerUid', 'ownerName', 'listingId', 'updatedAt']));
+        && request.resource.data.keys().hasOnly(['brokerUid', 'brokerName', 'brokerPhone', 'houseName', 'ownerName', 'recipient', 'createdAt'])
+        && request.resource.data.recipient is string && request.resource.data.recipient.size() <= 254
+        && (request.resource.data.recipient.matches('^[+][1-9][0-9]{7,14}$')
+          || request.resource.data.recipient.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$'));
+      allow update: if signedIn() && resource.data.brokerUid != tk2Uid()
+        && request.resource.data.ownerUid == tk2Uid()
+        && resource.data.get('recipient', '') != ''
+        && (resource.data.get('ownerUid', null) == tk2Uid()
+          || resource.data.get('ownerUid', null) == null && tk2RecipientProof(resource.data.recipient))
+        && (resource.data.get('listingId', null) == null || tk2Unchanged(['listingId']))
+        && (request.resource.data.get('listingId', null) == null
+          || tk2BoundListing(request.resource.data.listingId, id, resource.data.brokerUid, tk2Uid()))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerUid', 'ownerName', 'listingId', 'updatedAt']);
       allow delete: if signedIn() && resource.data.brokerUid == tk2Uid();
     }
 
@@ -406,16 +433,18 @@ service cloud.firestore {
           && request.resource.data.fee is int && request.resource.data.fee >= 0 && request.resource.data.fee <= 500;
       }
       function ownerOfInvite() {
-        return request.resource.data.get('inviteId', null) is string
-          && tk2Invite(request.resource.data.inviteId).brokerUid == request.resource.data.brokerUid
-          && tk2Invite(request.resource.data.inviteId).ownerUid == tk2Uid()
-          && request.resource.data.ownerUid == tk2Uid();
+        let invite = tk2Invite(request.resource.data.inviteId);
+        return tk2BoundInvite(invite, request.resource.data.brokerUid, tk2Uid())
+          && request.resource.data.ownerUid == tk2Uid() && invite.get('listingId', null) in [null, id];
       }
       allow get: if true;
       allow list: if signedIn() && resource.data.brokerUid == tk2Uid();
-      allow create: if signedIn() && publicOnly() && (request.resource.data.brokerUid == tk2Uid() || ownerOfInvite());
+      allow create: if signedIn() && publicOnly() && (
+        request.resource.data.brokerUid == tk2Uid()
+          && request.resource.data.get('ownerUid', null) == null && request.resource.data.get('inviteId', null) == null
+        || request.resource.data.get('inviteId', null) is string && ownerOfInvite());
       allow update: if signedIn() && publicOnly() && tk2Unchanged(['brokerUid', 'ownerUid', 'inviteId'])
-        && (resource.data.brokerUid == tk2Uid() || resource.data.get('ownerUid', null) == tk2Uid());
+        && (resource.data.brokerUid == tk2Uid() || request.resource.data.get('inviteId', null) is string && ownerOfInvite());
       allow delete: if signedIn() && resource.data.brokerUid == tk2Uid();
     }
 
@@ -423,14 +452,24 @@ service cloud.firestore {
     // owner, keys, notes, off-market reason, owner answers.
     match /tk2Private/{id} {
       function listingDoc() {
-        return get(/databases/$(database)/documents/tk2Listings/$(id)).data;
+        return getAfter(/databases/$(database)/documents/tk2Listings/$(id)).data;
       }
-      allow get: if signedIn() && (resource.data.brokerUid == tk2Uid() || resource.data.get('ownerUid', null) == tk2Uid());
+      function inviteOwner(data) {
+        let inviteId = data.get('inviteId', null);
+        return inviteId is string && data.get('ownerUid', null) == tk2Uid()
+          && tk2BoundInvite(tk2Invite(inviteId), data.brokerUid, tk2Uid());
+      }
+      allow get: if signedIn() && (resource.data.brokerUid == tk2Uid() || inviteOwner(resource.data));
       allow list: if signedIn() && resource.data.brokerUid == tk2Uid();
       allow create: if signedIn() && request.resource.data.brokerUid == listingDoc().brokerUid
-        && (request.resource.data.brokerUid == tk2Uid() || request.resource.data.get('ownerUid', null) == tk2Uid() && listingDoc().get('ownerUid', null) == tk2Uid());
-      allow update: if signedIn() && tk2Unchanged(['brokerUid', 'ownerUid'])
-        && (resource.data.brokerUid == tk2Uid() || resource.data.get('ownerUid', null) == tk2Uid());
+        && request.resource.data.get('ownerUid', null) == listingDoc().get('ownerUid', null)
+        && request.resource.data.get('inviteId', null) == listingDoc().get('inviteId', null)
+        && (request.resource.data.brokerUid == tk2Uid()
+          || !request.resource.data.keys().hasAny(['ownerContact']) && inviteOwner(request.resource.data)
+            && getAfter(/databases/$(database)/documents/tk2Invites/$(request.resource.data.inviteId)).data.listingId == id);
+      allow update: if signedIn() && tk2Unchanged(['brokerUid', 'ownerUid', 'inviteId'])
+        && (resource.data.brokerUid == tk2Uid()
+          || tk2Unchanged(['ownerContact']) && inviteOwner(resource.data));
       allow delete: if signedIn() && resource.data.brokerUid == tk2Uid();
     }
 
@@ -444,6 +483,9 @@ service cloud.firestore {
         return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
           && resource.data.status == 'booked' && request.resource.data.status in to;
       }
+      function visitCode() {
+        return getAfter(/databases/$(database)/documents/tk2Visits/$(id)/secret/code).data.code;
+      }
       allow get: if signedIn() && tk2Uid() in [resource.data.brokerUid, resource.data.customerUid];
       allow list: if signedIn() && (resource.data.brokerUid == tk2Uid() || resource.data.customerUid == tk2Uid());
       allow create: if signedIn() && request.resource.data.customerUid == tk2Uid()
@@ -451,20 +493,24 @@ service cloud.firestore {
         && request.resource.data.brokerUid == listingDoc().brokerUid
         && listingDoc().get('active', true) == true
         && request.resource.data.fee == listingDoc().fee
+        && request.resource.data.at is int
+        && verifiedPhoneProof(request.auth.token.get('phone_number', ''))
+        && request.resource.data.customerPhone == request.auth.token.phone_number
         && request.resource.data.createdAt == request.time
+        && visitCode().matches('^[0-9]{4}$')
         && request.resource.data.keys().hasOnly(['listingId', 'brokerUid', 'customerUid', 'customerName', 'customerPhone', 'at', 'fee', 'status', 'createdAt', 'updatedAt']);
       allow update: if signedIn() && (
         resource.data.brokerUid == tk2Uid() && (onlyStatus(['cancelled', 'noShow'])
           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['gatePass', 'updatedAt']))
         || resource.data.customerUid == tk2Uid() && (
           onlyStatus(['customerCancelled']) && request.time < resource.data.createdAt + duration.value(5, 'm')
-          || onlyStatus(['customerCancelledLate'])));
+          || onlyStatus(['customerCancelledLate']) && request.time >= resource.data.createdAt + duration.value(5, 'm')));
       allow delete: if false;
 
       // The 4-digit visit code: only the tenant sees it; the broker types it in
       // and tk2ConfirmVisit checks it on the server.
       match /secret/code {
-        allow create: if signedIn() && get(/databases/$(database)/documents/tk2Visits/$(id)).data.customerUid == tk2Uid()
+        allow create: if signedIn() && getAfter(/databases/$(database)/documents/tk2Visits/$(id)).data.customerUid == tk2Uid()
           && request.resource.data.keys().hasOnly(['code']) && request.resource.data.code.matches('^[0-9]{4}$');
         allow get: if signedIn() && get(/databases/$(database)/documents/tk2Visits/$(id)).data.customerUid == tk2Uid();
         allow update, delete, list: if false;
@@ -477,6 +523,7 @@ service cloud.firestore {
       allow get, list: if signedIn() && tk2Uid() in [resource.data.customerUid, resource.data.brokerUid];
       allow create, update: if signedIn() && request.resource.data.customerUid == tk2Uid()
         && id == tk2Uid() + '_' + request.resource.data.listingId
+        && request.resource.data.brokerUid == get(/databases/$(database)/documents/tk2Listings/$(request.resource.data.listingId)).data.brokerUid
         && (resource == null || tk2Unchanged(['customerUid', 'brokerUid', 'listingId']));
       allow delete: if false;
     }
@@ -484,33 +531,41 @@ service cloud.firestore {
     // One finalised house, token to moved in (docs/TRUSTKEEPER2-BACKEND.md §8).
     // Each person writes only their own part: 'b' broker, 't' tenant, 'o' owner.
     match /tk2Deals/{id} {
-      function listingDoc() {
-        return get(/databases/$(database)/documents/tk2Listings/$(request.resource.data.listingId)).data;
-      }
       function onlyKeys(keys) {
         return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
       }
       function mine() {
-        return tk2Uid() in [resource.data.brokerUid, resource.data.tenantUid, resource.data.get('ownerUid', null)];
+        return resource.data.brokerUid == tk2Uid() || resource.data.tenantUid == tk2Uid()
+          || resource.data.get('verifiedOwnerUid', null) == tk2Uid();
       }
-      allow get: if signedIn() && (mine() || resource.data.get('ownerUid', null) == null);
-      allow list: if signedIn() && mine();
-      // The tenant starts it by paying the token; the broker can start it after a visit.
-      allow create: if signedIn()
-        && request.resource.data.brokerUid == listingDoc().brokerUid
-        && request.resource.data.token is int && request.resource.data.token > 0
-        && request.resource.data.get('ownerUid', null) in [null, listingDoc().get('ownerUid', null)]
-        && (request.resource.data.tenantUid == tk2Uid() && id == tk2Uid() + '_' + request.resource.data.listingId
-              && request.resource.data.token == listingDoc().get('tk', request.resource.data.token)
-              && request.resource.data.b.size() == 0 && request.resource.data.o.size() == 0
-            || request.resource.data.brokerUid == tk2Uid() && request.resource.data.t.size() == 0 && request.resource.data.o.size() == 0);
+      function intendedOwner() {
+        let listing = get(/databases/$(database)/documents/tk2Private/$(resource.data.listingId)).data;
+        let inviteId = listing.get('inviteId', null);
+        return listing.brokerUid == resource.data.brokerUid && (
+          (inviteId is string && listing.get('ownerUid', null) == tk2Uid()
+            && tk2BoundInvite(tk2Invite(inviteId), listing.brokerUid, tk2Uid()))
+          || (inviteId == null && listing.get('ownerUid', null) == null
+            && tk2RecipientProof(listing.get('ownerContact', ''))));
+      }
+      function tenantCompletionFields() {
+        return ['tokenPaid', 'tokenAt', 'paid', 'paidAt', 'signed', 'signedAt'];
+      }
+      function ownerCompletionFields() {
+        return ['feePaid', 'feeAt', 'brokPaid', 'paidAt', 'signed', 'signedAt', 'rep'];
+      }
+      function clientPart(part, protectedFields) {
+        return request.resource.data[part] is map
+          && !request.resource.data[part].keys().hasAny(protectedFields);
+      }
+      allow get, list: if signedIn() && mine();
+      // Cloud deal creation is reserved for the backend payment workflow.
+      allow create: if false;
       allow update: if signedIn() && (
         resource.data.brokerUid == tk2Uid() && onlyKeys(['b', 'ownerName', 'ownerPhone', 'updatedAt'])
-        || resource.data.tenantUid == tk2Uid() && onlyKeys(['t', 'updatedAt'])
-        || resource.data.get('ownerUid', null) == tk2Uid() && onlyKeys(['o', 'updatedAt'])
-        // The owner claims the deal from the broker's link, once.
-        || resource.data.get('ownerUid', null) == null && tk2Uid() != resource.data.tenantUid && tk2Uid() != resource.data.brokerUid
-          && request.resource.data.ownerUid == tk2Uid() && onlyKeys(['ownerUid', 'updatedAt']));
+        || resource.data.tenantUid == tk2Uid() && onlyKeys(['t', 'updatedAt']) && clientPart('t', tenantCompletionFields())
+        || resource.data.get('verifiedOwnerUid', null) == tk2Uid() && onlyKeys(['o', 'updatedAt']) && clientPart('o', ownerCompletionFields())
+        || resource.data.get('verifiedOwnerUid', null) == null && tk2Uid() != resource.data.tenantUid && tk2Uid() != resource.data.brokerUid
+          && request.resource.data.verifiedOwnerUid == tk2Uid() && onlyKeys(['verifiedOwnerUid', 'updatedAt']) && intendedOwner());
       allow delete: if false;
     }
 

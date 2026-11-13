@@ -35,17 +35,17 @@ sealed class TkwStart {
         return TkwOpenProperty(listing.id);
       }
       if (sync != null && fragment.startsWith('i-')) {
-        final invite = await sync.openInvite(fragment.substring(2));
-        if (invite == null) return const TkwOpenHome(gone: true);
-        if (TkwSession.instance.signedIn) await sync.claimInvite(TkwSession.instance.name);
-        return TkwOpenOwner(invite.brokerName, invite.houseName);
+        final id = fragment.substring(2);
+        return RegExp(r'^[A-Za-z0-9]{20}$').hasMatch(id) ? TkwOpenOwner('', '', inviteId: id) : const TkwOpenHome(gone: true);
       }
       // Deal links from the broker's reminders: #d-ID (backend), #deal-… (demo).
       if (sync != null && fragment.startsWith('d-')) {
         final id = fragment.substring(2);
-        final d = Tk2Cloud.uid == null ? null : await sync.openDeal(id);
+        final d = !TkwSession.instance.signedIn ? null : await sync.openDeal(id).catchError((Object _) => null);
         return TkwOpenDeal(id, d == null ? null : sync.roleIn(d), signedIn: d != null);
       }
+      // Payload links belong to the local demo. Cloud builds only accept ids.
+      if (sync != null) return const TkwOpenHome(gone: true);
       if (fragment.startsWith('deal-')) {
         final j = jsonDecode(tk2Base32Decode(fragment.substring(5))) as Map<String, dynamic>;
         final role = j['r'] == 'owner' ? DealRole.owner : DealRole.tenant;
@@ -96,9 +96,10 @@ class TkwOpenProperty extends TkwStart {
 }
 
 class TkwOpenOwner extends TkwStart {
-  const TkwOpenOwner(this.brokerName, this.houseName);
+  const TkwOpenOwner(this.brokerName, this.houseName, {this.inviteId});
   final String brokerName;
   final String houseName;
+  final String? inviteId;
 }
 
 class TkwOpenDeal extends TkwStart {
@@ -132,7 +133,7 @@ class _TkWebAppState extends State<TkWebApp> {
 
   static Widget _first(TkwStart start) => switch (start) {
     TkwOpenProperty(:final listingId) => TkwProperty(listingId: listingId),
-    TkwOpenOwner(:final brokerName, :final houseName) => TkwOwnerInvite(brokerName: brokerName, houseName: houseName),
+    TkwOpenOwner(:final brokerName, :final houseName, :final inviteId) => TkwOwnerInvite(brokerName: brokerName, houseName: houseName, inviteId: inviteId),
     TkwOpenDeal(:final dealId, :final role, :final signedIn) =>
       signedIn && role != null ? TkwDeal(dealId: dealId, role: role) : TkwDealStart(dealId: dealId, role: role),
     TkwOpenHome(:final gone) => TkwHome(gone: gone),

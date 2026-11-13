@@ -46,7 +46,7 @@ class BrokerPropertyScreen extends StatefulWidget {
   final bool askHowToAdd;
 
   /// TrustKeeper 2: link to the owner web app, sent by "Send link to owner".
-  final String Function(String houseName, String ownerName)? ownerLink;
+  final Future<String> Function(String houseName, String ownerName, String recipient)? ownerLink;
 
   /// TrustKeeper 2: how "Send link to owner" sends the invite (see [OwnerInviteSender]).
   final OwnerInviteSender? inviteOwner;
@@ -1355,7 +1355,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
             MaterialPageRoute<void>(
               builder: (_) => OnboardNewScreen(
                 label: label,
-                ownerLink: widget.ownerLink == null ? null : (owner) => widget.ownerLink!(label, owner),
+                ownerLink: widget.ownerLink == null ? null : (owner, recipient) => widget.ownerLink!(label, owner, recipient),
                 inviteOwner: widget.inviteOwner,
               ),
             ),

@@ -1552,3 +1552,11 @@ files: apps/flutter_app/lib/src/tk2/{tk2_money,tk2_notes}.dart (new), apps/flutt
 verification: flutter analyze clean; test/tk2 46/46; headless-browser check of Payments, payment details, grouping and notifications
 deploy: NOT deployed. All payments are test payments.
 ```
+
+## TK2 staging pilot hardening (13 November 2026)
+
+- Bind owner invites and deal claims to verified Firebase identities. Require a fresh claim for legacy owner access and keep invite details private before authentication.
+- Submit owner listings and booking codes atomically. Enforce booking phone identity and limit repeated visit-code guesses on the server.
+- Serve gate passes and deal files through authenticated Storage reads. Finalize uploads without a download token, and show the gate pass in the tenant booking.
+- End the Firebase pilot at visit confirmation. Reserve deal creation and payment and signing results for backend integrations. Keep the full demo journey available locally.
+- See the [backend handoff](TRUSTKEEPER2-BACKEND.md) for the staging access check, deployment scope and device acceptance steps.

@@ -187,21 +187,29 @@ class _VisitSheetState extends State<_VisitSheet> {
   }
 
   Future<void> _confirm() async {
-    final why = await widget.store.confirmVisit(widget.visit.id, code.text);
+    final String? why;
+    try {
+      why = await widget.store.confirmVisit(widget.visit.id, code.text);
+    } catch (_) {
+      if (mounted) setState(() => error = 'Could not confirm the visit. Try again.');
+      return;
+    }
     if (!mounted) return;
     if (why != null) {
       setState(
-        () => error = why == 'window'
-            ? 'The code works from 24 hours before to 24 hours after the visit time.'
-            : 'That code is not right. Ask the customer again.',
+        () => error = switch (why) {
+          'window' => 'The code works from 24 hours before to 24 hours after the visit time.',
+          'locked' => 'Too many attempts. Check the code with the customer and try again in 15 minutes.',
+          _ => 'That code is not right. Ask the customer again.',
+        },
       );
       return;
     }
     Navigator.pop(context);
-    _toast('${Tk2Store.money(widget.visit.fee)} is yours. Nice work!');
+    _toast(widget.store.sync == null ? '${Tk2Store.money(widget.visit.fee)} is yours. Nice work!' : 'Visit confirmed');
   }
 
-  /// Gate pass: photo or screenshot from the society app. Sent to the customer on WhatsApp.
+  /// Gate pass: photo or screenshot from the society app.
   Future<void> _gatePass() async {
     try {
       final file = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
@@ -209,8 +217,10 @@ class _VisitSheetState extends State<_VisitSheet> {
       await widget.store.addGatePass(widget.visit.id, file.path);
       if (!mounted) return;
       setState(() {});
-      _toast('Gate pass sent to ${widget.visit.customerName} on WhatsApp');
-    } catch (_) {}
+      _toast(widget.store.sync == null ? 'Gate pass saved' : 'Gate pass available in the tenant’s booking');
+    } catch (_) {
+      _toast('Could not save the gate pass. Try again.');
+    }
   }
 
   Future<void> _close(String status) async {
@@ -220,7 +230,7 @@ class _VisitSheetState extends State<_VisitSheet> {
       builder: (d) => AlertDialog(
         title: Text(cancel ? 'Cancel this visit?' : 'Customer did not come?'),
         content: Text(
-          cancel
+          widget.store.sync != null ? 'This will close the staging booking.' : cancel
               ? '${widget.visit.customerName} gets ${Tk2Store.money(widget.visit.fee)} back.'
               : 'You get ${Tk2Store.money(widget.visit.fee ~/ 2)} for your time.',
         ),
@@ -235,11 +245,16 @@ class _VisitSheetState extends State<_VisitSheet> {
       ),
     );
     if (sure != true) return;
-    await widget.store.closeVisit(widget.visit.id, status);
+    try {
+      await widget.store.closeVisit(widget.visit.id, status);
+    } catch (_) {
+      _toast('Could not update the visit. Try again.');
+      return;
+    }
     if (!mounted) return;
     Navigator.pop(context);
     _toast(
-      cancel
+      widget.store.sync != null ? (cancel ? 'Visit cancelled' : 'Visit marked as no-show') : cancel
           ? 'Visit cancelled. ${Tk2Store.money(widget.visit.fee)} goes back to the customer.'
           : '${Tk2Store.money(widget.visit.fee ~/ 2)} is yours for your time.',
     );
@@ -291,7 +306,7 @@ class _VisitSheetState extends State<_VisitSheet> {
                 ),
               ),
             // After the visit: the customer wants the house → the move-in steps start.
-            if (v.status == VisitStatus.done && l != null && !l.sample) ...[
+            if (widget.store.sync == null && v.status == VisitStatus.done && l != null && !l.sample) ...[
               const SizedBox(height: 10),
               Builder(
                 builder: (context) {

@@ -4,7 +4,7 @@ import 'tk2_store.dart';
 /// The main app's account screens (My details, Bank, Delete account) run
 /// unchanged in TrustKeeper 2 through this gateway. Demo build: details are
 /// kept on the phone in [Tk2Store]; the email code is 123456.
-/// Backend: swap this for FirebaseAccountGateway – the screens stay the same.
+/// The cloud pilot uses phone sign-in while broker profile email is pending.
 class Tk2AccountGateway implements AccountGateway {
   Tk2AccountGateway(this.store);
   final Tk2Store store;
@@ -24,6 +24,7 @@ class Tk2AccountGateway implements AccountGateway {
     'bankAccountLast4': '',
     'bankVerified': false,
     ...store.account,
+    if (store.sync != null) 'emailVerified': false,
   };
 
   @override
@@ -31,15 +32,24 @@ class Tk2AccountGateway implements AccountGateway {
 
   @override
   Future<AccountProfileData> save(Map<String, dynamic> details) async {
-    await store.saveAccount(details);
+    final allowed = {...details};
+    if (store.sync != null) {
+      allowed.remove('email');
+      allowed.remove('emailVerified');
+    }
+    await store.saveAccount(allowed);
     return AccountProfileData(_values);
   }
 
   @override
-  Future<String> requestEmail(String email) async => 'tk2-email';
+  Future<String> requestEmail(String email) async {
+    if (store.sync != null) throw StateError('Broker email verification is unavailable during the staging pilot.');
+    return 'tk2-email';
+  }
 
   @override
   Future<void> verifyEmail(String email, String challenge, String code) async {
+    if (store.sync != null) throw StateError('Broker email verification is unavailable during the staging pilot.');
     if (challenge != 'tk2-email' || code != demoCode) {
       throw StateError('That code is not right. Demo code: $demoCode.');
     }

@@ -802,6 +802,7 @@ class Tk2Store extends ChangeNotifier {
     String tenantUid = '',
     DateTime? now,
   }) async {
+    if (sync != null) throw StateError('Deal creation is unavailable during the staging pilot');
     final existing = dealFor(l.id);
     if (existing != null) return existing;
     final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
@@ -828,7 +829,6 @@ class Tk2Store extends ChangeNotifier {
     );
     _deals.insert(0, d);
     await _save();
-    sync?.createDeal(d);
     await _block(d);
     return d;
   }
@@ -1037,10 +1037,10 @@ class Tk2Store extends ChangeNotifier {
 
   /// Owner invite link for "Send link to owner" (saved as an invite when the
   /// backend is on).
-  String ownerLink(String houseName, String ownerName) => tk2OwnerLink(
+  Future<String> ownerLink(String houseName, String ownerName, String recipient) async => tk2OwnerLink(
     brokerName,
     houseName,
-    inviteId: sync?.invite(houseName: houseName, ownerName: ownerName),
+    inviteId: await sync?.invite(houseName: houseName, ownerName: ownerName, recipient: recipient),
   );
 
   static String _id(String prefix) => '$prefix${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${Random().nextInt(999)}';
@@ -1203,11 +1203,11 @@ class Tk2Store extends ChangeNotifier {
       customerPhone: phone.trim(),
       at: at.millisecondsSinceEpoch,
       fee: listing?.visitFee ?? 150,
-      code: (1000 + Random().nextInt(9000)).toString(),
+      code: Random.secure().nextInt(10000).toString().padLeft(4, '0'),
       createdAt: DateTime.now().millisecondsSinceEpoch,
     );
     await sync?.bookVisit(visit);
-    _visits.add(visit);
+    if (!_visits.any((current) => current.id == visit.id)) _visits.add(visit);
     await _save();
     return visit;
   }
@@ -1221,10 +1221,6 @@ class Tk2Store extends ChangeNotifier {
     if (sync != null) {
       if (at < 0) return 'wrong';
       final why = await Tk2Cloud.confirmVisit(visitId, code.trim());
-      if (why == null) {
-        _visits[at] = _visits[at].withStatus(VisitStatus.done);
-        await _save();
-      }
       return why;
     }
     if (at < 0 || _visits[at].code != code.trim()) return 'wrong';
@@ -1240,28 +1236,32 @@ class Tk2Store extends ChangeNotifier {
     final at = _visits.indexWhere((v) => v.id == visitId);
     if (at < 0 || !_visits[at].upcoming) return false;
     final inTime = _visits[at].inRefundWindow(now ?? DateTime.now());
-    _visits[at] = _visits[at].withStatus(inTime ? VisitStatus.customerCancelled : VisitStatus.customerCancelledLate, now: now);
-    sync?.visitStatus(visitId, _visits[at].status);
+    final status = inTime ? VisitStatus.customerCancelled : VisitStatus.customerCancelledLate;
+    if (sync != null) {
+      await sync!.visitStatus(visitId, status);
+      return true;
+    }
+    _visits[at] = _visits[at].withStatus(status, now: now);
     await _save();
     return true;
   }
 
-  /// Broker adds the gate pass (demo: kept here; the backend sends it to the
-  /// customer on WhatsApp right away).
+  /// Broker adds the gate pass to the booking.
   Future<void> addGatePass(String visitId, String file) async {
+    if (!_visits.any((v) => v.id == visitId)) return;
+    final url = sync == null ? file : await sync!.gatePass(visitId, file);
     final at = _visits.indexWhere((v) => v.id == visitId);
     if (at < 0) return;
-    final url = sync == null ? file : await sync!.gatePass(visitId, file);
     _visits[at] = _visits[at]._copy(gatePass: url);
     await _save();
   }
 
   /// Broker cancels (full refund) or the customer did not come (broker gets half).
   Future<void> closeVisit(String visitId, String status) async {
+    if (sync != null) return sync!.visitStatus(visitId, status);
     final at = _visits.indexWhere((v) => v.id == visitId);
     if (at < 0) return;
     _visits[at] = _visits[at].withStatus(status);
-    sync?.visitStatus(visitId, status);
     await _save();
   }
 

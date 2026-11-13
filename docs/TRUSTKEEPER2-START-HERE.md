@@ -1,6 +1,6 @@
 # TrustKeeper 2 – start here (read first in every new chat)
 
-Last updated: 12 Nov 2026 · Branch: `staging` only (never `main`) · Last change: 94
+Last updated: 13 Nov 2026 · Base branch: `staging`
 
 ## What it is
 Three apps that work together:
@@ -22,7 +22,7 @@ Tests: `apps/flutter_app/test/tk2/` (46: `tk2_test.dart`, `tk2_deal_test.dart`, 
 
 ## Backend (Change 92)
 - **Demo build** (default, what Aman tests on his phone): no Firebase; data stays on the device; OTP 123456.
-- **Backend build:** the same code with `--dart-define-from-file=tk2_cloud.json`. It uses Firebase staging (phone/email OTP, Firestore, Storage, function `tk2ConfirmVisit`). It is tested end to end on the emulators and **not deployed yet**.
+- **Backend build:** use `--dart-define-from-file=tk2_cloud.json` with staging settings. The pilot covers listing and owner onboarding, test bookings, private gate passes and server-side visit confirmation. See the pilot scope in the backend handoff before using the historical deployment steps.
 - Ajay's handoff, with deploy steps and what's pending (Razorpay, iOS flavor, automatic messages, documents, agreement): **`docs/TRUSTKEEPER2-BACKEND.md`**.
 - Owner/tenant demo web app: https://claude.ai/artifact/Szj2fK38ocoCABGHbTtxUt (private to Aman). It is rebuilt with `/home/claude/tools/rebuild.sh` and published in patch mode.
 
@@ -53,7 +53,7 @@ Tests: `apps/flutter_app/test/tk2/` (46: `tk2_test.dart`, `tk2_deal_test.dart`, 
 5. Simple words on screen. No repeated steps.
 
 ## How we work
-- Batch the changes. One changelog entry and one commit per batch, pushed to `staging`.
+- Follow `AGENTS.md`. Create a feature or fix branch from current staging, review and test the diff, then use a PR targeting staging when publishing is authorized.
 - Aman presses ▶ in Xcode himself. Claude only updates the code and the Mac, unless asked.
 - Ask one short question when a request can be read two ways.
 - Checks:
@@ -64,7 +64,7 @@ Tests: `apps/flutter_app/test/tk2/` (46: `tk2_test.dart`, `tk2_deal_test.dart`, 
 
 ## Claude's technical routine
 1. Work in `/home/claude/trustkeyper-flutter` (clone of `desicode-blip/Trustkeyper-Flutter`, branch `staging`). Flutter is at `/tmp/flutter/bin` (`export PATH=/tmp/flutter/bin:$PATH CI=true`).
-2. Analyze and test. Append the changelog entry. Commit with the session trailers, `git pull --rebase origin staging`, push.
+2. Analyze and test. Append the changelog entry and review the feature or fix branch against staging.
 3. Copy the changed files to the Mac:
    - `device_commit_files` to `~/Documents/Trustkeyper-Flutter/...`;
    - check md5 via `device_bash` (`$HOME/mnt/Trustkeyper-Flutter`).

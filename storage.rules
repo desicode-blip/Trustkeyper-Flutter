@@ -222,36 +222,63 @@ service firebase.storage {
       function listing() {
         return firestore.get(/databases/(default)/documents/tk2Listings/$(listingId)).data;
       }
+      function managesPhotos() {
+        let data = listing();
+        return request.auth.uid == data.brokerUid || (
+          request.auth.uid == data.get('ownerUid', '') && data.get('inviteId', null) is string
+          && approvedInvite(data.inviteId, data.brokerUid));
+      }
+      function approvedInvite(id, brokerUid) {
+        let invite = firestore.get(/databases/(default)/documents/tk2Invites/$(id)).data;
+        return invite.brokerUid == brokerUid && invite.get('recipient', '') != ''
+          && invite.get('ownerUid', '') == request.auth.uid && invite.get('listingId', null) in [null, listingId];
+      }
       allow read: if true;
-      allow create, update: if signedIn() && tk2Image()
-        && request.auth.uid in [listing().brokerUid, listing().get('ownerUid', '')];
-      allow delete: if signedIn() && request.auth.uid in [listing().brokerUid, listing().get('ownerUid', '')];
+      allow create, update: if signedIn() && tk2Image() && managesPhotos();
+      allow delete: if signedIn() && managesPhotos();
     }
 
-    // Gate pass: the broker uploads it; the tenant of that visit reads it.
+    function tk2Visit(id) {
+      return firestore.get(/databases/(default)/documents/tk2Visits/$(id)).data;
+    }
+
+    function tk2Deal(id) {
+      return firestore.get(/databases/(default)/documents/tk2Deals/$(id)).data;
+    }
+
+    function tk2DealParty(id) {
+      let deal = tk2Deal(id);
+      return request.auth.uid in [deal.brokerUid, deal.tenantUid, deal.get('verifiedOwnerUid', '')];
+    }
+
+    function tk2DealFile() {
+      return request.resource.size > 0
+        && (request.resource.size <= 10 * 1024 * 1024 && request.resource.contentType.matches('image/(jpeg|png|webp|heic)|application/pdf')
+          || request.resource.size <= 200 * 1024 * 1024 && request.resource.contentType.matches('video/.*'));
+    }
+
+    // The callable copies a validated upload to the final path and strips its download token.
+    match /tk2Uploads/{uid}/tk2/visits/{visitId}/{file} {
+      allow create: if signedIn() && request.auth.uid == uid && uid == tk2Visit(visitId).brokerUid && isAllowedDocument();
+      allow read, update, delete: if false;
+    }
+
+    match /tk2Uploads/{uid}/tk2/deals/{dealId}/{file} {
+      allow create: if signedIn() && request.auth.uid == uid && tk2DealParty(dealId) && tk2DealFile();
+      allow read, update, delete: if false;
+    }
+
+    // Gate pass: the broker and the tenant of that visit can read it.
     match /tk2/visits/{visitId}/{file} {
-      function visit() {
-        return firestore.get(/databases/(default)/documents/tk2Visits/$(visitId)).data;
-      }
-      allow read: if signedIn() && request.auth.uid in [visit().brokerUid, visit().customerUid];
-      allow create, update: if signedIn() && request.auth.uid == visit().brokerUid && isAllowedDocument();
-      allow delete: if false;
+      allow read: if signedIn() && request.auth.uid in [tk2Visit(visitId).brokerUid, tk2Visit(visitId).customerUid];
+      allow write: if false;
     }
 
     // Deal files (documents, stamp paper, handover photos and video, repairs):
     // only the deal's broker, tenant and owner.
     match /tk2/deals/{dealId}/{file} {
-      function deal() {
-        return firestore.get(/databases/(default)/documents/tk2Deals/$(dealId)).data;
-      }
-      function party() {
-        return request.auth.uid in [deal().brokerUid, deal().tenantUid, deal().get('ownerUid', '')];
-      }
-      allow read: if signedIn() && party();
-      allow create: if signedIn() && party() && request.resource.size > 0
-        && (request.resource.size <= 10 * 1024 * 1024 && request.resource.contentType.matches('image/(jpeg|png|webp|heic)|application/pdf')
-          || request.resource.size <= 200 * 1024 * 1024 && request.resource.contentType.matches('video/.*'));
-      allow update, delete: if false;
+      allow read: if signedIn() && tk2DealParty(dealId);
+      allow write: if false;
     }
 
     // Owner and tenant documents (ID proof, ownership papers): private to the person.

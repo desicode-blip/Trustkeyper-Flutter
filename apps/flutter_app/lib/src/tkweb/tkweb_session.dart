@@ -15,11 +15,12 @@ class TkwSession extends ChangeNotifier {
   static final instance = TkwSession._();
 
   static const _key = 'tkweb_session_v1';
+  String? _uid;
 
   /// Signed-in person: name and phone/email (after OTP).
   String name = '';
   String contact = '';
-  bool get signedIn => contact.isNotEmpty;
+  bool get signedIn => contact.isNotEmpty && (!Tk2Cloud.on || _uid != null && Tk2Cloud.uid == _uid);
 
   /// Tenant journey per listing: step index into [TkwTrip.steps] + answers.
   final Map<String, Map<String, dynamic>> trips = {};
@@ -47,6 +48,8 @@ class TkwSession extends ChangeNotifier {
       final raw = (await SharedPreferences.getInstance()).getString(_key);
       if (raw == null) return;
       final j = jsonDecode(raw) as Map<String, dynamic>;
+      if (Tk2Cloud.on && (Tk2Cloud.uid == null || j['uid'] != Tk2Cloud.uid)) return;
+      _uid = j['uid'] as String?;
       name = j['name'] as String? ?? '';
       contact = j['contact'] as String? ?? '';
       trips
@@ -65,20 +68,26 @@ class TkwSession extends ChangeNotifier {
 
   Future<void> save() async {
     notifyListeners();
-    Tk2Store.instance.sync?.session(trips, owners, name: name, contact: contact);
+    Tk2Store.instance.sync?.session(trips);
     try {
-      await (await SharedPreferences.getInstance()).setString(_key, jsonEncode({'name': name, 'contact': contact, 'trips': trips, 'owners': owners, 'roles': roles}));
+      await (await SharedPreferences.getInstance()).setString(_key, jsonEncode({'uid': _uid, 'name': name, 'contact': contact, 'trips': trips, 'owners': owners, 'roles': roles}));
     } catch (_) {}
   }
 
   Future<void> signIn(String n, String c) async {
+    final store = Tk2Store.instance;
+    if (Tk2Cloud.on && _uid != Tk2Cloud.uid) {
+      store.sync?.clearWebSession();
+      store.applyDeals([]);
+      store.applyVisits([]);
+      trips.clear();
+      owners.clear();
+      roles.clear();
+    }
+    _uid = Tk2Cloud.uid;
     name = n.trim();
     contact = c.trim();
-    final sync = Tk2Store.instance.sync;
-    if (sync != null) {
-      if (sync.inviteId != null) await sync.claimInvite(name);
-      sync.startTenant();
-    }
+    store.sync?.startTenant();
     return save();
   }
 
@@ -87,8 +96,9 @@ class TkwSession extends ChangeNotifier {
 
   /// Start over (demo reset on the landing page; logs out with the backend on).
   Future<void> reset() async {
-    Tk2Store.instance.sync?.stop();
-    await Tk2Cloud.signOut();
+    Tk2Store.instance.sync?.clearWebSession();
+    if (Tk2Cloud.on) await Tk2Store.instance.signOut();
+    _uid = null;
     name = '';
     contact = '';
     trips.clear();

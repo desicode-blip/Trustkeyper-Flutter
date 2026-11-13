@@ -12,26 +12,25 @@ import 'tk2_widgets.dart';
 /// Text message opens Messages, Copy link covers anything else.
 /// Returns how it was sent ('whatsapp' · 'sms' · 'copy'), or null when the
 /// sheet was closed without picking (nothing is sent, the broker stays put).
-Future<String?> showTk2OwnerInvite(BuildContext context, {required String ownerName, required String phone, required String message, String? title}) async {
+Future<String?> showTk2OwnerInvite(BuildContext context, {required String ownerName, required String phone, required Future<String> Function() message, String? title}) async {
   final digits = phone.replaceAll(RegExp(r'\D'), '');
-  final full = digits.length == 10 ? '91$digits' : digits;
+  final full = !phone.trim().startsWith('+') && digits.length == 10 ? '91$digits' : digits;
   final first = ownerName.trim().split(' ').first;
-  final text = Uri.encodeComponent(message);
   final messenger = ScaffoldMessenger.of(context);
 
-  Future<void> whatsapp() async {
+  Future<bool> whatsapp(String text) async {
     final app = Uri.parse('whatsapp://send?phone=$full&text=$text');
     final ok = await canLaunchUrl(app) && await launchUrl(app, mode: LaunchMode.externalApplication);
-    if (!ok) await launchUrl(Uri.parse('https://wa.me/$full?text=$text'), mode: LaunchMode.externalApplication);
+    return ok || await launchUrl(Uri.parse('https://wa.me/$full?text=$text'), mode: LaunchMode.externalApplication);
   }
 
   // iOS reads "sms:number&body=", Android "sms:number?body=".
-  Future<void> sms() =>
+  Future<bool> sms(String text) =>
       launchUrl(Uri.parse('sms:+$full${defaultTargetPlatform == TargetPlatform.iOS ? '&' : '?'}body=$text'), mode: LaunchMode.externalApplication);
 
-  Future<bool> copy() async {
+  Future<bool> copy(String text) async {
     try {
-      await Clipboard.setData(ClipboardData(text: message));
+      await Clipboard.setData(ClipboardData(text: text));
       messenger.showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, content: Text('Message and link copied')));
       return true;
     } catch (_) {
@@ -77,13 +76,14 @@ Future<String?> showTk2OwnerInvite(BuildContext context, {required String ownerN
       );
     },
   );
-  switch (how) {
-    case 'whatsapp':
-      await whatsapp();
-    case 'sms':
-      await sms();
-    case 'copy':
-      if (!await copy()) return null;
-  }
-  return how;
+  if (how == null) return null;
+  final text = await message();
+  if (!context.mounted) return null;
+  final opened = switch (how) {
+    'whatsapp' => await whatsapp(Uri.encodeComponent(text)),
+    'sms' => await sms(Uri.encodeComponent(text)),
+    _ => await copy(text),
+  };
+  if (!opened && how != 'copy') throw StateError('Could not open the sharing app');
+  return opened ? how : null;
 }
