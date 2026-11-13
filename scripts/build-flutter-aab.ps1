@@ -53,9 +53,9 @@ try {
             if ($config.TK2_FIREBASE_PROJECT_ID -ne 'trustkeyper-app-staging' -or
                 $config.TK2_FIREBASE_STORAGE_BUCKET -ne 'trustkeyper-app-staging.firebasestorage.app' -or
                 ([string]$config.TK2_WEB_URL).TrimEnd('/') -ne 'https://trustkeyper-tk2-staging.web.app' -or
-                $config.TK2_FIREBASE_APP_ID_ANDROID -ne '1:882743913919:android:53bf13a43dd79762d4c50a' -or
+                $config.TK2_FIREBASE_APP_ID_ANDROID -ne '1:882743913919:android:187b9e9baee7d355d4c50a' -or
                 !$config.TK2_FIREBASE_API_KEY_ANDROID -or $config.TK2_EMULATOR_HOST) {
-                throw 'Use the dedicated TK2 Android Firebase settings and staging website.'
+                throw 'Use the TrustKeyper Android Firebase settings for staging and the staging website.'
             }
             $buildArguments += @('--no-pub', '-t', 'lib/main_tk2.dart', '--dart-define=TK2_NATIVE=true', "--dart-define-from-file=$configPath")
             & $FlutterExecutable pub get --enforce-lockfile

@@ -51,7 +51,7 @@ class _TrustKeeper2AppState extends State<TrustKeeper2App> {
 
   @override
   Widget build(BuildContext context) =>
-      MaterialApp.router(title: 'TrustKeeper 2', debugShowCheckedModeBanner: false, theme: AppTheme.light, routerConfig: router);
+      MaterialApp.router(title: 'TrustKeyper', debugShowCheckedModeBanner: false, theme: AppTheme.light, routerConfig: router);
 }
 
 GoRouter buildTk2Router(Tk2Store store) => GoRouter(

@@ -30,7 +30,7 @@ if [[ "$mode" == tk2 ]]; then
   config="$app/ios/Runner/GoogleService-Info-TK2.plist"
   if [[ ! -f "$config" ]]; then
     command -v firebase >/dev/null 2>&1 || fail 'Install Firebase CLI or place the TK2 plist as described in docs/TRUSTKEEPER2-MOBILE.md.'
-    firebase apps:sdkconfig IOS '1:882743913919:ios:0e6387885a884e92d4c50a' \
+    firebase apps:sdkconfig IOS '1:882743913919:ios:a8c6b642121dd325d4c50a' \
       --project trustkeyper-app-staging --non-interactive --out "$config"
   fi
   plutil -lint "$config"
@@ -41,13 +41,13 @@ import sys
 with open(sys.argv[1], 'rb') as file:
     config = plistlib.load(file)
 expected = {
-    'BUNDLE_ID': 'com.trustkeyper.tk2',
-    'GOOGLE_APP_ID': '1:882743913919:ios:0e6387885a884e92d4c50a',
+    'BUNDLE_ID': 'com.trustkeyper.mobile',
+    'GOOGLE_APP_ID': '1:882743913919:ios:a8c6b642121dd325d4c50a',
     'PROJECT_ID': 'trustkeyper-app-staging',
     'STORAGE_BUCKET': 'trustkeyper-app-staging.firebasestorage.app',
 }
 if not config.get('API_KEY') or any(config.get(key) != value for key, value in expected.items()):
-    sys.exit('Use the Firebase plist for TrustKeeper 2 Staging, bundle com.trustkeyper.tk2.')
+    sys.exit('Use the Firebase plist for TrustKeyper staging, bundle com.trustkeyper.mobile.')
 PY
 fi
 flutter precache --ios

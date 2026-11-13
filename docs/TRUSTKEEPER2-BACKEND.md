@@ -147,8 +147,9 @@ test settings in one browser session and temporarily allowed India. The SMS
 allowlist was restored and the synthetic records were removed. Physical device
 acceptance and real SMS delivery remain open.
 
-1. **Firebase resources.** The dedicated `TrustKeeper 2 Staging` web and iOS apps
-   are registered. The iOS bundle ID is `com.trustkeyper.tk2`. The `tk2` Hosting
+1. **Firebase resources.** The dedicated staging web app is registered. The
+   Android and iOS staging builds use the existing `com.trustkeyper.mobile`
+   identity. The `tk2` Hosting
    target maps to `trustkeyper-tk2-staging.web.app`. The project needs active
    billing and a default bucket. Verify the bucket in Firebase before using its
    name in the git-ignored `apps/flutter_app/tk2_cloud.json`.
@@ -188,7 +189,7 @@ acceptance and real SMS delivery remain open.
    scripts/tk2-build.sh web staging
    scripts/tk2-build.sh deploy-web
    ```
-6. **Broker app on a phone.** Build the separate Android package or select the
+6. **Broker app on a phone.** Build the Android bundle or select the
    shared `tk2` Xcode scheme for iOS. See [TK2 mobile build instructions](TRUSTKEEPER2-MOBILE.md).
 7. **Smoke test:**
    - broker signs up;

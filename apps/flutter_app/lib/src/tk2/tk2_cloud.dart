@@ -39,7 +39,7 @@ class Tk2Cloud {
   static const _appIdIos = String.fromEnvironment('TK2_FIREBASE_APP_ID_IOS');
   static const _appIdAndroid = String.fromEnvironment('TK2_FIREBASE_APP_ID_ANDROID');
   static const _appIdWeb = String.fromEnvironment('TK2_FIREBASE_APP_ID_WEB');
-  static const _iosBundle = String.fromEnvironment('TK2_IOS_BUNDLE_ID', defaultValue: 'com.trustkeyper.tk2');
+  static const _iosBundle = String.fromEnvironment('TK2_IOS_BUNDLE_ID', defaultValue: 'com.trustkeyper.mobile');
 
   /// Where the owner/tenant web app is hosted (links in WhatsApp messages).
   static const _stagingProject = 'trustkeyper-app-staging';
@@ -72,7 +72,7 @@ class Tk2Cloud {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && appFlavor == 'tk2') {
       final app = await Firebase.initializeApp();
       if (app.options.projectId != _stagingProject || app.options.storageBucket != _stagingBucket || app.options.iosBundleId != _iosBundle) {
-        throw StateError('The TK2 iOS scheme requires its staging Firebase configuration');
+        throw StateError('The TrustKeyper iOS staging scheme requires its Firebase configuration');
       }
       on = true;
       return;

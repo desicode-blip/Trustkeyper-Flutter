@@ -22,7 +22,7 @@ function checkIosConfiguration(read = readSource) {
   const android = JSON.parse(read(`${prefix}/android/app/google-services.json`));
   assert.equal(android.project_info.project_id, 'trustkeyper');
   assert.equal(stringValue(google, 'BUNDLE_ID'), 'com.trustkeyper.mobile');
-  assert.equal((project.match(/PRODUCT_BUNDLE_IDENTIFIER = com\.trustkeyper\.mobile;/g) ?? []).length, 3);
+  assert.equal((project.match(/PRODUCT_BUNDLE_IDENTIFIER = com\.trustkeyper\.mobile;/g) ?? []).length, 6);
   assert.equal((project.match(/CODE_SIGN_ENTITLEMENTS = Runner\/Runner\.entitlements;/g) ?? []).length, 3);
   const legacySettings = read(`${prefix}/ios/Flutter/TrustKeyper.xcconfig`);
   assert.ok(info.includes('<string>$(TRUSTKEYPER_FIREBASE_AUTH_SCHEME)</string>'), 'Register the Firebase phone-auth callback scheme.');
@@ -58,8 +58,8 @@ function checkIosConfiguration(read = readSource) {
   const podfile = read(`${prefix}/ios/Podfile`);
   assert.match(tk2Settings, /^FLUTTER_TARGET = lib\/main_tk2\.dart$/m);
   assert.match(tk2Settings, /^FLAVOR = tk2$/m);
-  assert.match(tk2Settings, /^TRUSTKEYPER_FIREBASE_AUTH_SCHEME = app-1-882743913919-ios-0e6387885a884e92d4c50a$/m);
-  assert.equal((project.match(/PRODUCT_BUNDLE_IDENTIFIER = com\.trustkeyper\.tk2;/g) ?? []).length, 3);
+  assert.match(tk2Settings, /^TRUSTKEYPER_FIREBASE_AUTH_SCHEME = app-1-882743913919-ios-a8c6b642121dd325d4c50a$/m);
+  assert.match(tk2Settings, /^TRUSTKEYPER_APP_NAME = TrustKeyper$/m);
   assert.match(project, /Runner\/GoogleService-Info-TK2\.plist/);
   for (const mode of ['Debug', 'Profile', 'Release']) {
     assert.match(tk2Scheme, new RegExp(`buildConfiguration = "${mode}-tk2"`));

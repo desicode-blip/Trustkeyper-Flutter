@@ -284,7 +284,7 @@
 			outputPaths = ("$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist");
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -eu\nconfig=Runner/GoogleService-Info.plist\nif [ \"$PRODUCT_BUNDLE_IDENTIFIER\" = com.trustkeyper.tk2 ]; then\n  config=Runner/GoogleService-Info-TK2.plist\n  if [ ! -f \"$SRCROOT/$config\" ]; then\n    echo \"error: Missing TK2 staging Firebase configuration. See docs/TRUSTKEEPER2-MOBILE.md.\"\n    exit 1\n  fi\n  project=$(/usr/libexec/PlistBuddy -c 'Print :PROJECT_ID' \"$SRCROOT/$config\")\n  bundle=$(/usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' \"$SRCROOT/$config\")\n  if [ \"$project\" != trustkeyper-app-staging ] || [ \"$bundle\" != \"$PRODUCT_BUNDLE_IDENTIFIER\" ]; then\n    echo \"error: The selected Firebase plist is not for the TK2 staging app.\"\n    exit 1\n  fi\nfi\ncp \"$SRCROOT/$config\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/GoogleService-Info.plist\"\n";
+			shellScript = "set -eu\nconfig=Runner/GoogleService-Info.plist\nif [ \"${FLAVOR:-}\" = tk2 ]; then\n  config=Runner/GoogleService-Info-TK2.plist\n  if [ ! -f \"$SRCROOT/$config\" ]; then\n    echo \"error: Missing TK2 staging Firebase configuration. See docs/TRUSTKEEPER2-MOBILE.md.\"\n    exit 1\n  fi\n  project=$(/usr/libexec/PlistBuddy -c 'Print :PROJECT_ID' \"$SRCROOT/$config\")\n  bundle=$(/usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' \"$SRCROOT/$config\")\n  if [ \"$project\" != trustkeyper-app-staging ] || [ \"$bundle\" != \"$PRODUCT_BUNDLE_IDENTIFIER\" ]; then\n    echo \"error: The selected Firebase plist is not for TrustKeyper staging.\"\n    exit 1\n  fi\nfi\ncp \"$SRCROOT/$config\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/GoogleService-Info.plist\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -800,7 +800,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.trustkeyper.tk2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.trustkeyper.mobile;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -823,7 +823,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.trustkeyper.tk2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.trustkeyper.mobile;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
@@ -845,7 +845,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.trustkeyper.tk2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.trustkeyper.mobile;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
@@ -861,7 +861,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.trustkeyper.tk2.RunnerTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.trustkeyper.mobile.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -878,7 +878,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.trustkeyper.tk2.RunnerTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.trustkeyper.mobile.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";
@@ -893,7 +893,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.trustkeyper.tk2.RunnerTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.trustkeyper.mobile.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";

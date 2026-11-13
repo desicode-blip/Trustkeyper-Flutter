@@ -64,17 +64,14 @@ android {
 
     defaultConfig {
         applicationId = when {
-            tk2 -> "com.trustkeyper.tk2"
             uiTest -> "com.trustkeyper.mobile.uitest"
             else -> "com.trustkeyper.mobile"
         }
         manifestPlaceholders["appLabel"] = when {
-            tk2 -> "TrustKeeper 2"
             uiTest -> "TrustKeyper UI Test"
             else -> "TrustKeyper"
         }
         manifestPlaceholders["appLinkScheme"] = when {
-            tk2 -> "trustkeyper-tk2"
             uiTest -> "trustkeyper-uitest"
             else -> "trustkeyper"
         }

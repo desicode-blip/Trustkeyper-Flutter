@@ -1,9 +1,9 @@
-# TrustKeeper 2 staging mobile builds
+# TrustKeyper staging mobile builds
 
 The broker app uses `apps/flutter_app/lib/main_tk2.dart` on both platforms.
-Its app ID is `com.trustkeyper.tk2` and its Firebase project is
-`trustkeyper-app-staging`. The owner and tenant links use the dedicated
-staging website. The original `Runner` scheme is for the original app.
+The new build keeps the existing TrustKeyper app ID `com.trustkeyper.mobile`.
+It uses `trustkeyper-app-staging` and the staging website for owner and tenant
+links. On iOS, the `tk2` scheme selects the new broker experience for staging.
 
 ## Aman and Claude on macOS
 
@@ -21,7 +21,8 @@ Use Flutter 3.38.6 and the Mac tools listed in [iOS setup](ios-macos-setup.md).
 The bootstrap restores the Dart lockfile and installs Pods. It downloads the
 TK2 Firebase plist when Firebase CLI is installed and signed in to an account
 with staging access. Alternatively, download the plist from Firebase Project
-settings → Your apps → **TrustKeeper 2 Staging** (`com.trustkeyper.tk2`). Save it
+settings for `trustkeyper-app-staging` → Your apps → the iOS app for
+`com.trustkeyper.mobile`. Save it
 as `apps/flutter_app/ios/Runner/GoogleService-Info-TK2.plist`, then rerun the
 bootstrap. Git ignores the plist.
 
@@ -42,15 +43,15 @@ tenant code. Test the owner invite and gate pass on the same staging backend.
 Firebase staging allows verification SMS in all regions. For an owner abroad,
 enter the full phone number including `+` and the country calling code.
 This scheme uses the Firebase reCAPTCHA fallback. Silent verification via APNs
-would require Apple and Firebase setup for the TK2 bundle ID.
+requires setup in the staging Firebase project for the existing bundle ID.
 
 ## Android App Bundle
 
 Keep the verified upload key in the private signing directory or point
 `TRUSTKEYPER_SIGNING_CREDENTIALS_FILE` to it. Copy
 `apps/flutter_app/tk2_cloud.example.json` to the ignored `tk2_cloud.json` and use
-the dedicated staging Firebase app settings. Get the Android client config for
-`com.trustkeyper.tk2` from Firebase Project settings. Set
+the staging Firebase app settings. Get the Android client config for
+`com.trustkeyper.mobile` from the staging Firebase project. Set
 `TK2_FIREBASE_APP_ID_ANDROID` from the matching client’s `mobilesdk_app_id` and
 `TK2_FIREBASE_API_KEY_ANDROID` from its API key. Use the staging bucket and
 `https://trustkeyper-tk2-staging.web.app/` for shared links.
@@ -59,9 +60,10 @@ the dedicated staging Firebase app settings. Get the Android client config for
 ./scripts/build-flutter-aab.ps1 -Tk2Staging
 ```
 
-The script verifies the upload certificate and builds the TK2 staging bundle.
+The script verifies the upload certificate and builds the TrustKeyper staging bundle.
+Use the existing **TrustKeyper → Internal testing** track in Google Play Console.
 An AAB is for distribution through Google Play or for generating device APKs
 with `bundletool`. If Google Play re-signs the app, register the public Play
-app-signing certificate fingerprints on the TK2 Firebase Android app before
+app-signing certificate fingerprints on the staging Firebase Android app before
 testing OTP from that track. This staging app uses test bookings, and real
 payments and agreement signing are outside the pilot.

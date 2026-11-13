@@ -8,6 +8,6 @@
   "TK2_FIREBASE_APP_ID_WEB": "",
   "TK2_FIREBASE_APP_ID_IOS": "",
   "TK2_FIREBASE_APP_ID_ANDROID": "",
-  "TK2_IOS_BUNDLE_ID": "com.trustkeyper.tk2",
+  "TK2_IOS_BUNDLE_ID": "com.trustkeyper.mobile",
   "TK2_WEB_URL": "https://YOUR-TK2-SITE.web.app/"
 }
