@@ -45,7 +45,7 @@ sealed class TkwStart {
         return TkwOpenDeal(id, d == null ? null : sync.roleIn(d), signedIn: d != null);
       }
       // Payload links belong to the local demo. Cloud builds only accept ids.
-      if (sync != null) return const TkwOpenHome(gone: true);
+      if (sync != null) return TkwOpenHome(gone: fragment.isNotEmpty);
       if (fragment.startsWith('deal-')) {
         final j = jsonDecode(tk2Base32Decode(fragment.substring(5))) as Map<String, dynamic>;
         final role = j['r'] == 'owner' ? DealRole.owner : DealRole.tenant;

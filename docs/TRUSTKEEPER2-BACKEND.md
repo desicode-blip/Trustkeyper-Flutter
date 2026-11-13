@@ -129,43 +129,44 @@ No composite indexes are needed: every query is a single `where(... isEqualTo ..
     holder. The house appears in the broker's list, with the owner's name, number and
     keys filled into the private block.
 
-## 5. Make it live on staging (your steps, in order)
+## 5. Deploy the staging pilot
 
 All commands run from the repo root with `--project staging`
 (= `trustkeyper-app-staging`, see `.firebaserc`).
 
-1. **Register the apps** in the Firebase console (staging): a **Web app** ("TK2 web")
-   and an **iOS app** with bundle id `com.trustkeyper.tk2`. Add Android only if
-   needed. Copy `apps/flutter_app/tk2_cloud.example.json` to `tk2_cloud.json` and fill
-   in `apiKey`, `messagingSenderId`, `storageBucket`, `authDomain` and the app ids.
-   These are public identifiers, not secrets. The file is git-ignored anyway.
-2. **Auth:** Phone sign-in must be on. Add the TK2 hosting domain under
-   Authentication → Settings → Authorized domains (web phone OTP needs it). Owner
-   email OTP uses the existing `requestEmailOtp` / `verifyEmailOtp` functions and
-   their email setup. Check that they are deployed on staging.
-3. **Hosting site**, once:
+On 13 November 2026 the dedicated staging website and additive Firestore rules
+were deployed and checked. Google received a request for one additional
+billing-enabled project after the billing link hit the account quota. Cloud
+Storage and both TK2 functions still require billing. The site is a web preview
+until the full pilot passes the tests below.
+
+1. **Firebase resources.** The dedicated `TrustKeeper 2 Staging` web and iOS apps
+   are registered. The iOS bundle ID is `com.trustkeyper.tk2`. The `tk2` Hosting
+   target maps to `trustkeyper-tk2-staging.web.app`. The project needs active
+   billing and a default bucket. Verify the bucket in Firebase before using its
+   name in the git-ignored `apps/flutter_app/tk2_cloud.json`.
+2. **Auth.** Phone sign-in is enabled and the TK2 Hosting domain is authorized.
+   Use the configured fictional phone credentials for pilot testing. Real SMS
+   requires a permitted region. Owner email OTP requires staging credentials for
+   the email provider and the `requestEmailOtp` and `verifyEmailOtp` functions.
+3. **Rules.** Fetch the currently deployed staging Firestore rules and add the
+   TK2 rules block and its `verifiedPhoneProof` helper. The live baseline differs
+   from the repository outside TK2. Verify the candidate diff adds only these
+   sections. Use the TK2 Storage rules with their helpers for a new pilot bucket.
+   Run `functions/rules-test/tk2.test.mjs` against both candidates with the local
+   Firestore and Storage emulators. Recheck the live rules before deploying the
+   candidates to `trustkeyper-app-staging`.
+4. **Functions**, only the TK2 functions:
    ```
-   firebase hosting:sites:create <site-name> --project staging
-   firebase target:apply hosting tk2 <site-name> --project staging
-   ```
-   Put `https://<site-name>.web.app/` in `TK2_WEB_URL`.
-4. **Rules.** These deploy for the whole staging project. The TK2 blocks are additive
-   (new `tk2…` paths only) and sit before the deny-all. Run the rules tests first:
-   ```
-   firebase emulators:exec --only auth,firestore,storage --project demo-trustkeyper 'npm --prefix functions run test:rules'
-   firebase deploy --only firestore:rules,storage --project staging
-   ```
-5. **Functions**, only the TK2 functions:
-   ```
-   firebase deploy --only functions:tk2ConfirmVisit,functions:tk2FinalizeFile --project staging
+   firebase deploy --only functions:authentication:tk2ConfirmVisit,functions:authentication:tk2FinalizeFile --project trustkeyper-app-staging
    ```
    The predeploy runs `npm test`. Region `asia-south1`, like the others.
-6. **Web app:**
+5. **Web app:**
    ```
    scripts/tk2-build.sh web staging
    scripts/tk2-build.sh deploy-web
    ```
-7. **Broker app on a phone:** `scripts/tk2-build.sh broker staging` (`flutter run`
+6. **Broker app on a phone:** `scripts/tk2-build.sh broker staging` (`flutter run`
    with the settings).
    - iOS phone OTP needs the usual Firebase setup for the TK2 bundle id: an APNs key
      in Firebase, or the reCAPTCHA fallback URL scheme (the encoded app id) in
@@ -174,7 +175,7 @@ All commands run from the repo root with `--project staging`
      Mac switches the bundle id, display name and target locally (see
      `docs/TRUSTKEEPER2.md`). A proper flavor for TK2 is the clean way to ship it
      (section 6).
-8. **Smoke test:**
+7. **Smoke test:**
    - broker signs up;
    - adds a house with a photo;
    - shares it and opens the link on another phone;

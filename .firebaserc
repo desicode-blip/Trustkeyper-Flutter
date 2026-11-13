@@ -3,5 +3,14 @@
     "default": "trustkeyper",
     "production": "trustkeyper",
     "staging": "trustkeyper-app-staging"
+  },
+  "targets": {
+    "trustkeyper-app-staging": {
+      "hosting": {
+        "tk2": [
+          "trustkeyper-tk2-staging"
+        ]
+      }
+    }
   }
 }
