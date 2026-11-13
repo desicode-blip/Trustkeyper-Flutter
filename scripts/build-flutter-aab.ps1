@@ -4,7 +4,8 @@ param(
     } else { Join-Path $HOME '.trustkeyper/signing/android-upload.json' }),
     [string]$FlutterExecutable = 'flutter',
     [switch]$SkipCrashlyticsUpload,
-    [switch]$VerifySigningOnly
+    [switch]$VerifySigningOnly,
+    [switch]$Tk2Staging
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,7 +20,7 @@ $signingEnvironment = @{
     TRUSTKEYPER_UPLOAD_STORE_PASSWORD = $credentials.keystorePassword
     TRUSTKEYPER_UPLOAD_KEY_ALIAS = $credentials.keyAlias
     TRUSTKEYPER_UPLOAD_KEY_PASSWORD = $credentials.keyPassword
-    TRUSTKEYPER_SKIP_CRASHLYTICS_UPLOAD = $SkipCrashlyticsUpload.ToString().ToLowerInvariant()
+    TRUSTKEYPER_SKIP_CRASHLYTICS_UPLOAD = ([bool]($SkipCrashlyticsUpload -or $Tk2Staging)).ToString().ToLowerInvariant()
 }
 $previousEnvironment = @{}
 $appDirectory = Join-Path (Split-Path $PSScriptRoot) 'apps/flutter_app'
@@ -42,7 +43,25 @@ try {
     }
     Push-Location $appDirectory
     try {
-        & $FlutterExecutable build appbundle --release
+        $buildArguments = @('build', 'appbundle', '--release')
+        if ($Tk2Staging) {
+            $expectedFlutter = (Get-Content -LiteralPath (Join-Path (Split-Path $PSScriptRoot) '.flutter-version') -Raw).Trim()
+            $sdkVersion = (& $FlutterExecutable --version --machine | ConvertFrom-Json).frameworkVersion
+            if ($LASTEXITCODE -ne 0 -or $sdkVersion -ne $expectedFlutter) { throw "Use Flutter $expectedFlutter for TK2 staging builds." }
+            $configPath = Join-Path $appDirectory 'tk2_cloud.json'
+            $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+            if ($config.TK2_FIREBASE_PROJECT_ID -ne 'trustkeyper-app-staging' -or
+                $config.TK2_FIREBASE_STORAGE_BUCKET -ne 'trustkeyper-app-staging.firebasestorage.app' -or
+                ([string]$config.TK2_WEB_URL).TrimEnd('/') -ne 'https://trustkeyper-tk2-staging.web.app' -or
+                $config.TK2_FIREBASE_APP_ID_ANDROID -ne '1:882743913919:android:53bf13a43dd79762d4c50a' -or
+                !$config.TK2_FIREBASE_API_KEY_ANDROID -or $config.TK2_EMULATOR_HOST) {
+                throw 'Use the dedicated TK2 Android Firebase settings and staging website.'
+            }
+            $buildArguments += @('--no-pub', '-t', 'lib/main_tk2.dart', '--dart-define=TK2_NATIVE=true', "--dart-define-from-file=$configPath")
+            & $FlutterExecutable pub get --enforce-lockfile
+            if ($LASTEXITCODE -ne 0) { throw 'The locked Flutter dependencies could not be restored.' }
+        }
+        & $FlutterExecutable @buildArguments
         if ($LASTEXITCODE -ne 0) { throw 'The Android release build failed.' }
         $bundlePath = Join-Path $appDirectory 'build/app/outputs/bundle/release/app-release.aab'
         $bundleCertificate = & keytool -printcert -jarfile $bundlePath 2>&1
@@ -50,7 +69,7 @@ try {
             throw 'The output bundle does not match the Google Play upload certificate.'
         }
         Write-Output "Verified Google Play upload signature: $bundlePath"
-        if ($SkipCrashlyticsUpload) { Write-Output 'Crashlytics build-time symbol upload deferred; archive the release mapping for later upload.' }
+        if ($SkipCrashlyticsUpload -and !$Tk2Staging) { Write-Output 'Crashlytics build-time symbol upload deferred; archive the release mapping for later upload.' }
     } finally {
         Pop-Location
     }

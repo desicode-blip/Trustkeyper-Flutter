@@ -637,7 +637,7 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, 'Full name *'), 'Hari Rao');
     await tester.tap(find.text('WhatsApp').first);
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'Mobile number'), '9876500000');
+    await tester.enterText(find.widgetWithText(TextField, 'Mobile number'), '+12025550123');
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Send to Hari'));
@@ -645,6 +645,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.text('Send the invite to Hari'), findsOneWidget);
+    expect(find.text('+12025550123'), findsOneWidget);
     // Close without picking: still on the check screen, nothing sent.
     tester.state<NavigatorState>(find.byType(Navigator).last).pop();
     await tester.pumpAndSettle();

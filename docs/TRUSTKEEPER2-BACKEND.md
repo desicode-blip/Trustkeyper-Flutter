@@ -153,10 +153,8 @@ acceptance and real SMS delivery remain open.
    billing and a default bucket. Verify the bucket in Firebase before using its
    name in the git-ignored `apps/flutter_app/tk2_cloud.json`.
 2. **Auth.** Phone sign-in is enabled and the TK2 Hosting domain is authorized.
-   Use the configured fictional phone number for pilot testing. The original
-   SMS allowlist is empty. Firebase requires India on the allowlist even for
-   the configured Indian test number. Use a controlled testing window before
-   allowing real SMS. Owner email OTP requires staging credentials for
+   The staging project allows all SMS regions. Use an authorized pilot number
+   to check real SMS delivery on each platform. Owner email OTP requires staging credentials for
    the email provider and the `requestEmailOtp` and `verifyEmailOtp` functions.
 3. **Rules.** Fetch the currently deployed staging Firestore rules and add the
    TK2 rules block and its `verifiedPhoneProof` helper. The live baseline differs
@@ -190,15 +188,8 @@ acceptance and real SMS delivery remain open.
    scripts/tk2-build.sh web staging
    scripts/tk2-build.sh deploy-web
    ```
-6. **Broker app on a phone:** `scripts/tk2-build.sh broker staging` (`flutter run`
-   with the settings).
-   - iOS phone OTP needs the usual Firebase setup for the TK2 bundle id: an APNs key
-     in Firebase, or the reCAPTCHA fallback URL scheme (the encoded app id) in
-     `Info.plist`. See `docs/ios-phone-otp-callback-fix.md`.
-   - The repo's iOS project is still the main app's (`com.trustkeyper.mobile`). Aman's
-     Mac switches the bundle id, display name and target locally (see
-     `docs/TRUSTKEEPER2.md`). A proper flavor for TK2 is the clean way to ship it
-     (section 6).
+6. **Broker app on a phone.** Build the separate Android package or select the
+   shared `tk2` Xcode scheme for iOS. See [TK2 mobile build instructions](TRUSTKEEPER2-MOBILE.md).
 7. **Smoke test:**
    - broker signs up;
    - adds a house with a photo;
@@ -228,8 +219,8 @@ Critical:
    - the 50/50 owner/broker split when a tenant backs out of a token.
 
    Real money needs Aman's sign-off (AGENTS.md).
-2. **iOS packaging:** a TK2 flavor or target with its own bundle id, icon and phone
-   OTP setup. Today it only builds through Aman's local Mac switch.
+2. **Mobile acceptance.** Run the staging broker flow on a physical iPhone and
+   Android phone, including OTP, file access and handoff to the tenant and owner web app.
 3. **Messages to people.** The broker sends listings and owner invites from their own
    WhatsApp, SMS or copy; that already works. Not sent automatically yet:
    - the broker isn't told about a new booking;

@@ -3,7 +3,7 @@
 #
 #   scripts/tk2-build.sh web            owner/tenant web app, demo (no backend)
 #   scripts/tk2-build.sh web staging    owner/tenant web app on the staging backend
-#   scripts/tk2-build.sh broker staging broker app for a connected phone (flutter run)
+#   scripts/tk2-build.sh broker staging broker app for a connected Android phone
 #   scripts/tk2-build.sh deploy-web     upload build/tk2_staging_web to the dedicated staging site
 #
 # "staging" reads apps/flutter_app/tk2_cloud.json (copy tk2_cloud.example.json and fill it).
@@ -40,6 +40,10 @@ case "$what" in
     flutter build web -t lib/main_tk2_web.dart --release --no-web-resources-cdn --pwa-strategy=none "${defines[@]}" -o "$output"
     echo "Built apps/flutter_app/$output" ;;
   broker)
+    if [[ "$env" == staging ]]; then
+      node -e 'const c = require("./tk2_cloud.json"); if (!c.TK2_FIREBASE_API_KEY_ANDROID || !c.TK2_FIREBASE_APP_ID_ANDROID) throw Error("Set the TK2 staging Android app configuration first.")'
+      defines+=(--dart-define=TK2_NATIVE=true)
+    fi
     flutter run -t lib/main_tk2.dart --release "${defines[@]}" ;;
   deploy-web)
     [[ -f "$output/index.html" ]] || { echo "Build the TK2 staging web app first."; exit 1; }

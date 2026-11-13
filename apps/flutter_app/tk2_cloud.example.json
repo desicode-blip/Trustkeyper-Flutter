@@ -1,5 +1,6 @@
 {
   "TK2_FIREBASE_API_KEY": "",
+  "TK2_FIREBASE_API_KEY_ANDROID": "",
   "TK2_FIREBASE_PROJECT_ID": "trustkeyper-app-staging",
   "TK2_FIREBASE_SENDER_ID": "",
   "TK2_FIREBASE_STORAGE_BUCKET": "",

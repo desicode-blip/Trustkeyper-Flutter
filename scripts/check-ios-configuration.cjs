@@ -24,8 +24,11 @@ function checkIosConfiguration(read = readSource) {
   assert.equal(stringValue(google, 'BUNDLE_ID'), 'com.trustkeyper.mobile');
   assert.equal((project.match(/PRODUCT_BUNDLE_IDENTIFIER = com\.trustkeyper\.mobile;/g) ?? []).length, 3);
   assert.equal((project.match(/CODE_SIGN_ENTITLEMENTS = Runner\/Runner\.entitlements;/g) ?? []).length, 3);
-  assert.ok(info.includes(`<string>app-${appId.replaceAll(':', '-')}</string>`), 'Register the Firebase phone-auth callback scheme.');
-  assert.ok(info.includes('<string>trustkeyper</string>'), 'Register the same app-open scheme as Android.');
+  const legacySettings = read(`${prefix}/ios/Flutter/TrustKeyper.xcconfig`);
+  assert.ok(info.includes('<string>$(TRUSTKEYPER_FIREBASE_AUTH_SCHEME)</string>'), 'Register the Firebase phone-auth callback scheme.');
+  assert.ok(legacySettings.includes(`TRUSTKEYPER_FIREBASE_AUTH_SCHEME = app-${appId.replaceAll(':', '-')}`), 'Use the Firebase phone-auth callback scheme for the original app.');
+  assert.ok(info.includes('<string>$(TRUSTKEYPER_APP_SCHEME)</string>'), 'Register the same app-open scheme as Android.');
+  assert.match(legacySettings, /^TRUSTKEYPER_APP_SCHEME = trustkeyper$/m);
   const delegate = read(`${prefix}/ios/Runner/AppDelegate.swift`);
   assert.match(delegate, /FirebaseAuthCallbackPlugin\.register\(with: registrar\)[\s\S]*GeneratedPluginRegistrant\.register/,
     'Register native auth callback ownership before the other plugins.');
@@ -50,6 +53,22 @@ function checkIosConfiguration(read = readSource) {
   assert.ok(read(`${prefix}/ios/Flutter/Debug.xcconfig`).includes('Pods-Runner.debug.xcconfig'));
   assert.ok(read(`${prefix}/ios/Flutter/Release.xcconfig`).includes('Pods-Runner.release.xcconfig'));
   assert.ok(read(`${prefix}/ios/Flutter/Profile.xcconfig`).includes('Pods-Runner.profile.xcconfig'));
+  const tk2Settings = read(`${prefix}/ios/Flutter/TK2.xcconfig`);
+  const tk2Scheme = read(`${prefix}/ios/Runner.xcodeproj/xcshareddata/xcschemes/tk2.xcscheme`);
+  const podfile = read(`${prefix}/ios/Podfile`);
+  assert.match(tk2Settings, /^FLUTTER_TARGET = lib\/main_tk2\.dart$/m);
+  assert.match(tk2Settings, /^FLAVOR = tk2$/m);
+  assert.match(tk2Settings, /^TRUSTKEYPER_FIREBASE_AUTH_SCHEME = app-1-882743913919-ios-0e6387885a884e92d4c50a$/m);
+  assert.equal((project.match(/PRODUCT_BUNDLE_IDENTIFIER = com\.trustkeyper\.tk2;/g) ?? []).length, 3);
+  assert.match(project, /Runner\/GoogleService-Info-TK2\.plist/);
+  for (const mode of ['Debug', 'Profile', 'Release']) {
+    assert.match(tk2Scheme, new RegExp(`buildConfiguration = "${mode}-tk2"`));
+    assert.ok(podfile.includes(`'${mode}-tk2' => :${mode === 'Debug' ? 'debug' : 'release'}`));
+    const settings = read(`${prefix}/ios/Flutter/${mode}-tk2.xcconfig`);
+    assert.ok(settings.includes(`Pods-Runner.${mode.toLowerCase()}-tk2.xcconfig`));
+    assert.match(settings, /#include "Generated\.xcconfig"\s+#include "TK2\.xcconfig"/);
+    assert.match(read(`${prefix}/ios/Flutter/${mode}.xcconfig`), /#include "TrustKeyper\.xcconfig"/);
+  }
   assert.match(read(`${prefix}/pubspec.yaml`), /enable-swift-package-manager: false/);
   const version = read('.flutter-version').trim();
   assert.equal(version, JSON.parse(read('.fvmrc')).flutter);

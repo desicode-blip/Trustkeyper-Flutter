@@ -17,7 +17,7 @@ test('iOS and Android use shared Firebase identity and pinned Flutter', () => {
 });
 
 test('missing phone-auth callback fails preflight', () => {
-  assert.throws(() => checkIosConfiguration(mutate('apps/flutter_app/ios/Runner/Info.plist',
+  assert.throws(() => checkIosConfiguration(mutate('apps/flutter_app/ios/Flutter/TrustKeyper.xcconfig',
     content => content.replace('app-1-539073703501-ios-9efb50396fa9c31fc5b604', 'wrong-scheme'))), /callback scheme/);
 });
 
@@ -36,7 +36,7 @@ test('missing push entitlement fails preflight', () => {
     content => content.replace('aps-environment', 'missing-aps-environment'))));
 });
 
-test('every Runner configuration must use the checked-in entitlements', () => {
+test('every original app configuration uses its checked-in entitlements', () => {
   assert.throws(() => checkIosConfiguration(mutate('apps/flutter_app/ios/Runner.xcodeproj/project.pbxproj',
     content => content.replace('CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;', ''))));
 });

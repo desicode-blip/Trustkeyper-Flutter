@@ -1,9 +1,13 @@
 import java.util.Properties
 import java.util.Base64
 
-val uiTest = providers.gradleProperty("dart-defines").orNull
+val dartDefines = providers.gradleProperty("dart-defines").orNull
     ?.split(",")
-    ?.any { String(Base64.getDecoder().decode(it)) == "TRUSTKEYPER_UI_TEST=true" } == true
+    ?.map { String(Base64.getDecoder().decode(it)) }
+    .orEmpty()
+val uiTest = "TRUSTKEYPER_UI_TEST=true" in dartDefines
+val tk2 = "TK2_NATIVE=true" in dartDefines
+require(!uiTest || !tk2) { "The offline UI test and TK2 builds use separate app identities." }
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
@@ -33,7 +37,7 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-if (!uiTest) {
+if (!uiTest && !tk2) {
     apply(plugin = "com.google.gms.google-services")
     apply(plugin = "com.google.firebase.crashlytics")
 }
@@ -59,10 +63,21 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = if (uiTest) "com.trustkeyper.mobile.uitest" else "com.trustkeyper.mobile"
-        manifestPlaceholders["appLabel"] = if (uiTest) "TrustKeyper UI Test" else "TrustKeyper"
-        manifestPlaceholders["appLinkScheme"] = if (uiTest) "trustkeyper-uitest" else "trustkeyper"
+        applicationId = when {
+            tk2 -> "com.trustkeyper.tk2"
+            uiTest -> "com.trustkeyper.mobile.uitest"
+            else -> "com.trustkeyper.mobile"
+        }
+        manifestPlaceholders["appLabel"] = when {
+            tk2 -> "TrustKeeper 2"
+            uiTest -> "TrustKeyper UI Test"
+            else -> "TrustKeyper"
+        }
+        manifestPlaceholders["appLinkScheme"] = when {
+            tk2 -> "trustkeyper-tk2"
+            uiTest -> "trustkeyper-uitest"
+            else -> "trustkeyper"
+        }
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

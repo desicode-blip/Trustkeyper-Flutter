@@ -23,7 +23,7 @@ Tests: `apps/flutter_app/test/tk2/` (46: `tk2_test.dart`, `tk2_deal_test.dart`, 
 ## Backend (Change 92)
 - **Demo build** (default, what Aman tests on his phone): no Firebase; data stays on the device; OTP 123456.
 - **Backend build:** use `--dart-define-from-file=tk2_cloud.json` with staging settings. The pilot covers listing and owner onboarding, test bookings, private gate passes and server-side visit confirmation. See the pilot scope in the backend handoff before using the historical deployment steps.
-- Ajay's handoff, with deploy steps and what's pending (Razorpay, iOS flavor, automatic messages, documents, agreement): **`docs/TRUSTKEEPER2-BACKEND.md`**.
+- Ajay's handoff, with deploy steps and what's pending (Razorpay, automatic messages, documents, agreement): **`docs/TRUSTKEEPER2-BACKEND.md`**.
 - Owner/tenant demo web app: https://claude.ai/artifact/Szj2fK38ocoCABGHbTtxUt (private to Aman). It is rebuilt with `/home/claude/tools/rebuild.sh` and published in patch mode.
 
 ## Current state
@@ -63,7 +63,7 @@ Tests: `apps/flutter_app/test/tk2/` (46: `tk2_test.dart`, `tk2_deal_test.dart`, 
 - Keep replies short and plain. Update this note at the end of each chat.
 
 ## Claude's technical routine
-1. Work in `/home/claude/trustkeyper-flutter` (clone of `desicode-blip/Trustkeyper-Flutter`, branch `staging`). Flutter is at `/tmp/flutter/bin` (`export PATH=/tmp/flutter/bin:$PATH CI=true`).
+1. Work in the checkout of `desicode-blip/Trustkeyper-Flutter`. Use the branch in the [TK2 mobile build instructions](TRUSTKEEPER2-MOBILE.md) and Flutter 3.38.6.
 2. Analyze and test. Append the changelog entry and review the feature or fix branch against staging.
 3. Copy the changed files to the Mac:
    - `device_commit_files` to `~/Documents/Trustkeyper-Flutter/...`;
@@ -74,19 +74,12 @@ Tests: `apps/flutter_app/test/tk2/` (46: `tk2_test.dart`, `tk2_deal_test.dart`, 
    - build both apps for web with `TK2_EMULATOR_HOST=127.0.0.1` in the settings file;
    - drive them with Playwright (Flutter semantics on).
 
-## Mac build setup (local only, not in the repo)
-In Xcode, open **File → Open Recent → "Runner.xcworkspace — flutter_app"**. The other Xcode workspaces on the Mac are WashKrew; check the window before pressing Run.
+## Mac build setup
 
-The Mac's iOS project is switched locally so TK2 installs as its own app:
-- `Generated.xcconfig`: `FLUTTER_TARGET=lib/main_tk2.dart`
-- bundle id `com.trustkeyper.tk2`, no entitlements
-- display name "TrustKeeper 2"
-
-The originals are in `~/Documents/tk1-ios-backup/`.
+Follow [TK2 mobile build instructions](TRUSTKEEPER2-MOBILE.md) and select the shared `tk2` scheme in `Runner.xcworkspace`.
 
 ## Open items
-- Ajay: deploy the backend on staging (`docs/TRUSTKEEPER2-BACKEND.md` §5), then the deal parts (§8).
+- Run the broker pilot on physical Android and iOS devices using the staging backend.
 - Test-only until connected: Razorpay (all payments; real money needs Aman's sign-off), Leegality e-sign, society email from a TrustKeyper address, automatic WhatsApp/SMS, signed-agreement PDF.
 - The rent agreement template needs a lawyer's review.
-- A TK2 iOS flavor (today only Aman's Mac switch builds it).
 - Product decisions (owner's ₹250, society timing, fees…): see the Claude Doc above.

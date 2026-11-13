@@ -205,6 +205,13 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
   }
 
   static final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
+  static final _internationalPhonePattern = RegExp(r'^\+[1-9]\d{7,14}$');
+
+  String _ownerPhone(String value) {
+    final phone = value.trim();
+    if (widget.ownerLink != null && phone.startsWith('+')) return phone;
+    return '+91$phone';
+  }
 
   // Set on 'Same owner, new house': we reuse the ID proofs from that request.
   PropertyOnboarding? _carryFrom;
@@ -232,7 +239,11 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
     setState(() {
       o.nameError = name.length < 2 ? 'Type the owner name' : null;
       o.channelError = o.channel == null ? 'Pick one' : null;
-      o.phoneError = o.channel == 'whatsapp' && phone.length != 10 ? 'Type the 10 digit phone number' : null;
+      final tk2 = widget.ownerLink != null;
+      final validPhone = phone.length == 10 && RegExp(r'^\d{10}$').hasMatch(phone) || tk2 && _internationalPhonePattern.hasMatch(phone);
+      o.phoneError = o.channel == 'whatsapp' && !validPhone
+          ? (tk2 ? 'Enter 10 digits or include the country code with +' : 'Type the 10 digit phone number')
+          : null;
       o.emailError = o.channel == 'email' && !_emailPattern.hasMatch(email) ? 'This email looks wrong. Check the @ and the dot.' : null;
       // The same person cannot be added twice.
       for (var i = 0; i < _owners.length; i++) {
@@ -241,7 +252,7 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
         if (o.channel == 'email' && o.emailError == null && other.channel == 'email' && other.email.text.trim().toLowerCase() == email.toLowerCase()) {
           o.emailError = 'Already added as Owner ${i + 1}. Use a different email.';
         }
-        if (o.channel == 'whatsapp' && o.phoneError == null && other.channel == 'whatsapp' && other.phone.text.trim() == phone) {
+        if (o.channel == 'whatsapp' && o.phoneError == null && other.channel == 'whatsapp' && _ownerPhone(other.phone.text) == _ownerPhone(phone)) {
           o.phoneError = 'Already added as Owner ${i + 1}. Use a different number.';
         }
         if (o.nameError == null && other.name.text.trim().toLowerCase() == name.toLowerCase()) {
@@ -415,7 +426,7 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
           ),
       ];
       final ownerName = _first.name.text.trim();
-      final recipient = _channel == 'email' ? contact : '+91${contact.replaceAll(RegExp(r'\D'), '')}';
+      final recipient = _channel == 'email' ? contact : _ownerPhone(contact);
       Future<String> message() async {
         final link = await widget.ownerLink!(ownerName, recipient);
         return 'Hi ${ownerName.split(' ').first}, please add your house details for ${widget.label.isEmpty ? 'your house' : widget.label} here: $link';
@@ -622,9 +633,11 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
                           controller: o.phone,
                           focusNode: o.phoneFocus,
                           error: o.phoneError,
-                          keyboard: TextInputType.number,
-                          formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-                          prefix: 'IN +91 ',
+                          keyboard: widget.ownerLink == null ? TextInputType.number : TextInputType.phone,
+                          formatters: widget.ownerLink == null
+                              ? [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)]
+                              : [FilteringTextInputFormatter.allow(RegExp(r'[+0-9]')), LengthLimitingTextInputFormatter(16)],
+                          prefix: widget.ownerLink == null ? 'IN +91 ' : null,
                           onChanged: (_) => setState(() => o.phoneError = null),
                         ),
                 ),
@@ -705,9 +718,9 @@ class _OnboardNewScreenState extends State<OnboardNewScreen> {
               title: 'We asked $_firstName',
               message: switch (_channel == 'email' ? 'email' : _sentBy) {
                 'email' => 'We sent an email to $_contact. We will tell you when documents come.',
-                'sms' => 'We sent a text message to +91 $_contact. We will tell you when documents come.',
+                'sms' => 'We sent a text message to ${_ownerPhone(_contact)}. We will tell you when documents come.',
                 'copy' => 'Paste the invite to $_firstName in any app. We will tell you when documents come.',
-                _ => 'We sent a WhatsApp message to +91 $_contact. We will tell you when documents come.',
+                _ => 'We sent a WhatsApp message to ${_ownerPhone(_contact)}. We will tell you when documents come.',
               },
             ),
           ],

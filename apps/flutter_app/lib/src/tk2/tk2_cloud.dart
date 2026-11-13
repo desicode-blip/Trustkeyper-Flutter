@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
@@ -30,6 +31,7 @@ class Tk2Cloud {
   Tk2Cloud._();
 
   static const _apiKey = String.fromEnvironment('TK2_FIREBASE_API_KEY');
+  static const _androidApiKey = String.fromEnvironment('TK2_FIREBASE_API_KEY_ANDROID');
   static const _projectId = String.fromEnvironment('TK2_FIREBASE_PROJECT_ID');
   static const _senderId = String.fromEnvironment('TK2_FIREBASE_SENDER_ID');
   static const _bucket = String.fromEnvironment('TK2_FIREBASE_STORAGE_BUCKET');
@@ -40,12 +42,17 @@ class Tk2Cloud {
   static const _iosBundle = String.fromEnvironment('TK2_IOS_BUNDLE_ID', defaultValue: 'com.trustkeyper.tk2');
 
   /// Where the owner/tenant web app is hosted (links in WhatsApp messages).
-  static const webUrl = String.fromEnvironment('TK2_WEB_URL', defaultValue: tk2WebApp);
+  static const _stagingProject = 'trustkeyper-app-staging';
+  static const _stagingBucket = 'trustkeyper-app-staging.firebasestorage.app';
+  static const _stagingWeb = 'https://trustkeyper-tk2-staging.web.app/';
+  static const _webUrl = String.fromEnvironment('TK2_WEB_URL');
+  static String get webUrl => _webUrl.isNotEmpty ? _webUrl : on ? _stagingWeb : tk2WebApp;
 
   static const _region = 'asia-south1';
 
   /// Local testing only: Firebase emulators on this host (e.g. 127.0.0.1).
   static const _emulator = String.fromEnvironment('TK2_EMULATOR_HOST');
+  static const _nativeTk2 = bool.fromEnvironment('TK2_NATIVE');
 
   /// True when built with backend settings. Turned on in [start].
   static bool on = false;
@@ -62,15 +69,27 @@ class Tk2Cloud {
 
   /// Call once before runApp. Does nothing in the demo build.
   static Future<void> start() async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && appFlavor == 'tk2') {
+      final app = await Firebase.initializeApp();
+      if (app.options.projectId != _stagingProject || app.options.storageBucket != _stagingBucket || app.options.iosBundleId != _iosBundle) {
+        throw StateError('The TK2 iOS scheme requires its staging Firebase configuration');
+      }
+      on = true;
+      return;
+    }
+    final android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    if (android && _nativeTk2 && (_projectId != _stagingProject || _bucket != _stagingBucket || _androidApiKey.isEmpty || _appIdAndroid.isEmpty)) {
+      throw StateError('The TK2 Android release requires its staging Firebase configuration');
+    }
     if ([_apiKey, _projectId, _appId].every((value) => value.isEmpty)) return;
     if (!configured || _bucket.isEmpty) throw StateError('Complete the TK2 Firebase settings for this build');
-    if (_emulator.isEmpty && _projectId != 'trustkeyper-app-staging') {
+    if (_emulator.isEmpty && _projectId != _stagingProject) {
       throw StateError('The TK2 cloud pilot uses trustkeyper-app-staging');
     }
     if (_emulator.isNotEmpty && !_projectId.startsWith('demo-')) throw StateError('Use a demo Firebase project with the emulators');
     await Firebase.initializeApp(
       options: FirebaseOptions(
-        apiKey: _apiKey,
+        apiKey: android && _androidApiKey.isNotEmpty ? _androidApiKey : _apiKey,
         appId: _appId,
         messagingSenderId: _senderId,
         projectId: _projectId,
