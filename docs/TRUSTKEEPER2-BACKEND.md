@@ -1,6 +1,6 @@
 # TrustKeeper 2 – backend handoff (for Ajay)
 
-Updated: 12 Nov 2026 · Branch: `staging` · Code: Change 94 · Firebase project: **trustkeyper-app-staging only**
+Updated: 13 Nov 2026 · Base branch: `staging` · Firebase project: **trustkeyper-app-staging only**
 
 ## Staging pilot scope (13 Nov 2026)
 
@@ -87,7 +87,7 @@ How it fits together:
 | `tk2Brokers/{uid}` | Name, phone, default token, contacts, account details | That broker | That broker |
 | `tk2Listings/{id}` | **Public** listing = `tk2PublicPayload` + `brokerUid`, `ownerUid`, `inviteId`, `active`, `ph` (photo URLs) | Anyone, by id (no listing all) | Broker; the owner who added it |
 | `tk2Private/{id}` | Full listing: door no., owner name and phone, keys, note, off-market reason, `ownerAnswers` | Broker; that owner | Broker; that owner |
-| `tk2Invites/{id}` | "Send link to owner": broker, house name, owner name; then `ownerUid`, `listingId` | Anyone with the id | Broker creates; the owner claims once |
+| `tk2Invites/{id}` | "Send link to owner": broker, house name, owner name; then `ownerUid`, `listingId` | Broker and verified recipient | Broker creates; the intended owner claims once |
 | `tk2Visits/{id}` | Visit: listing, broker, tenant, time, fee, status, gate pass | Broker and tenant of the visit | Tenant books; status changes are limited, see rules |
 | `tk2Visits/{id}/secret/code` | 4-digit visit code | **Tenant only** | Tenant, once |
 | `tk2Trips/{tenantUid}_{listingId}` | Tenant journey answers (step, liked, details) | Tenant; that broker | Tenant |
@@ -112,11 +112,11 @@ No composite indexes are needed: every query is a single `where(... isEqualTo ..
 
 ## 4. What is tested
 
-- **Rules:** `functions/rules-test/tk2.test.mjs`, 6 tests, all passing. The whole rules
-  suite gives 56 of 57; test 46 ("team-photo grants…") fails the same way without the
-  TK2 changes.
-- **Function:** `functions/test/tk2.test.js`. The full `npm test` passes, 259 tests.
-- **Flutter:** `apps/flutter_app/test/tk2/tk2_test.dart`, 33 tests. These include
+- **Rules:** `functions/rules-test/tk2.test.mjs`, 9 tests, all passing against the
+  staging rules candidate in the emulators. The full repository suite gives 59 of
+  60; the remaining failure also occurs on the unchanged staging branch.
+- **Functions:** `npm --prefix functions test`, 260 tests passing.
+- **Flutter:** `apps/flutter_app/test/tk2/`, 46 tests passing. These include
   public-doc privacy, owner answers, token and visit money rules.
 - **End to end on the Firebase emulators**, with the web builds of both apps driven in
   a headless browser:
@@ -134,11 +134,18 @@ No composite indexes are needed: every query is a single `where(... isEqualTo ..
 All commands run from the repo root with `--project staging`
 (= `trustkeyper-app-staging`, see `.firebaserc`).
 
-On 13 November 2026 the dedicated staging website and additive Firestore rules
-were deployed and checked. Google received a request for one additional
-billing-enabled project after the billing link hit the account quota. Cloud
-Storage and both TK2 functions still require billing. The site is a web preview
-until the full pilot passes the tests below.
+On 13 November 2026 billing was linked, the default Storage bucket was created,
+and the dedicated [staging website](https://trustkeyper-tk2-staging.web.app),
+additive Firestore rules, Storage rules and both TK2 functions were deployed.
+Google received a request for one additional billing-enabled project after the
+initial quota error; staging no longer depends on that request. The hosted
+landing page, owner invite route and Firebase Auth rejection of signed-out
+function calls were verified. With synthetic staging data, the live service also
+passed fictional phone OTP, atomic booking, intended owner claim, private gate
+pass upload and read, and broker confirmation. The OTP automation used Firebase's
+test settings in one browser session and temporarily allowed India. The SMS
+allowlist was restored and the synthetic records were removed. Physical device
+acceptance and real SMS delivery remain open.
 
 1. **Firebase resources.** The dedicated `TrustKeeper 2 Staging` web and iOS apps
    are registered. The iOS bundle ID is `com.trustkeyper.tk2`. The `tk2` Hosting
@@ -146,21 +153,38 @@ until the full pilot passes the tests below.
    billing and a default bucket. Verify the bucket in Firebase before using its
    name in the git-ignored `apps/flutter_app/tk2_cloud.json`.
 2. **Auth.** Phone sign-in is enabled and the TK2 Hosting domain is authorized.
-   Use the configured fictional phone credentials for pilot testing. Real SMS
-   requires a permitted region. Owner email OTP requires staging credentials for
+   Use the configured fictional phone number for pilot testing. The original
+   SMS allowlist is empty. Firebase requires India on the allowlist even for
+   the configured Indian test number. Use a controlled testing window before
+   allowing real SMS. Owner email OTP requires staging credentials for
    the email provider and the `requestEmailOtp` and `verifyEmailOtp` functions.
 3. **Rules.** Fetch the currently deployed staging Firestore rules and add the
    TK2 rules block and its `verifiedPhoneProof` helper. The live baseline differs
    from the repository outside TK2. Verify the candidate diff adds only these
    sections. Use the TK2 Storage rules with their helpers for a new pilot bucket.
+   Enable the [Firebase cross-service rules permission](https://firebase.google.com/docs/rules/manage-deploy#manage_permissions_for_cross-service_cloud_storage_security_rules)
+   for the staging Storage service agent so Storage can check Firestore ownership.
    Run `functions/rules-test/tk2.test.mjs` against both candidates with the local
    Firestore and Storage emulators. Recheck the live rules before deploying the
    candidates to `trustkeyper-app-staging`.
-4. **Functions**, only the TK2 functions:
+4. **Functions.** Use the staging package with the two TK2 callables. It shares
+   the main Functions lockfile and avoids resolving unrelated provider secrets.
+   Run the backend tests before packaging and use both function selectors:
    ```
-   firebase deploy --only functions:authentication:tk2ConfirmVisit,functions:authentication:tk2FinalizeFile --project trustkeyper-app-staging
+   npm --prefix functions ci
+   npm --prefix functions test
+   tk2_functions_dir=$(node scripts/prepare-tk2-functions.cjs)
+   cd "$tk2_functions_dir"
+   firebase deploy --config firebase.json --only functions:authentication:tk2ConfirmVisit,functions:authentication:tk2FinalizeFile --project trustkeyper-app-staging
    ```
-   The predeploy runs `npm test`. Region `asia-south1`, like the others.
+   The functions run in `asia-south1`. The build account needs the Cloud Build
+   builder role, and the runtime account needs access to staging Firestore and
+   objects in the default staging bucket. If Cloud Run blocks the `allUsers`
+   binding under domain-restricted sharing, use the [service-level invoker
+   setting](https://cloud.google.com/run/docs/authenticating/public) on these two
+   staging services. Verify that the callables return Firebase `UNAUTHENTICATED`
+   for signed-out callers; Firebase Auth and the record ownership checks still
+   protect both functions. Return to the repo root for the web build.
 5. **Web app:**
    ```
    scripts/tk2-build.sh web staging
@@ -229,8 +253,8 @@ Next:
    records. Firebase may ask for a fresh login before it deletes the login itself; the
    app then signs out instead.
 8. **App Check, analytics, crash reports:** not on for TK2.
-9. **Owner-added houses:** if the owner restarts, a second house is created for the
-   same invite (one invite → many houses). Fine for now.
+9. **Owner-added houses:** each verified invite can be bound to one listing.
+   Start a fresh invite to onboard another house.
 
 ## 8. After the token: the deal (Change 93)
 
@@ -288,9 +312,9 @@ Still test-only or pending in the deal:
 5. **Owner's brokerage** is a top-level field of the deal doc (`ownerBrokerage`), so the
    tenant could read it from Firestore (the app never shows it to them). If that matters,
    move it to a broker/owner-only sub-doc.
-6. **Rules are by part, not by field.** A tenant can write any key inside `t` (for
-   example `paid: true`). Once Razorpay is in, payment flags must be written by the
-   server only (move them out of `t`/`o` or check them in a function).
+6. **Payment and signing flags are reserved for the backend.** Firebase rules
+   reject client changes to those fields and block client-side deal creation.
+   The local demo still simulates these steps.
 7. **The agreement template** was made from one signed TrustKeyper agreement. Have a
    lawyer review `rent_leave_licence.md` before real use. Aadhaar/PAN numbers are not
    printed in it yet.
