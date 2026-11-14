@@ -64,6 +64,55 @@ class Tk2Pill extends StatelessWidget {
 }
 
 /// The property photo, or a soft illustration when there is none.
+/// The example property's photo: a real home, in grey, with "Example"
+/// written across it so nobody mistakes it for a listing.
+class Tk2ExamplePhoto extends StatelessWidget {
+  const Tk2ExamplePhoto({this.height = 170, this.radius = 20, super.key});
+  final double height, radius;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(radius),
+    child: SizedBox(
+      height: height,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset('assets/images/example-home.jpg', fit: BoxFit.cover),
+          Container(color: Colors.white.withValues(alpha: 0.25)),
+          IgnorePointer(
+            child: ClipRect(
+              child: OverflowBox(
+                maxWidth: 900,
+                maxHeight: 900,
+                child: Transform.rotate(
+                  angle: -0.4,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      for (var row = 0; row < 9; row++)
+                        Padding(
+                          padding: EdgeInsets.only(left: row.isEven ? 0 : 90, bottom: 26),
+                          child: Text(
+                            List.filled(6, 'EXAMPLE').join('     '),
+                            maxLines: 1,
+                            softWrap: false,
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 2, color: Colors.white.withValues(alpha: 0.7)),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class Tk2Photo extends StatelessWidget {
   const Tk2Photo({required this.listing, this.height = 170, this.index = 0, this.radius = 20, this.compact = false, super.key});
   final Tk2Listing listing;
@@ -75,6 +124,7 @@ class Tk2Photo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final path = index < listing.photos.length ? listing.photos[index] : null;
+    if (listing.sample && path == null) return Tk2ExamplePhoto(height: height, radius: radius);
     // Web gets picked photos as blob: links; phones get file paths.
     final file = path == null || kIsWeb ? null : File(path);
     Widget fallback() => compact
@@ -235,8 +285,18 @@ class Tk2PropertyCard extends StatelessWidget {
                       style: const TextStyle(fontSize: 14.5, height: 20 / 14.5, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
                     ),
                     const SizedBox(height: 2),
-                    Text([if (p.sizeSqFt != null) '${p.sizeSqFt!.toStringAsFixed(0)} sft', l.furnishingText].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: small),
-                    Text('${l.rules} · ${l.availableFrom.isEmpty ? 'Available now' : 'From ${tk2Date(l.availableFrom)}'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: small),
+                    Text(
+                      [if (p.sizeSqFt != null) '${p.sizeSqFt!.toStringAsFixed(0)} sft', l.furnishingText].join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: small,
+                    ),
+                    Text(
+                      '${l.rules} · ${l.availableFrom.isEmpty ? 'Available now' : 'From ${tk2Date(l.availableFrom)}'}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: small,
+                    ),
                     if (visits > 0) ...[const SizedBox(height: 4), Tk2Pill('$visits visit${visits == 1 ? '' : 's'} booked', kind: 'ok')],
                   ],
                 ),

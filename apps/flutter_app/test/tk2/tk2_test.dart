@@ -524,28 +524,60 @@ void main() {
     expect(store.releasedTotal, 150);
   });
 
-  testWidgets('login keeps name and number, then opens home', (tester) async {
+  testWidgets('login: phone and code; a new number gives its name, a known one is welcomed back', (tester) async {
     tester.view.physicalSize = const Size(1800, 2532); // test font is wider than Roboto (4 tabs)
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     final store = Tk2Store.forTest();
     await store.load();
+    Future<void> logIn(String number) async {
+      final router = buildTk2Router(store)..go('/login');
+      await tester.pumpWidget(MaterialApp.router(key: UniqueKey(), routerConfig: router));
+      await tester.pumpAndSettle();
+      expect(find.text('Log in or sign up'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).last, number);
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter the code'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).first, '123456');
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+    }
+
+    // Wrong number first: the error shows in place.
     final router = buildTk2Router(store)..go('/login');
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
-    expect(find.text('Log in or sign up'), findsOneWidget);
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+    expect(find.text('Enter a valid 10-digit mobile number'), findsOneWidget);
+
+    // New number: asked for the name, then Home with a greeting.
+    await logIn('9876543210');
+    expect(find.text('What is your name?'), findsOneWidget);
     await tester.tap(find.text('Continue'));
     await tester.pump();
     expect(find.text('Type your name'), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextField, 'Your name'), 'Suresh Kumar');
-    await tester.enterText(find.byType(TextField).last, '9876543210');
     await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
+    await tester.pump();
     expect(store.brokerName, 'Suresh Kumar');
-    // No token question at sign-up: it comes with the first property.
-    expect(find.text('Your token amount'), findsNothing);
-    expect(store.tokenSet, isFalse);
+    expect(find.text('Welcome, Suresh'), findsOneWidget);
+    await tester.pumpAndSettle();
     expect(find.text('Namaste, Suresh'), findsOneWidget);
+    expect(find.text('Your token amount'), findsNothing, reason: 'the token comes with the first property');
+
+    // Same number again: straight to Home, "Welcome back".
+    await store.setDefaultToken(20000);
+    await logIn('9876543210');
+    expect(find.text('What is your name?'), findsNothing);
+    expect(find.text('Welcome back, Suresh'), findsOneWidget);
+    expect(store.defaultToken, 20000);
+
+    // Someone else on this phone: nothing of Suresh's is left.
+    await logIn('9123456780');
+    expect(find.text('What is your name?'), findsOneWidget);
+    expect((store.brokerName, store.defaultToken, store.tokenSet), ('', 15000, false));
   });
 
   testWidgets('all 4 property page designs open, each with the private block', (tester) async {

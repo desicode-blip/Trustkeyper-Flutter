@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../features/broker/data/property_onboarding.dart';
 import '../features/broker/data/broker_property_repository.dart';
 import 'tk2_cloud.dart';
 import 'tk2_deal.dart';
@@ -1011,7 +1012,19 @@ class Tk2Store extends ChangeNotifier {
     await _clearDevice();
   }
 
+  /// A new or different account signs in on this phone: forget the last
+  /// person's data (the backend keeps theirs).
+  Future<void> forgetDevice() async {
+    sync?.stop();
+    await _clearDevice();
+  }
+
   Future<void> _clearDevice() async {
+    // Houses being set up in the main app's "Onboard property" flow too.
+    await PropertyOnboardingStore.instance.clear();
+    notesReadBefore = 0;
+    notesRead.clear();
+    notesMuted.clear();
     brokerName = '';
     brokerPhone = '';
     defaultToken = defaultTokenStart;
