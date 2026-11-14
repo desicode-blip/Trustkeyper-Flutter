@@ -95,7 +95,7 @@ class _SwipePhotosState extends State<_SwipePhotos> {
   @override
   Widget build(BuildContext context) {
     final l = widget.listing;
-    final count = l.photos.isEmpty ? 3 : l.photos.length;
+    final count = l.sample ? 1 : (l.photos.isEmpty ? 3 : l.photos.length);
     return SizedBox(
       height: 150,
       child: Stack(
@@ -103,7 +103,9 @@ class _SwipePhotosState extends State<_SwipePhotos> {
           PageView.builder(
             itemCount: count,
             onPageChanged: (i) => setState(() => page = i),
-            itemBuilder: (context, i) => l.photos.isEmpty
+            itemBuilder: (context, i) => l.sample
+                ? const Tk2ExamplePhoto(height: 150, radius: 0)
+                : l.photos.isEmpty
                 ? Container(
                     color: const Color(0xFFFFF1E3),
                     padding: const EdgeInsets.symmetric(vertical: 10),

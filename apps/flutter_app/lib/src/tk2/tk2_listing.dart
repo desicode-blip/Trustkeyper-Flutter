@@ -37,6 +37,10 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
   late final fee = TextEditingController(text: '${start?.visitFee ?? 150}');
   // The broker's usual token, unless this property already has its own.
   late final token = TextEditingController(text: '${start?.tokenOr(widget.store.defaultToken) ?? widget.store.defaultToken}');
+  // First property: the token is asked in full and becomes the usual amount.
+  // After that it shows filled in, with Edit for this property only.
+  late final firstToken = !widget.store.tokenSet;
+  bool editToken = false;
   late final society = TextEditingController(text: start?.society ?? '');
   late final locality = TextEditingController(text: start?.locality ?? '');
   late final door = TextEditingController(text: start?.door ?? '');
@@ -165,6 +169,7 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
     final l = start;
     if (l == null) return;
     setState(() => saving = true);
+    if (firstToken) await widget.store.setDefaultToken(_num(token));
     await widget.store.saveListing(
       l.copyWith(
         rent: _num(rent),
@@ -413,14 +418,44 @@ class _Tk2ListingFormState extends State<Tk2ListingForm> {
       style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.heading),
     ),
     const SizedBox(height: 4),
-    const Text(tk2TokenWhy, style: TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted)),
-    const SizedBox(height: 12),
-    Tk2TokenField(
-      controller: token,
-      error: missing.contains('token') ? tk2TokenError(token.text).$2 : null,
-      helper: _num(token) == widget.store.defaultToken ? 'Your usual amount. Change it in Profile.' : 'For this property only',
-      onChanged: () => setState(() => missing.remove('token')),
+    const Text(
+      tk2TokenWhy,
+      style: TextStyle(fontSize: 15, height: 21 / 15, color: AppColors.muted),
     ),
+    const SizedBox(height: 12),
+    if (firstToken || editToken || missing.contains('token'))
+      Tk2TokenField(
+        controller: token,
+        error: missing.contains('token') ? tk2TokenError(token.text).$2 : null,
+        helper: firstToken
+            ? 'Your usual amount. We fill it in for every new property; change it any time.'
+            : (_num(token) == widget.store.defaultToken ? 'Your usual amount' : 'For this property only'),
+        onChanged: () => setState(() => missing.remove('token')),
+      )
+    else
+      OnbCard(
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    Tk2Store.money(_num(token)),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.heading),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _num(token) == widget.store.defaultToken ? 'Your usual amount' : 'For this property only',
+                    style: const TextStyle(fontSize: 14, color: AppColors.muted),
+                  ),
+                ],
+              ),
+            ),
+            TextButton.icon(onPressed: () => setState(() => editToken = true), icon: const Icon(Icons.edit_outlined, size: 18), label: const Text('Edit')),
+          ],
+        ),
+      ),
   ];
 
   List<Widget> _photoStep(Tk2Listing l) => [

@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../features/broker/data/property_onboarding.dart';
 import '../features/broker/data/broker_property_repository.dart';
 import 'tk2_cloud.dart';
 import 'tk2_deal.dart';
@@ -658,6 +659,10 @@ class Tk2Store extends ChangeNotifier {
   /// Token the broker usually asks for. Filled in for every new property
   /// (each property can change it). Set at sign-up and in Profile.
   int defaultToken = defaultTokenStart;
+
+  /// The broker has chosen his usual token (with his first property, or in
+  /// Profile). Until then the property form asks for it in full.
+  bool tokenSet = false;
   static const defaultTokenStart = 15000;
   static const maxToken = 999999;
 
@@ -708,6 +713,8 @@ class Tk2Store extends ChangeNotifier {
           ]);
         brokerPhone = json['brokerPhone'] as String? ?? '';
         defaultToken = (json['defaultToken'] as num?)?.toInt() ?? defaultTokenStart;
+        // Older saves chose it at sign-up.
+        tokenSet = json['tokenSet'] as bool? ?? brokerName.isNotEmpty;
         _inactive
           ..clear()
           ..addAll({
@@ -764,6 +771,7 @@ class Tk2Store extends ChangeNotifier {
         ],
         'brokerPhone': brokerPhone,
         'defaultToken': defaultToken,
+        'tokenSet': tokenSet,
         'account': account,
         'inactive': {for (final e in _inactive.entries) e.key: e.value.toJson()},
         'listings': [for (final l in _listings) l.toJson()],
@@ -933,6 +941,7 @@ class Tk2Store extends ChangeNotifier {
     'name': brokerName,
     'phone': brokerPhone,
     'defaultToken': defaultToken,
+    'tokenSet': tokenSet,
     'account': account,
     'contacts': [
       for (final c in _contacts) {'name': c.name, 'phone': c.phone, 'email': c.email},
@@ -944,6 +953,7 @@ class Tk2Store extends ChangeNotifier {
     brokerName = j['name'] as String? ?? brokerName;
     brokerPhone = j['phone'] as String? ?? brokerPhone;
     defaultToken = (j['defaultToken'] as num?)?.toInt() ?? defaultToken;
+    tokenSet = j['tokenSet'] as bool? ?? (brokerName.isNotEmpty && j['defaultToken'] is num);
     account
       ..clear()
       ..addAll(Map<String, dynamic>.from(j['account'] as Map? ?? const {}));
@@ -1004,10 +1014,23 @@ class Tk2Store extends ChangeNotifier {
     await _clearDevice();
   }
 
+  /// A new or different account signs in on this phone: forget the last
+  /// person's data (the backend keeps theirs).
+  Future<void> forgetDevice() async {
+    sync?.stop();
+    await _clearDevice();
+  }
+
   Future<void> _clearDevice() async {
+    // Houses being set up in the main app's "Onboard property" flow too.
+    await PropertyOnboardingStore.instance.clear();
+    notesReadBefore = 0;
+    notesRead.clear();
+    notesMuted.clear();
     brokerName = '';
     brokerPhone = '';
     defaultToken = defaultTokenStart;
+    tokenSet = false;
     account.clear();
     _inactive.clear();
     _contacts.clear();
@@ -1027,10 +1050,11 @@ class Tk2Store extends ChangeNotifier {
     return _save();
   }
 
-  /// The broker's usual token (sign-up and Profile). Properties already
-  /// saved keep their own amount.
+  /// The broker's usual token (first property and Profile). Properties
+  /// already saved keep their own amount.
   Future<void> setDefaultToken(int amount) {
     defaultToken = amount;
+    tokenSet = true;
     sync?.profile();
     return _save();
   }

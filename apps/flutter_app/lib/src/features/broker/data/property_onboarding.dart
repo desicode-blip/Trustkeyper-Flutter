@@ -917,6 +917,19 @@ class PropertyOnboardingStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Forget every house on this phone (log out, or another account signs in).
+  Future<void> clear() async {
+    _items = const [];
+    _loaded = true;
+    notifyListeners();
+    try {
+      _preferences ??= await SharedPreferences.getInstance();
+      await _preferences!.remove(_storageKey);
+    } catch (_) {
+      // Nothing saved to remove.
+    }
+  }
+
   Future<void> _save() async {
     try {
       _preferences ??= await SharedPreferences.getInstance();

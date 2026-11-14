@@ -136,8 +136,10 @@ GoRouter buildTk2Router(Tk2Store store) => GoRouter(
   ],
 );
 
-/// Same look as the main app's "Log in or sign up". In this test build it
-/// keeps the name and number on the phone (no OTP yet).
+/// "Log in or sign up": phone number, then the 6-digit code. A known account
+/// goes straight to Home with "Welcome back"; a new one is asked its name.
+/// A new or different account starts on a clean phone (nothing left from
+/// the last person).
 class Tk2Login extends StatefulWidget {
   const Tk2Login({required this.store, this.onBack, super.key});
   final Tk2Store store;
@@ -155,6 +157,9 @@ class _Tk2LoginState extends State<Tk2Login> {
   String dial = '+91';
   bool sending = false;
 
+  /// Set once the code is right and the number is new: the name step.
+  String? newNumber;
+
   @override
   void dispose() {
     name.dispose();
@@ -164,16 +169,15 @@ class _Tk2LoginState extends State<Tk2Login> {
 
   Future<void> _continue() async {
     final digits = phone.text.replaceAll(RegExp(r'\D'), '');
-    setState(() {
-      nameError = name.text.trim().length < 2 ? 'Type your name' : null;
-      phoneError = PhoneCountry.valid(dial, digits) ? null : (dial == '+91' ? 'Enter a valid 10-digit mobile number' : 'Enter a valid phone number');
-    });
-    if (nameError != null || phoneError != null) return;
+    setState(
+      () => phoneError = PhoneCountry.valid(dial, digits) ? null : (dial == '+91' ? 'Enter a valid 10-digit mobile number' : 'Enter a valid phone number'),
+    );
+    if (phoneError != null) return;
     final number = PhoneCountry.format(dial, digits);
-    final sync = widget.store.sync;
-    var returning = false;
+    final e164 = '$dial$digits';
+    final store = widget.store;
+    final sync = store.sync;
     if (sync != null) {
-      // Backend on: the 6-digit SMS code first (same screen as the web app).
       setState(() => sending = true);
       final failed = await Tk2Cloud.sendCode(number);
       if (!mounted) return;
@@ -182,58 +186,110 @@ class _Tk2LoginState extends State<Tk2Login> {
         phoneError = failed;
       });
       if (failed != null) return;
-      var verified = Tk2Cloud.uid != null; // Android may verify on its own
-      if (!verified) {
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (screen) => TkwOtp(
-              destination: number,
-              onVerified: () async {
-                verified = true;
-                Navigator.of(screen).pop();
-              },
-            ),
-          ),
-        );
-      }
-      if (!verified || !mounted) return;
-      returning = await sync.startBroker();
-      if (!mounted) return;
-      if (returning) return context.go('/home');
     }
-    await widget.store.setBroker(name.text, number);
+    // The code (in the demo build it is 123456). Android may verify on its own.
+    bool verifiedPhone() => Tk2Cloud.auth.currentUser?.phoneNumber == e164;
+    var verified = sync != null && verifiedPhone();
+    if (!verified) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (screen) => TkwOtp(
+            destination: number,
+            onVerified: () async {
+              verified = true;
+              Navigator.of(screen).pop();
+            },
+          ),
+        ),
+      );
+    }
+    if (!verified || !mounted) return;
+    if (sync != null && !verifiedPhone()) {
+      setState(() => phoneError = 'Verify this phone number to continue.');
+      return;
+    }
+    setState(() => sending = true);
+    final sameAsBefore = store.brokerPhone == number && store.hasName;
+    // Someone else (or a new account) on this phone: start clean.
+    if (!sameAsBefore) await store.forgetDevice();
+    final returning = sync != null ? await sync.startBroker() : sameAsBefore;
     if (!mounted) return;
-    // Then the usual token, once (Profile changes it later).
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (screen) => Tk2TokenScreen(store: widget.store, signUp: true, onDone: () => context.go('/home')),
-      ),
-    );
+    setState(() => sending = false);
+    if (returning) return _home('Welcome back, ${tk2FirstName(store.brokerName)}');
+    setState(() => newNumber = number);
+  }
+
+  Future<void> _saveName() async {
+    setState(() => nameError = name.text.trim().length < 2 ? 'Type your name' : null);
+    if (nameError != null) return;
+    setState(() => sending = true);
+    await widget.store.setBroker(name.text, newNumber!);
+    if (!mounted) return;
+    _home('Welcome, ${tk2FirstName(name.text)}');
+  }
+
+  /// Home, with a short greeting that goes away by itself.
+  void _home(String hello) {
+    final messenger = ScaffoldMessenger.of(context);
+    context.go('/home');
+    messenger.showSnackBar(SnackBar(content: Text(hello), behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 3)));
   }
 
   @override
-  Widget build(BuildContext context) => ApprovedAuthScaffold(
-    showBack: false,
-    header: ApprovedLoginHero(onBack: widget.onBack),
-    bodyPadding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
-    footer: PrimaryButton(label: 'Continue', icon: Icons.chevron_right, loading: sending, onPressed: sending ? null : _continue),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Log in or sign up', style: Theme.of(context).textTheme.displaySmall),
-        const SizedBox(height: 18),
-        TextField(
-          controller: name,
-          textCapitalization: TextCapitalization.words,
-          textInputAction: TextInputAction.next,
-          onChanged: (_) => setState(() => nameError = null),
-          decoration: InputDecoration(labelText: 'Your name', prefixIcon: const Icon(Icons.person_outline), errorText: nameError),
+  Widget build(BuildContext context) {
+    final askName = newNumber != null;
+    return PopScope(
+      canPop: !askName,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && askName) setState(() => newNumber = null);
+      },
+      child: ApprovedAuthScaffold(
+        showBack: false,
+        header: ApprovedLoginHero(onBack: askName ? () => setState(() => newNumber = null) : widget.onBack),
+        bodyPadding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
+        footer: PrimaryButton(label: 'Continue', icon: Icons.chevron_right, loading: sending, onPressed: sending ? null : (askName ? _saveName : _continue)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: askName
+              ? [
+                  Text('What is your name?', style: Theme.of(context).textTheme.displaySmall),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Tenants and owners see it on the links you send.',
+                    style: TextStyle(fontSize: 15.5, height: 22 / 15.5, color: AppColors.muted),
+                  ),
+                  const SizedBox(height: 18),
+                  TextField(
+                    key: const ValueKey('name'),
+                    controller: name,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _saveName(),
+                    onChanged: (_) => setState(() => nameError = null),
+                    decoration: InputDecoration(labelText: 'Your name', prefixIcon: const Icon(Icons.person_outline), errorText: nameError),
+                  ),
+                ]
+              : [
+                  Text('Log in or sign up', style: Theme.of(context).textTheme.displaySmall),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'We send a 6-digit code to this number.',
+                    style: TextStyle(fontSize: 15.5, height: 22 / 15.5, color: AppColors.muted),
+                  ),
+                  const SizedBox(height: 18),
+                  ApprovedPhoneField(controller: phone, error: phoneError, dialCode: dial, onDialCodeChanged: (c) => setState(() => dial = c)),
+                ],
         ),
-        const SizedBox(height: 14),
-        ApprovedPhoneField(controller: phone, error: phoneError, dialCode: dial, onDialCodeChanged: (c) => setState(() => dial = c)),
-      ],
-    ),
-  );
+      ),
+    );
+  }
+}
+
+/// "Aman" from "Aman Maheshwari".
+String tk2FirstName(String name) {
+  final parts = name.trim().split(RegExp(r'\s+'));
+  return parts.first.isEmpty ? 'there' : parts.first;
 }
 
 /// Main app's floating bottom bar: Home · Visits · Payments · Profile.

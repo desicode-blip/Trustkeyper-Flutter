@@ -11,7 +11,7 @@ Use a clean checkout so the previous local Xcode edits do not conflict with
 the shared scheme. From a directory where you keep projects, run:
 
 ```bash
-git clone --branch codex/tk2-access-control https://github.com/desicode-blip/Trustkeyper-Flutter.git Trustkeyper-TK2
+git clone --branch staging https://github.com/desicode-blip/Trustkeyper-Flutter.git Trustkeyper-TK2
 cd Trustkeyper-TK2
 bash scripts/bootstrap-macos.sh tk2
 open apps/flutter_app/ios/Runner.xcworkspace
