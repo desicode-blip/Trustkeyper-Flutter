@@ -6,18 +6,15 @@ import '../core/widgets/primary_button.dart';
 import '../features/broker/presentation/onboarding_widgets.dart';
 import 'tk2_store.dart';
 
-/// What a token is, in one line (sign-up, Profile and each property).
+/// What a token is, in one line (Profile and each property).
 const tk2TokenWhy = 'A tenant who likes the house pays this to block it, so no one else takes it.';
 
-/// "Your token amount": asked once after sign-up and changed from Profile.
-/// It is filled in for every new property; each property can change it.
+/// "Your token amount" in Profile. It is first asked with the broker's first
+/// property, then filled in for every new property; each property can change it.
 class Tk2TokenScreen extends StatefulWidget {
-  const Tk2TokenScreen({required this.store, required this.onDone, this.signUp = false, super.key});
+  const Tk2TokenScreen({required this.store, required this.onDone, super.key});
   final Tk2Store store;
   final VoidCallback onDone;
-
-  /// Right after sign-up: "Continue" instead of "Save".
-  final bool signUp;
 
   @override
   State<Tk2TokenScreen> createState() => _Tk2TokenScreenState();
@@ -52,17 +49,16 @@ class _Tk2TokenScreenState extends State<Tk2TokenScreen> {
       bottom: false,
       child: Column(
         children: [
-          OnbHeader(
-            title: 'Your token amount',
-            subtitle: widget.signUp ? 'You can change it any time in Profile' : 'Filled in for every new property',
-            onBack: () => Navigator.of(context).maybePop(),
-          ),
+          OnbHeader(title: 'Your token amount', subtitle: 'Filled in for every new property', onBack: () => Navigator.of(context).maybePop()),
           Expanded(
             child: OnbShadowBody(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
                 children: [
-                  const Text(tk2TokenWhy, style: TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.body)),
+                  const Text(
+                    tk2TokenWhy,
+                    style: TextStyle(fontSize: 16, height: 23 / 16, color: AppColors.body),
+                  ),
                   const SizedBox(height: 6),
                   const Text(
                     'We fill this in for every new property. You can change it for any one property.',
@@ -71,12 +67,7 @@ class _Tk2TokenScreenState extends State<Tk2TokenScreen> {
                   const SizedBox(height: 20),
                   Tk2TokenField(controller: amount, error: error, onChanged: () => setState(() => error = null)),
                   const SizedBox(height: 28),
-                  PrimaryButton(
-                    label: widget.signUp ? 'Continue' : 'Save',
-                    icon: widget.signUp ? Icons.chevron_right : Icons.check,
-                    loading: saving,
-                    onPressed: saving ? null : _save,
-                  ),
+                  PrimaryButton(label: 'Save', icon: Icons.check, loading: saving, onPressed: saving ? null : _save),
                 ],
               ),
             ),
@@ -111,12 +102,7 @@ class Tk2TokenField extends StatelessWidget {
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter('${Tk2Store.maxToken}'.length)],
       onChanged: (_) => onChanged(),
-      decoration: InputDecoration(
-        labelText: 'Token amount',
-        prefixText: '₹ ',
-        helperText: helper ?? (n > 0 ? Tk2Store.money(n) : null),
-        errorText: error,
-      ),
+      decoration: InputDecoration(labelText: 'Token amount', prefixText: '₹ ', helperText: helper ?? (n > 0 ? Tk2Store.money(n) : null), errorText: error),
     );
   }
 }

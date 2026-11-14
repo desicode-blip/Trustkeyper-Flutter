@@ -203,12 +203,8 @@ class _Tk2LoginState extends State<Tk2Login> {
     }
     await widget.store.setBroker(name.text, number);
     if (!mounted) return;
-    // Then the usual token, once (Profile changes it later).
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (screen) => Tk2TokenScreen(store: widget.store, signUp: true, onDone: () => context.go('/home')),
-      ),
-    );
+    // The usual token is asked with the first property, not here.
+    context.go('/home');
   }
 
   @override

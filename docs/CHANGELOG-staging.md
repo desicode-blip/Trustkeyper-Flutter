@@ -1552,3 +1552,18 @@ files: apps/flutter_app/lib/src/tk2/{tk2_money,tk2_notes}.dart (new), apps/flutt
 verification: flutter analyze clean; test/tk2 46/46; headless-browser check of Payments, payment details, grouping and notifications
 deploy: NOT deployed. All payments are test payments.
 ```
+
+## Change 95 – Token asked with the first property, not at sign-up
+Date: 2026-11-14 · Status: on staging; on Aman's iPhone (with Ajay's branch code)
+- Sign-up goes straight to Home; no token screen.
+- First property: the Token field is shown in full, filled with ₹15,000. What the broker saves becomes his usual amount (`Tk2Store.tokenSet`).
+- Every later property: the token shows filled in (₹15,000 · Your usual amount) with **Edit**; editing changes it for that property only.
+- Profile → token amount still changes the usual amount. Brokers who chose it at sign-up before are not asked again.
+```
+AGENT RECORD – Change 95
+id: CHG-095
+date: 2026-11-14
+branch: staging (never main)
+files: apps/flutter_app/lib/src/tk2/{tk2_app,tk2_listing,tk2_store,tk2_token}.dart, apps/flutter_app/test/tk2/tk2_test.dart, docs/CHANGELOG-staging.md
+verification: flutter analyze clean; test/tk2 46/46 (also on Ajay's codex/tk2-access-control with the same patch)
+```

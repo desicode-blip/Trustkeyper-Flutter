@@ -658,6 +658,10 @@ class Tk2Store extends ChangeNotifier {
   /// Token the broker usually asks for. Filled in for every new property
   /// (each property can change it). Set at sign-up and in Profile.
   int defaultToken = defaultTokenStart;
+
+  /// The broker has chosen his usual token (with his first property, or in
+  /// Profile). Until then the property form asks for it in full.
+  bool tokenSet = false;
   static const defaultTokenStart = 15000;
   static const maxToken = 999999;
 
@@ -708,6 +712,8 @@ class Tk2Store extends ChangeNotifier {
           ]);
         brokerPhone = json['brokerPhone'] as String? ?? '';
         defaultToken = (json['defaultToken'] as num?)?.toInt() ?? defaultTokenStart;
+        // Older saves chose it at sign-up.
+        tokenSet = json['tokenSet'] as bool? ?? brokerName.isNotEmpty;
         _inactive
           ..clear()
           ..addAll({
@@ -764,6 +770,7 @@ class Tk2Store extends ChangeNotifier {
         ],
         'brokerPhone': brokerPhone,
         'defaultToken': defaultToken,
+        'tokenSet': tokenSet,
         'account': account,
         'inactive': {for (final e in _inactive.entries) e.key: e.value.toJson()},
         'listings': [for (final l in _listings) l.toJson()],
@@ -1008,6 +1015,7 @@ class Tk2Store extends ChangeNotifier {
     brokerName = '';
     brokerPhone = '';
     defaultToken = defaultTokenStart;
+    tokenSet = false;
     account.clear();
     _inactive.clear();
     _contacts.clear();
@@ -1027,10 +1035,11 @@ class Tk2Store extends ChangeNotifier {
     return _save();
   }
 
-  /// The broker's usual token (sign-up and Profile). Properties already
-  /// saved keep their own amount.
+  /// The broker's usual token (first property and Profile). Properties
+  /// already saved keep their own amount.
   Future<void> setDefaultToken(int amount) {
     defaultToken = amount;
+    tokenSet = true;
     sync?.profile();
     return _save();
   }

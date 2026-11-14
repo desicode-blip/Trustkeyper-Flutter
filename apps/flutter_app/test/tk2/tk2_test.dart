@@ -270,8 +270,10 @@ void main() {
     test('token: broker default fills new properties; each property can differ; link carries it', () async {
       final store = Tk2Store.forTest();
       await store.load();
-      expect(store.defaultToken, 15000);
+      expect((store.defaultToken, store.tokenSet), (15000, false));
+      // Chosen with the first property (or in Profile); asked once.
       await store.setDefaultToken(20000);
+      expect(store.tokenSet, isTrue);
       final p = await store.saveProperty(
         BrokerProperty(id: '', name: 'A', address: 'Flat 1, Madhapur', rooms: '2 BHK', floor: 1, totalFloors: 2, furnishing: 'Empty', inventory: {}),
       );
@@ -540,16 +542,9 @@ void main() {
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     expect(store.brokerName, 'Suresh Kumar');
-    // Then the usual token, pre-filled with ₹15,000.
-    expect(find.text('Your token amount'), findsOneWidget);
-    await tester.enterText(find.widgetWithText(TextField, 'Token amount'), '');
-    await tester.tap(find.text('Continue'));
-    await tester.pump();
-    expect(find.text('Type the token amount'), findsOneWidget);
-    await tester.enterText(find.widgetWithText(TextField, 'Token amount'), '20000');
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
-    expect(store.defaultToken, 20000);
+    // No token question at sign-up: it comes with the first property.
+    expect(find.text('Your token amount'), findsNothing);
+    expect(store.tokenSet, isFalse);
     expect(find.text('Namaste, Suresh'), findsOneWidget);
   });
 
