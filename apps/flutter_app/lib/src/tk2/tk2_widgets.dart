@@ -64,8 +64,8 @@ class Tk2Pill extends StatelessWidget {
 }
 
 /// The property photo, or a soft illustration when there is none.
-/// The example property's photo: a real home, in grey, with "Example"
-/// written across it so nobody mistakes it for a listing.
+/// The example property's photo: a real home, with "Example" written across
+/// it so nobody mistakes it for a listing.
 class Tk2ExamplePhoto extends StatelessWidget {
   const Tk2ExamplePhoto({this.height = 170, this.radius = 20, super.key});
   final double height, radius;
@@ -80,7 +80,6 @@ class Tk2ExamplePhoto extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           Image.asset('assets/images/example-home.jpg', fit: BoxFit.cover),
-          Container(color: Colors.white.withValues(alpha: 0.25)),
           IgnorePointer(
             child: ClipRect(
               child: OverflowBox(

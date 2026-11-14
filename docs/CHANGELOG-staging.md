@@ -1572,7 +1572,7 @@ verification: flutter analyze clean; test/tk2 46/46 (also on Ajay's codex/tk2-ac
 Date: 2026-11-14 · Status: on staging; on Aman's Mac (with Ajay's branch code)
 - **Login:** phone number → 6-digit code (demo build: 123456). A known account goes straight to Home with "Welcome back, Aman" (disappears in 3 seconds). A new number is asked "What is your name?", then Home with "Welcome, Aman".
 - **Clean start:** a new or different account on the phone starts empty: no properties, visits, deals, notifications state, and no "Continue" cards from the last person's half-done owner onboardings (`PropertyOnboardingStore.clear()`, also on Log out and Delete account).
-- **Example property:** a real home photo in black and white, with "EXAMPLE" written across it, and the card faded. It goes away when the first property is added (as before). Photo: Unsplash (free licence), `assets/images/example-home.jpg`.
+- **Example property:** a real home photo in colour with "EXAMPLE" written across it (Aman: colour, not grey). It goes away when the first property is added (as before). Photo: Unsplash (free licence), `assets/images/example-home.jpg`.
 - **Links:** owner and tenant links now use TrustKeyper's own web app, https://trustkeyper-tk2-staging.web.app/, instead of the Claude preview page.
 ```
 AGENT RECORD – Change 96

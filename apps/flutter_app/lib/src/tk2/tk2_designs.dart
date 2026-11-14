@@ -881,8 +881,7 @@ class _Tk2PropertyListState extends State<Tk2PropertyList> {
   Widget _card(BuildContext context, Tk2Listing l, {required bool active}) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
     child: Opacity(
-      // The example is greyed out so it never looks like a real listing.
-      opacity: active && !l.sample ? 1 : 0.6,
+      opacity: active ? 1 : 0.6,
       child: Tk2DesignCard(
         key: ValueKey('b-${l.id}'),
         design: 'b',
