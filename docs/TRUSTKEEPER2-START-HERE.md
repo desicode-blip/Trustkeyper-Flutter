@@ -16,6 +16,7 @@ After a visit the tenant blocks the house with a token. From there one shared **
 token → documents → agreement → approval → stamp paper and signing → payments → key handover → 7-day repairs → society move-in → living there.
 - Model and rules: `lib/src/tk2/tk2_deal.dart`. Deal page: `tk2_deal_page.dart`. Screens: `tk2_deal_screens.dart`, `tk2_deal_move.dart`. Web host: `lib/src/tkweb/tkweb_deal.dart`.
 - **Product source of truth:** Claude Doc "TrustKeyper: from finalised to moved in" (https://claude.ai/artifact/BXGQJ9RPdwzHVAcaECvba8). Every product decision lives there only; this note and the backend handoff link to it instead of repeating it.
+- **Build record (Changes 93–96, condensed):** `docs/TRUSTKEEPER2-BUILD-RECORD.md`.
 - Demo build: "Demo: do the …'s step" buttons play the other people on one phone.
 
 Tests: `apps/flutter_app/test/tk2/` (46: `tk2_test.dart`, `tk2_deal_test.dart`, `tk2_money_test.dart`). History: `docs/CHANGELOG-staging.md`. Journeys: `docs/TRUSTKEEPER2-JOURNEYS.md`.
