@@ -14,6 +14,8 @@ import '../features/broker/data/broker_repository.dart';
 import '../features/broker/presentation/broker_draft_cards.dart';
 import '../features/broker/presentation/approved_broker_home.dart';
 import '../features/broker/presentation/broker_property_screen.dart';
+import '../tkdesk/tkdesk_screens.dart';
+import '../tkdesk/tkdesk_store.dart';
 import '../tkweb/tkweb_auth.dart';
 import 'tk2_cloud.dart';
 import 'tk2_customer.dart';
@@ -305,6 +307,26 @@ class _Tk2ShellState extends State<Tk2Shell> {
   int tab = 0;
   late final account = Tk2AccountGateway(widget.store);
 
+  /// Lead desk (TK2 lead layer): sidebar on a laptop, a "Leads" button on a phone.
+  final desk = DeskController();
+
+  @override
+  void initState() {
+    super.initState();
+    DeskStore.instance.load();
+  }
+
+  @override
+  void dispose() {
+    desk.dispose();
+    super.dispose();
+  }
+
+  void _openTab(int i) {
+    setState(() => tab = i);
+    desk.go(10);
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = widget.store;
@@ -316,11 +338,11 @@ class _Tk2ShellState extends State<Tk2Shell> {
           Tk2Home(
             store: store,
             profile: profile,
-            onOpenProfile: () => setState(() => tab = 3),
-            onOpenVisits: () => setState(() => tab = 1),
-            onOpenPayments: () => setState(() => tab = 2),
+            onOpenProfile: () => _openTab(3),
+            onOpenVisits: () => _openTab(1),
+            onOpenPayments: () => _openTab(2),
           ),
-          Tk2Visits(store: store, onShare: () => setState(() => tab = 0)),
+          Tk2Visits(store: store, onShare: () => _openTab(0)),
           Tk2Payments(store: store),
           // The main app's profile, as is: My details, Bank, Language, Help,
           // Log out and Delete account, backed by the phone's store.
@@ -349,16 +371,34 @@ class _Tk2ShellState extends State<Tk2Shell> {
             },
           ),
         ];
-        return Scaffold(
-          body: SafeArea(
-            child: IndexedStack(index: tab, children: pages),
-          ),
-          bottomNavigationBar: ApprovedBrokerNavigation(
-            selectedIndex: tab,
-            labels: const ['Home', 'Visits', 'Payments', 'Profile'],
-            icons: const ['home', 'visits', 'payments', 'profile'],
-            onSelected: (i) => setState(() => tab = i),
-          ),
+        return LayoutBuilder(
+          builder: (context, size) {
+            if (size.maxWidth >= 960) {
+              return DeskWide(ctrl: desk, store: DeskStore.instance, appTab: tab, onAppTab: (i) => setState(() => tab = i), appPages: pages);
+            }
+            return Scaffold(
+              body: SafeArea(
+                child: IndexedStack(index: tab, children: pages),
+              ),
+              floatingActionButton: tab == 0
+                  ? Padding(
+                      padding: const EdgeInsets.only(bottom: 84),
+                      child: FloatingActionButton.extended(
+                        heroTag: 'tkdesk-leads',
+                        icon: const Icon(Icons.person_search_outlined),
+                        label: const Text('Leads'),
+                        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => DeskNarrow(store: DeskStore.instance))),
+                      ),
+                    )
+                  : null,
+              bottomNavigationBar: ApprovedBrokerNavigation(
+                selectedIndex: tab,
+                labels: const ['Home', 'Visits', 'Payments', 'Profile'],
+                icons: const ['home', 'visits', 'payments', 'profile'],
+                onSelected: (i) => setState(() => tab = i),
+              ),
+            );
+          },
         );
       },
     );

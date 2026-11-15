@@ -9,7 +9,7 @@ import 'tk2_store.dart';
 
 /// Tenant/owner web app on TrustKeyper's own Firebase site (staging). A
 /// trustkeyper.com address replaces it once the domain points there.
-const tk2WebApp = 'https://trustkeyper-tk2-staging.web.app/';
+const tk2WebApp = String.fromEnvironment('TK2_WEB_APP', defaultValue: 'https://trustkeyper-tk2-staging.web.app/');
 
 /// Only what customers may see. Never door number, full address, owner or keys.
 Map<String, Object?> tk2PublicPayload(Tk2Listing l, String brokerName, [String brokerPhone = '']) {

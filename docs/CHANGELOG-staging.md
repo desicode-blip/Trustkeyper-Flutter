@@ -3,6 +3,8 @@
 Mirror of the Google Doc "TrustKeyper App – Change Log (staging)" (https://claude.ai/code/artifact/1282d8b3-af50-488a-a85c-f1a0bbc47247).
 Readers: human engineers and AI agents. One entry per change, newest last. Pushed to `staging` together with each code push.
 
+## Change 97 (15 Nov 2026): lead desk on TK2 — leads, matching, import, AI helpers, cloud storage; live at app.trustkeyper.com (docs/TRUSTKEEPER2-DESK.md)
+
 ## Ground rules
 - Repo: `desicode-blip/Trustkeyper-Flutter`, app in `apps/flutter_app`
 - All collaborative changes go to branch `staging` only. `main` = production, never touched.
