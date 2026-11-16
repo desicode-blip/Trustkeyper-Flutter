@@ -98,6 +98,23 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
   /// Parts that need attention, shown in red where they are:
   /// name · address · size · rooms · floors · furnishing.
   final Set<String> bad = {};
+
+  /// Where each part is, so the first missing one can be brought on screen.
+  final _spots = <String, GlobalKey>{};
+  final _focus = <String, FocusNode>{};
+  GlobalKey _spot(String id) =>
+      _spots.putIfAbsent(id, () => GlobalKey(debugLabel: 'property-$id'));
+  FocusNode _focusOf(String id) => _focus.putIfAbsent(id, FocusNode.new);
+  static const _order = [
+    'name',
+    'flat',
+    'area',
+    'city',
+    'size',
+    'rooms',
+    'floors',
+    'furnishing',
+  ];
   bool saving = false;
   bool justSaved = false;
   BrokerProperty? selected;
@@ -142,7 +159,37 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
       c.dispose();
     }
     size.dispose();
+    for (final node in _focus.values) {
+      node.dispose();
+    }
     super.dispose();
+  }
+
+  /// Marks what is missing in red and brings the first one on screen: the
+  /// page scrolls to it (clear of the bottom bar) and a missing text box gets
+  /// the cursor, so the person sees exactly what to fill in before moving on.
+  void _mark(Set<String> need) {
+    setState(
+      () => bad
+        ..clear()
+        ..addAll(need),
+    );
+    HapticFeedback.lightImpact();
+    final first = _order.firstWhere(need.contains, orElse: () => need.first);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final node = _focus[first];
+      final spot = _spots[first]?.currentContext ?? node?.context;
+      if (spot != null) {
+        Scrollable.ensureVisible(
+          spot,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+          alignment: .1,
+        );
+      }
+      node?.requestFocus();
+    });
   }
 
   /// Last step before saving: 5 (things) or 4 (rooms) when things are skipped.
@@ -417,6 +464,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
       TextField(
         key: const ValueKey('property-name'),
         controller: name,
+        focusNode: _focusOf('name'),
         autofocus: true,
         textCapitalization: TextCapitalization.words,
         textInputAction: TextInputAction.next,
@@ -660,6 +708,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
   ) => TextField(
     key: ValueKey('property-${key ?? 'society'}'),
     controller: c,
+    focusNode: key == null ? null : _focusOf(key),
     textCapitalization: TextCapitalization.words,
     style: const TextStyle(
       fontSize: 18,
@@ -707,6 +756,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
       TextField(
         key: const ValueKey('property-size'),
         controller: size,
+        focusNode: _focusOf('size'),
         style: const TextStyle(
           fontSize: 22,
           height: 26 / 22,
@@ -786,6 +836,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _Attention(
+        key: _spot('rooms'),
         message: bad.contains('rooms') ? 'Choose the rooms' : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -806,6 +857,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
       ),
       const SizedBox(height: 26),
       _Attention(
+        key: _spot('floors'),
         message: bad.contains('floors')
             ? 'Total floors cannot be less than the floor'
             : null,
@@ -842,6 +894,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
       ),
       const SizedBox(height: 26),
       _Attention(
+        key: _spot('furnishing'),
         message: bad.contains('furnishing') ? 'Choose the furnishing' : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1382,11 +1435,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
   Future<void> _next() async {
     if (stage == 1) {
       if (name.text.trim().length < 2) {
-        setState(
-          () => bad
-            ..clear()
-            ..add('name'),
-        );
+        _mark({'name'});
         return;
       }
       if (widget.askHowToAdd && selected == null) {
@@ -1440,11 +1489,7 @@ class _BrokerPropertyScreenState extends State<BrokerPropertyScreen> {
       if (stage == 4 && furnishing == null) 'furnishing',
     };
     if (need.isNotEmpty) {
-      setState(
-        () => bad
-          ..clear()
-          ..addAll(need),
-      );
+      _mark(need);
       return;
     }
     if (stage < _lastInput) {
@@ -1616,7 +1661,7 @@ class _DesignIcon extends StatelessWidget {
 
 /// Wraps a section; when [message] is set the whole section turns red.
 class _Attention extends StatelessWidget {
-  const _Attention({required this.child, this.message});
+  const _Attention({required this.child, this.message, super.key});
   final Widget child;
   final String? message;
 

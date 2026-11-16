@@ -205,7 +205,10 @@ void main() {
         expect(find.text('Give it a name you will remember.'), findsOneWidget);
         await tapVisible(tester, find.text('Next'));
         expect(find.text('Type a name for the property'), findsOneWidget);
-        await tester.enterText(find.byKey(const ValueKey('property-name')), 'Phoenix flat');
+        await tester.enterText(
+          find.byKey(const ValueKey('property-name')),
+          'Phoenix flat',
+        );
         await tapVisible(tester, find.text('Next'));
         // 2. How to add details: manual is first and picked.
         expect(find.text('Add details myself'), findsOneWidget);
@@ -216,7 +219,10 @@ void main() {
         expect(find.text('Reading a sale deed is coming soon'), findsOneWidget);
         await tapVisible(
           tester,
-          find.descendant(of: find.byType(BottomSheet), matching: find.text('Add details myself')),
+          find.descendant(
+            of: find.byType(BottomSheet),
+            matching: find.text('Add details myself'),
+          ),
         );
         // 3. The usual details.
         expect(find.text('Tell us about the property.'), findsOneWidget);
@@ -280,7 +286,10 @@ void main() {
         repository.failSave = false;
         await tapVisible(tester, find.text('Save property'));
         expect(find.text('Property added'), findsOneWidget);
-        expect(repository.saved.single.address, 'Flat 402, Madhapur, Hyderabad');
+        expect(
+          repository.saved.single.address,
+          'Flat 402, Madhapur, Hyderabad',
+        );
         expect(repository.saved.single.name, 'Phoenix flat');
         expect(repository.saved.single.floor, 4);
         expect(repository.saved.single.totalFloors, 5);
@@ -321,6 +330,77 @@ void main() {
       await tapVisible(tester, find.text('Save property'));
       expect(repository.saved.single.id, 'saved-property');
       expect(repository.saved.single.toMap(), sampleProperty().toMap());
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'a missing part is marked red and brought on screen above the bottom bar',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: BrokerPropertyScreen(
+            repository: MemoryPropertyRepository(),
+            showStepLabel: false,
+            askThings: false,
+            firstStage: 3,
+            initialName: 'Flat 402',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final barTop = tester.getTopLeft(find.text('Back').last).dy - 14;
+      bool onScreen(Finder f) {
+        final r = tester.getRect(f);
+        return r.top >= 0 && r.bottom <= barTop;
+      }
+
+      // Address step: only the size (at the bottom, off screen) is wrong.
+      await tester.enterText(
+        find.byKey(const ValueKey('property-flat')),
+        '402',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('property-area')),
+        'Madhapur',
+      );
+      await tester.enterText(find.byKey(const ValueKey('property-size')), '0');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, 600),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter a valid size'), findsOneWidget);
+      expect(onScreen(find.text('Enter a valid size')), isTrue);
+      final sizeField = tester.widget<TextField>(
+        find.byKey(const ValueKey('property-size')),
+      );
+      expect(sizeField.focusNode?.hasFocus, isTrue);
+
+      // Rooms step: nothing chosen, then rooms chosen but not furnishing.
+      await tester.enterText(
+        find.byKey(const ValueKey('property-size')),
+        '1150',
+      );
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save property'));
+      await tester.pumpAndSettle();
+      expect(onScreen(find.text('Choose the rooms')), isTrue);
+      await tester.tap(find.text('2 BHK'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save property'));
+      await tester.pumpAndSettle();
+      expect(find.text('Choose the furnishing'), findsOneWidget);
+      expect(onScreen(find.text('Choose the furnishing')), isTrue);
       expect(tester.takeException(), isNull);
     },
   );

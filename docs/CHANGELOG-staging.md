@@ -3,6 +3,10 @@
 Mirror of the Google Doc "TrustKeyper App – Change Log (staging)" (https://claude.ai/code/artifact/1282d8b3-af50-488a-a85c-f1a0bbc47247).
 Readers: human engineers and AI agents. One entry per change, newest last. Pushed to `staging` together with each code push.
 
+## Change 98 (16 Nov 2026): missing details are shown, not just marked
+
+Add / edit property (broker app, TK2 and the main app): when Next or Save property is tapped with something missing, the parts are still marked in red, and now the first one is also brought on screen above the bottom bar (the page scrolls to it), a missing text box gets the cursor, and the phone gives a light tap. Before, a red box below the fold (e.g. "Choose the furnishing" behind the Save bar, or the size on the address step) could stay out of sight. `broker_property_screen.dart` (`_mark`), test in `test/broker_property_test.dart`.
+
 ## Ground rules
 - Repo: `desicode-blip/Trustkeyper-Flutter`, app in `apps/flutter_app`
 - All collaborative changes go to branch `staging` only. `main` = production, never touched.
